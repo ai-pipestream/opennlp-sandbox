@@ -20,7 +20,6 @@ package org.apache.opennlp.grpc.model;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.CoordinateSpace;
-import org.apache.opennlp.grpc.v1.Token;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,19 +39,10 @@ class DlNerModelTest {
 
   private static AnnotatedSentence sentence() {
     return AnnotatedSentence.newBuilder()
-        .addTokens(token("George", 4, 10))
-        .addTokens(token("Washington", 11, 21))
-        .addTokens(token("was", 22, 25))
-        .addTokens(token("president", 26, 35))
-        .build();
-  }
-
-  private static Token token(String text, int start, int end) {
-    return Token.newBuilder()
-        .setText(text)
-        .setAnnotationSpan(AnnotationSpan.newBuilder()
-            .setStart(start).setEnd(end)
-            .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT).build())
+        .addTokens(NerTestFixtures.token("George", 4, 10))
+        .addTokens(NerTestFixtures.token("Washington", 11, 21))
+        .addTokens(NerTestFixtures.token("was", 22, 25))
+        .addTokens(NerTestFixtures.token("president", 26, 35))
         .build();
   }
 

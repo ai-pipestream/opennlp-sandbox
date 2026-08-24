@@ -20,6 +20,7 @@ package org.apache.opennlp.grpc.training;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.opennlp.grpc.v1.ModelArtifactRole;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class StandardModelCatalogTest {
         "potion-retrieval-32m"),
         models.stream().map(model -> model.descriptor().getCatalogId()).toList());
     final Map<String, ModelArtifactRole> roles = models.stream().collect(
-        java.util.stream.Collectors.toMap(
+        Collectors.toMap(
             model -> model.descriptor().getCatalogId(),
             model -> model.descriptor().getRole()));
     assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER,
@@ -78,12 +79,13 @@ class StandardModelCatalogTest {
         .filter(model -> model.descriptor().getCatalogId().startsWith("potion-"))
         .allMatch(model -> model.descriptor().getRole()
             == ModelArtifactRole.MODEL_ARTIFACT_ROLE_STATIC_EMBEDDING));
-    assertEquals(256, roleDimension(models, "potion-base-8m"));
-    assertEquals(256, roleDimension(models, "potion-multilingual-128m"));
-    assertEquals(512, roleDimension(models, "potion-retrieval-32m"));
+    assertEquals(256, dimensionOf(models, "potion-base-8m"));
+    assertEquals(256, dimensionOf(models, "potion-multilingual-128m"));
+    assertEquals(512, dimensionOf(models, "potion-retrieval-32m"));
   }
 
-  private static int roleDimension(List<CatalogModel> models, String catalogId) {
+  /** Returns the declared dimension of one catalog entry. */
+  private static int dimensionOf(List<CatalogModel> models, String catalogId) {
     return models.stream()
         .filter(model -> catalogId.equals(model.descriptor().getCatalogId()))
         .findFirst().orElseThrow().descriptor().getDimension();

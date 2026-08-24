@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.opennlp.grpc.v1.ModelArtifactRole;
 import org.apache.opennlp.grpc.v1.ModelCatalogDescriptor;
@@ -128,7 +129,7 @@ final class StandardModelCatalog {
         .setByteSize(byteSize)
         .addLanguages(language)
         .setDescription("Apache OpenNLP " + languageName + " " + roleName
-            + " trained from the UD " + treebank.toUpperCase(java.util.Locale.ROOT)
+            + " trained from the UD " + treebank.toUpperCase(Locale.ROOT)
             + " treebank")
         .build();
     return new CatalogModel(descriptor, List.of(new CatalogFile(Path.of(fileName),

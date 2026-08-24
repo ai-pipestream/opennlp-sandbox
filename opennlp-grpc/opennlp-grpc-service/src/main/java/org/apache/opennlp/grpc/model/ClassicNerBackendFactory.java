@@ -24,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -60,9 +59,6 @@ public final class ClassicNerBackendFactory implements NerBackendFactory {
   public String factoryId() {
     return FACTORY_ID;
   }
-
-  /** Suffix completing a per-type priority key: {@code model.name_finder.<type>.priority}. */
-  public static final String KEY_PRIORITY_SUFFIX = ".priority";
 
   /** {@inheritDoc} */
   @Override

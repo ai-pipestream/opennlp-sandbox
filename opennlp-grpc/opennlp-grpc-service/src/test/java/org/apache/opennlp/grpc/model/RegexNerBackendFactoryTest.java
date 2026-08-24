@@ -25,10 +25,7 @@ import java.util.Map;
 
 import org.apache.opennlp.grpc.processor.AnalysisException;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
-import org.apache.opennlp.grpc.v1.AnnotationSpan;
-import org.apache.opennlp.grpc.v1.CoordinateSpace;
 import org.apache.opennlp.grpc.v1.NamedEntity;
-import org.apache.opennlp.grpc.v1.Token;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -50,19 +47,10 @@ class RegexNerBackendFactoryTest {
   // "Pay INV-42 by Friday"
   private static AnnotatedSentence sentence() {
     return AnnotatedSentence.newBuilder()
-        .addTokens(token("Pay", 0, 3))
-        .addTokens(token("INV-42", 4, 10))
-        .addTokens(token("by", 11, 13))
-        .addTokens(token("Friday", 14, 20))
-        .build();
-  }
-
-  private static Token token(String text, int start, int end) {
-    return Token.newBuilder()
-        .setText(text)
-        .setAnnotationSpan(AnnotationSpan.newBuilder()
-            .setStart(start).setEnd(end)
-            .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT).build())
+        .addTokens(NerTestFixtures.token("Pay", 0, 3))
+        .addTokens(NerTestFixtures.token("INV-42", 4, 10))
+        .addTokens(NerTestFixtures.token("by", 11, 13))
+        .addTokens(NerTestFixtures.token("Friday", 14, 20))
         .build();
   }
 
