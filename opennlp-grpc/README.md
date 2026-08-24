@@ -171,6 +171,10 @@ model.catalog_root=/srv/opennlp/catalog-models
 # model.tokenizer.path=/path/to/en-token.bin
 # model.pos_tagger.path=/path/to/en-pos.bin
 # model.lemmatizer.path=/path/to/en-lemmas.bin
+# Alternative to the statistical lemmatizer model: an OpenNLP
+# word<TAB>postag<TAB>lemma dictionary. The two lemmatizer sources are mutually
+# exclusive; the dictionary's tags must match the POS tagger's native tagset.
+# model.lemmatizer.dictionary=/path/to/lemmas.tsv
 ```
 
 By default no configuration is required: the server loads the bundled language
@@ -216,6 +220,14 @@ The standard catalog currently distinguishes these roles:
 | `potion-base-8m` | `minishlab/potion-base-8M` | Ready-to-serve 256-dimensional static embedding provider |
 | `potion-retrieval-32m` | `minishlab/potion-retrieval-32M` | Ready-to-serve 512-dimensional retrieval embedding provider |
 | `potion-multilingual-128m` | `minishlab/potion-multilingual-128M` | Ready-to-serve 256-dimensional multilingual embedding provider |
+| `paraphrase-multilingual-minilm-l12-v2-teacher` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Multilingual ONNX teacher (50+ languages) selectable by the Model2Vec-style trainer |
+| `de-ud-gsd-*`, `fr-ud-gsd-*`, `es-ud-gsd-*` | Apache OpenNLP UD 1.3 releases | German, French, and Spanish sentence detector, tokenizer, POS tagger, and lemmatizer packs, verified against the published Apache checksums and activated on the next server start |
+
+An installed UD pack model occupies the classic pipeline's single slot
+(`model.sentence_detector.path`, `model.tokenizer.path`, `model.pos_tagger.path`,
+`model.lemmatizer.path`), replacing the bundled English default on the next start; installing a
+second model for one slot fails loud at startup. One server therefore serves one classic pipeline
+language at a time, chosen by the operator.
 
 Every entry fixes the upstream revision, file list, byte sizes, SHA-256 values, model page, and
 license identity in server-owned metadata. A static table joins the same embedding provider catalog
@@ -691,7 +703,10 @@ workspace. Dynamic indexing is enabled by default for the workbench and can be d
 dimension limits are combined with server-wide serialized-document and vector-memory ceilings.
 
 > v1 note: this slice implements language detection (`PIPELINE_STEP_LANGUAGE_DETECT`,
-> filling `detected_language` with an ISO 639-3 code plus `language_confidence`),
+> filling `detected_language` with an ISO 639-3 code plus `language_confidence`;
+> a positive `AnalysisOptions.ranked_language_count` additionally fills
+> `OpenNlpDocument.ranked_languages` and the `opennlp:language` layer with that many
+> ranked predictions, best first),
 > sentence detection, tokenization, named entity recognition (`PIPELINE_STEP_NER`,
 > filling `AnnotatedSentence.entities`), POS tagging (`PIPELINE_STEP_POS_TAG`,
 > filling `Token.pos_tag`, converted to the requested
@@ -799,6 +814,23 @@ model.name_finder.person.path=/path/to/en-ner-person.bin
 model.name_finder.organization.path=/path/to/en-ner-organization.bin
 model.name_finder.location.path=/path/to/en-ner-location.bin
 ```
+
+Two model-free backends serve entities from user-supplied files, so NER works without any
+trained model. A dictionary name finder takes either a serialized OpenNLP dictionary (its XML
+declares case sensitivity) or a plain wordlist with one entry per line, matched
+case-insensitively; a regex name finder takes one Java regular expression per line, with blank
+and `#` comment lines ignored:
+
+```ini
+# Every "Kansas City"-style entry in the wordlist becomes a city entity.
+model.name_finder_dictionary.city.path=/srv/opennlp/dictionaries/cities.txt
+# Every INV-[0-9]+ match becomes an invoice entity with its exact span.
+model.name_finder_regex.invoice.path=/srv/opennlp/patterns/invoice.regex
+```
+
+Dictionary, regex, classic, and ONNX recognizers share the entity-type namespace and the
+`opennlp:entities` layer; the same type served by several engines participates in priority and
+`EnginePolicy` routing under the open engine ids `dictionary` and `regex`.
 
 Request NER by adding `PIPELINE_STEP_NER` to the analysis profile (or use the
 built-in `en-ner` profile / `en-ner` bundle when models are configured). Optionally
