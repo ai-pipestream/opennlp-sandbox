@@ -120,6 +120,19 @@ class DictionaryNerBackendFactoryTest {
   }
 
   @Test
+  void exactMatchesCarryFullConfidenceWhenProbabilitiesAreRequested() throws IOException {
+    final Path list = wordlist("Kansas City");
+    final NerModel model = NameFinderRegistry.create(
+        Map.of("model.name_finder_dictionary.city.path", list.toString())).allModels().get(0);
+
+    // A dictionary match is deterministic, so the reported confidence is exactly 1.
+    final NamedEntity withProbability = model.recognize(sentence(), true).get(0);
+    assertTrue(withProbability.hasProbability());
+    assertEquals(1.0, withProbability.getProbability());
+    assertFalse(model.recognize(sentence(), false).get(0).hasProbability());
+  }
+
+  @Test
   void blankPathFailsLoud() {
     final AnalysisException e = assertThrows(AnalysisException.class,
         () -> NameFinderRegistry.create(Map.of("model.name_finder_dictionary.city.path", " ")));

@@ -88,6 +88,19 @@ class RegexNerBackendFactoryTest {
   }
 
   @Test
+  void exactMatchesCarryFullConfidenceWhenProbabilitiesAreRequested() throws IOException {
+    final Path file = patterns("INV-[0-9]+");
+    final NerModel model = NameFinderRegistry.create(
+        Map.of("model.name_finder_regex.invoice.path", file.toString())).allModels().get(0);
+
+    // A pattern match is deterministic, so the reported confidence is exactly 1.
+    final NamedEntity withProbability = model.recognize(sentence(), true).get(0);
+    assertTrue(withProbability.hasProbability());
+    assertEquals(1.0, withProbability.getProbability());
+    assertFalse(model.recognize(sentence(), false).get(0).hasProbability());
+  }
+
+  @Test
   void invalidPatternFailsLoudWithItsLineNumber() throws IOException {
     final Path file = patterns("INV-[0-9]+", "([broken");
     final AnalysisException e = assertThrows(AnalysisException.class,
