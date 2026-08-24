@@ -19,6 +19,10 @@ limitations under the License.
 
 Document-centric gRPC API for Apache OpenNLP inference. Design RFC: [docs/rfc/opennlp-grpc-design.md](docs/rfc/opennlp-grpc-design.md).
 
+New here? [QUICKSTART.md](QUICKSTART.md) goes from a clean checkout to
+analyzing, training, and searching in a few minutes, in the browser and from
+Python, Node.js, Java, or Go.
+
 ## The document shape
 
 Every `AnalyzeDocument` response also renders its results as the OpenNLP 3.0

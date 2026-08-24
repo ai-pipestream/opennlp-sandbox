@@ -46,6 +46,37 @@ The gateway has no authentication and exposes state-changing operations, so
 keep the published ports on loopback as shown, or place the container behind
 an authenticated TLS reverse proxy.
 
+## Hardening
+
+The compose file runs the stack fully hardened, and the same flags work with
+plain `docker run`:
+
+```bash
+docker run --rm \
+  --read-only --tmpfs /tmp \
+  --cap-drop=ALL --security-opt no-new-privileges \
+  -p 127.0.0.1:7071:7071 -p 127.0.0.1:7072:7072 \
+  -v opennlp-state:/srv/opennlp \
+  opennlp-grpc-demo
+```
+
+The image needs no Linux capabilities, no privilege escalation, and no
+writable filesystem beyond `/tmp` and the `/srv/opennlp` state volume; the
+process runs as the non-root `opennlp` user.
+
+## Testing the image
+
+`docker/test-image.sh` builds the image from the packaged jars and asserts,
+under exactly the hardened flags above: the healthcheck turns healthy, the
+process is non-root, the gateway answers `/healthz` and a real analyze round
+trip through the gRPC server, a mounted `server.properties` is honored, and
+`docker stop` drains within the shutdown grace period.
+
+```bash
+mvn package -DskipTests   # or a full build; the script only needs the jars
+bash docker/test-image.sh
+```
+
 ## Configuration and state
 
 `/srv/opennlp` is a volume for server-owned state (model catalog downloads,

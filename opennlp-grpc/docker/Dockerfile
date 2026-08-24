@@ -24,6 +24,11 @@
 # bundled language detector and English models load from the shaded jar.
 FROM eclipse-temurin:21-jre-noble
 
+LABEL org.opencontainers.image.title="Apache OpenNLP gRPC demonstration stack" \
+  org.opencontainers.image.description="OpenNLP gRPC server with the JSON gateway and browser workbench" \
+  org.opencontainers.image.licenses="Apache-2.0" \
+  org.opencontainers.image.source="https://github.com/apache/opennlp-sandbox"
+
 RUN useradd --system --create-home --home-dir /home/opennlp opennlp \
   && mkdir -p /opt/opennlp /srv/opennlp \
   && chown -R opennlp:opennlp /opt/opennlp /srv/opennlp
