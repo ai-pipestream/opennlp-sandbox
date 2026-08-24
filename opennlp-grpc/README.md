@@ -340,7 +340,7 @@ configuration and carries the optional embedding backends on the classpath.
 See [docker/README.md](docker/README.md) for configuration, state, and
 security notes.
 
-## Use the service from Python, Node.js, or Java
+## Use the service from Python, Node.js, Java, or Go
 
 The [Python quickstart](examples/python-client/README.md) uses standard generated
 protobuf stubs and `grpcio`. Its first example analyzes typed document shapes,
@@ -348,11 +348,12 @@ creates a process-local TurboQuant index in the Java server, and prints exhausti
 server-ranked results. Its second example streams documents through vocabulary
 learning, static-model distillation, index publication, and search.
 
-The [Node.js quickstart](examples/node-client/README.md) and the
-[Java quickstart](examples/java-client/README.md) run the same analyze, index,
+The [Node.js quickstart](examples/node-client/README.md), the
+[Java quickstart](examples/java-client/README.md), and the
+[Go quickstart](examples/go-client/README.md) run the same analyze, index,
 and search flow with identical output: Node.js loads the v1 protos at runtime
-with no code generation, and Java uses the generated blocking stubs from
-`opennlp-grpc-api`.
+with no code generation, Java uses the generated blocking stubs from
+`opennlp-grpc-api`, and Go generates its stubs locally with one script.
 
 These clients are intentionally small enough to adapt in a notebook or data
 pipeline. The black-box integration suite runs the first example against the
@@ -640,7 +641,7 @@ index-time analysis.
 Dynamic indexes have a wire-complete lifecycle. `PersistIndex` writes a checkpoint under the
 operator-configured `search.persist.root`. TurboQuant workspaces store immutable quantized vector
 segments and provider row references, not a second copy of every raw float vector. New documents
-append a bounded segment, so accretion continues after a restart without rehydrating raw vectors.
+append a bounded segment, so indexing continues after a restart without rehydrating raw vectors.
 The server-wide vector budget counts every live segment, including rows superseded by document
 replacement, which keeps repeated mutation bounded. The
 `search.persist.checkpoint_seconds` enables an auto-checkpoint that rewrites only changed
@@ -654,13 +655,13 @@ does; flat float is in-memory only). The gateway serves all of it: `/api/v1/pers
 `/api/v1/seal-index`, `/api/v1/reindex-index`, `/api/v1/set-index-alias`,
 `/api/v1/delete-index-alias`, and `/api/v1/index-aliases`.
 
-Collections scope vocabulary accretion. A collection (`SetCollection`, `GetCollection`,
+Collections scope vocabulary drift. A collection (`SetCollection`, `GetCollection`,
 `ListCollections`, `DeleteCollection`) names its dynamic member indexes (aliases accepted,
 stored resolved), its dictionary, vocabulary, and model artifact lineage, and an optional
 drift threshold. Its term statistics are recomputed on every read from the live indexed text of
 member chunks with the same analysis chain as the keyword components, so replaced or deleted
 documents never leave stale counts; a multiword term of the current vocabulary counts as
-one unit, and the drift statistics report how many accreted terms fall outside that
+one unit, and the drift statistics report how many indexed terms fall outside that
 vocabulary (the retrain meter). With a persistence root configured, each collection is one
 atomic `collection.pb` file with an integrity hash inside and the last write winning.
 `search.collection.max_distinct_terms` bounds the vocabulary and drift maps built during one

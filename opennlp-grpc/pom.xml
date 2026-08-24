@@ -93,6 +93,10 @@
                         <exclude>examples/node-client/node_modules/**</exclude>
                         <!-- Build output of the standalone example project, which is not a reactor module. -->
                         <exclude>examples/java-client/target/**</exclude>
+                        <!-- Go module metadata carries no comments; generated stubs live in gen/. -->
+                        <exclude>examples/go-client/go.mod</exclude>
+                        <exclude>examples/go-client/go.sum</exclude>
+                        <exclude>examples/go-client/gen/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>
