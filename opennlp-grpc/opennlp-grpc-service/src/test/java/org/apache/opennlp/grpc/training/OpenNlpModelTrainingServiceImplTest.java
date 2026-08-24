@@ -103,12 +103,16 @@ class OpenNlpModelTrainingServiceImplTest {
     service.listModelCatalog(ListModelCatalogRequest.getDefaultInstance(), listed);
     service.listInstalledModels(ListInstalledModelsRequest.getDefaultInstance(), installed);
 
-    assertEquals(6, listed.values.getFirst().getModelsCount());
+    assertEquals(19, listed.values.getFirst().getModelsCount());
     assertEquals(Set.of(
             ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER,
             ModelArtifactRole.MODEL_ARTIFACT_ROLE_STATIC_EMBEDDING,
             ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER,
-            ModelArtifactRole.MODEL_ARTIFACT_ROLE_CHUNKER),
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_CHUNKER,
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR,
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_TOKENIZER,
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_POS_TAGGER,
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_LEMMATIZER),
         listed.values.getFirst().getModelsList().stream()
             .map(model -> model.getRole())
             .collect(java.util.stream.Collectors.toSet()));

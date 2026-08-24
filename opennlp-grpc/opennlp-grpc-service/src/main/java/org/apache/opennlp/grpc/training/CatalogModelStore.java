@@ -578,8 +578,15 @@ public final class CatalogModelStore {
 
   /** Returns whether a role can only become active during server startup. */
   private static boolean requiresRestart(ModelArtifactRole role) {
-    return role == ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER
-        || role == ModelArtifactRole.MODEL_ARTIFACT_ROLE_CHUNKER;
+    return switch (role) {
+      case MODEL_ARTIFACT_ROLE_PARSER,
+           MODEL_ARTIFACT_ROLE_CHUNKER,
+           MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR,
+           MODEL_ARTIFACT_ROLE_TOKENIZER,
+           MODEL_ARTIFACT_ROLE_POS_TAGGER,
+           MODEL_ARTIFACT_ROLE_LEMMATIZER -> true;
+      default -> false;
+    };
   }
 
   /** Describes the role-specific loading phase without claiming early activation. */

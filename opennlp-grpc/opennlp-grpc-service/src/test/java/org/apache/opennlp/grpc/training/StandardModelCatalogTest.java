@@ -19,6 +19,7 @@
 package org.apache.opennlp.grpc.training;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.opennlp.grpc.v1.ModelArtifactRole;
 import org.junit.jupiter.api.Test;
@@ -34,24 +35,58 @@ class StandardModelCatalogTest {
 
     assertEquals(List.of(
         "all-minilm-l6-v2-teacher",
+        "de-ud-gsd-lemmas",
+        "de-ud-gsd-pos",
+        "de-ud-gsd-sentence",
+        "de-ud-gsd-tokens",
+        "es-ud-gsd-lemmas",
+        "es-ud-gsd-pos",
+        "es-ud-gsd-sentence",
+        "es-ud-gsd-tokens",
+        "fr-ud-gsd-lemmas",
+        "fr-ud-gsd-pos",
+        "fr-ud-gsd-sentence",
+        "fr-ud-gsd-tokens",
         "gum-cc-by-4-chunker",
         "gum-cc-by-4-parser",
+        "paraphrase-multilingual-minilm-l12-v2-teacher",
         "potion-base-8m",
         "potion-multilingual-128m",
         "potion-retrieval-32m"),
         models.stream().map(model -> model.descriptor().getCatalogId()).toList());
+    final Map<String, ModelArtifactRole> roles = models.stream().collect(
+        java.util.stream.Collectors.toMap(
+            model -> model.descriptor().getCatalogId(),
+            model -> model.descriptor().getRole()));
     assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER,
-        models.getFirst().descriptor().getRole());
+        roles.get("all-minilm-l6-v2-teacher"));
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER,
+        roles.get("paraphrase-multilingual-minilm-l12-v2-teacher"));
     assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_CHUNKER,
-        models.get(1).descriptor().getRole());
+        roles.get("gum-cc-by-4-chunker"));
     assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER,
-        models.get(2).descriptor().getRole());
-    assertTrue(models.subList(3, models.size()).stream().allMatch(model ->
-        model.descriptor().getRole()
+        roles.get("gum-cc-by-4-parser"));
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR,
+        roles.get("de-ud-gsd-sentence"));
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_TOKENIZER,
+        roles.get("fr-ud-gsd-tokens"));
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_POS_TAGGER,
+        roles.get("es-ud-gsd-pos"));
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_LEMMATIZER,
+        roles.get("de-ud-gsd-lemmas"));
+    assertTrue(models.stream()
+        .filter(model -> model.descriptor().getCatalogId().startsWith("potion-"))
+        .allMatch(model -> model.descriptor().getRole()
             == ModelArtifactRole.MODEL_ARTIFACT_ROLE_STATIC_EMBEDDING));
-    assertEquals(256, models.get(3).descriptor().getDimension());
-    assertEquals(256, models.get(4).descriptor().getDimension());
-    assertEquals(512, models.get(5).descriptor().getDimension());
+    assertEquals(256, roleDimension(models, "potion-base-8m"));
+    assertEquals(256, roleDimension(models, "potion-multilingual-128m"));
+    assertEquals(512, roleDimension(models, "potion-retrieval-32m"));
+  }
+
+  private static int roleDimension(List<CatalogModel> models, String catalogId) {
+    return models.stream()
+        .filter(model -> catalogId.equals(model.descriptor().getCatalogId()))
+        .findFirst().orElseThrow().descriptor().getDimension();
   }
 
   @Test

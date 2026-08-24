@@ -103,6 +103,54 @@ class CatalogModelBootstrapTest {
     return model;
   }
 
+  @Test
+  void addsVerifiedClassicPipelinePathsForAnInstalledLanguagePack() throws Exception {
+    final Path root = temporaryDirectory.resolve("ud-catalog");
+    final CatalogModel sentence = model(modelSource("de-sentence"), "de-sentence",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR);
+    final CatalogModel tokenizer = model(modelSource("de-tokenizer"), "de-tokenizer",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_TOKENIZER);
+    final CatalogModel pos = model(modelSource("de-pos"), "de-pos",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_POS_TAGGER);
+    final CatalogModel lemmatizer = model(modelSource("de-lemmatizer"), "de-lemmatizer",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_LEMMATIZER);
+    final List<CatalogModel> catalog = List.of(sentence, tokenizer, pos, lemmatizer);
+    for (CatalogModel model : catalog) {
+      install(root, catalog, model);
+    }
+
+    final Map<String, String> prepared = CatalogModelBootstrap.prepare(
+        Map.of(CatalogModelStore.CATALOG_ROOT_KEY, root.toString()), catalog);
+
+    assertEquals(installedPath(root, sentence), prepared.get("model.sentence_detector.path"));
+    assertEquals(installedPath(root, tokenizer), prepared.get("model.tokenizer.path"));
+    assertEquals(installedPath(root, pos), prepared.get("model.pos_tagger.path"));
+    assertEquals(installedPath(root, lemmatizer), prepared.get("model.lemmatizer.path"));
+  }
+
+  @Test
+  void refusesASecondModelForOneClassicPipelineSlot() throws Exception {
+    final Path root = temporaryDirectory.resolve("slot-collision-catalog");
+    final CatalogModel german = model(modelSource("de-sentence"), "de-sentence",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR);
+    final CatalogModel french = model(modelSource("fr-sentence"), "fr-sentence",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR);
+    final List<CatalogModel> catalog = List.of(german, french);
+    install(root, catalog, german);
+    install(root, catalog, french);
+
+    final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+        () -> CatalogModelBootstrap.prepare(
+            Map.of(CatalogModelStore.CATALOG_ROOT_KEY, root.toString()), catalog));
+
+    assertTrue(failure.getMessage().contains("already configured"));
+  }
+
+  private static String installedPath(Path root, CatalogModel model) {
+    return root.resolve(model.descriptor().getCatalogId()).resolve("model.bin")
+        .toAbsolutePath().normalize().toString();
+  }
+
   private void install(Path root, List<CatalogModel> models, CatalogModel model)
       throws Exception {
     final TrainedModelEmbeddingProvider registry =

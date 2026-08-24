@@ -125,24 +125,40 @@ public final class CatalogModelBootstrap {
    */
   private static void addRestartModel(
       Map<String, String> prepared, CatalogModel model, Path directory) {
-    final ModelArtifactRole role = model.descriptor().getRole();
-    final String prefix;
-    if (role == ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER) {
-      prefix = "model.parser.";
-    } else if (role == ModelArtifactRole.MODEL_ARTIFACT_ROLE_CHUNKER) {
-      prefix = "model.chunker.";
-    } else {
+    final String key = restartConfigurationKey(model.descriptor().getRole(),
+        model.descriptor().getModelId());
+    if (key == null) {
       return;
     }
     if (model.files().size() != 1) {
-      throw new IllegalArgumentException(role + " catalog entries must contain one model file");
+      throw new IllegalArgumentException(model.descriptor().getRole()
+          + " catalog entries must contain one model file");
     }
-    final String key = prefix + model.descriptor().getModelId() + ".path";
     final String value = directory.resolve(model.files().getFirst().relativePath())
         .toAbsolutePath().normalize().toString();
     final String existing = prepared.putIfAbsent(key, value);
     if (existing != null && !existing.equals(value)) {
-      throw new IllegalArgumentException(key + " is already configured by the operator");
+      throw new IllegalArgumentException(key + " is already configured; a server serves one "
+          + "model per classic pipeline slot, so uninstall the other model or remove the "
+          + "operator setting");
     }
+  }
+
+  /**
+   * Returns the startup configuration key one restart-only role publishes to, or
+   * {@code null} for roles that serve without a restart. Parser and chunker keys are
+   * per model id; the sentence detector, tokenizer, POS tagger, and lemmatizer occupy
+   * the classic pipeline's single slots, replacing the bundled English defaults.
+   */
+  private static String restartConfigurationKey(ModelArtifactRole role, String modelId) {
+    return switch (role) {
+      case MODEL_ARTIFACT_ROLE_PARSER -> "model.parser." + modelId + ".path";
+      case MODEL_ARTIFACT_ROLE_CHUNKER -> "model.chunker." + modelId + ".path";
+      case MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR -> "model.sentence_detector.path";
+      case MODEL_ARTIFACT_ROLE_TOKENIZER -> "model.tokenizer.path";
+      case MODEL_ARTIFACT_ROLE_POS_TAGGER -> "model.pos_tagger.path";
+      case MODEL_ARTIFACT_ROLE_LEMMATIZER -> "model.lemmatizer.path";
+      default -> null;
+    };
   }
 }

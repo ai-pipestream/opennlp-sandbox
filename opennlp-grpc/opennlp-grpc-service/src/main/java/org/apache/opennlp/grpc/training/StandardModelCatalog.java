@@ -44,6 +44,10 @@ final class StandardModelCatalog {
       "https://github.com/ai-pipestream/opennlp-sandbox/releases/tag/" + GUM_RELEASE;
   private static final String GUM_LICENSE =
       "https://github.com/amir-zeldes/gum/blob/" + GUM_REVISION + "/LICENSE.md";
+  private static final String UD_MODELS_ROOT =
+      "https://downloads.apache.org/opennlp/models/ud-models-1.3";
+  private static final String UD_MODELS_SOURCE = "https://opennlp.apache.org/models.html";
+  private static final String UD_MODELS_REVISION = "ud-models-1.3-2.5.4";
 
   private StandardModelCatalog() {
   }
@@ -57,13 +61,78 @@ final class StandardModelCatalog {
     final StandardModelCatalog catalog = new StandardModelCatalog();
     final List<CatalogModel> models = new ArrayList<>();
     models.add(catalog.teacher());
+    models.add(catalog.multilingualTeacher());
     models.add(catalog.potionBase());
     models.add(catalog.potionMultilingual());
     models.add(catalog.potionRetrieval());
     models.add(catalog.gumChunker());
     models.add(catalog.gumParser());
+    models.addAll(catalog.udPipeline("de", "German", "gsd",
+        15_043, "b5553223d30a0422e80a28e2ae766a92dd7181e229f0d6c73087951e84142c43",
+        524_098, "32d0a7ff84fdd50f9e454340bed782d7269845bfa656e0c988cbb823dd628d6e",
+        1_269_178, "073fefbfaff2ed403bf474fccf793752d01c22e69f487cd68b43832d3123742f",
+        854_900, "8850986f02dfbe293046bfce93bc0c3f3fa010e89177250abca23d860033d4f6"));
+    models.addAll(catalog.udPipeline("fr", "French", "gsd",
+        12_760, "ee1f8109cbca3c5a2799b873ee08202671920d526352edfc56462c2d80ab673c",
+        543_614, "a06dbc9b72600ba0886f64a632636e136e5fc225955913c4c1a926a9333bc14a",
+        1_558_836, "8ae017da8f93fd4219004681cdadbe4296e1c9dd66651eeca12bd053f5884172",
+        924_647, "8e8f137265044ed2389c293a333715a4e18da58514197da2e8e1c950a59e8769"));
+    models.addAll(catalog.udPipeline("es", "Spanish", "gsd",
+        13_977, "043fed7bbae8281dc559d04ad0ed9271e90697ffdfc5be3a1852e703eea8b30a",
+        539_431, "309de611ff7a8c4227c57086838d4783bcede8520026d7ad416c85a513567ce7",
+        1_754_275, "c1d7e327acae631bd25936f2efc51c0110c9338fd6e52cfa3e3b234963e55cd5",
+        1_039_483, "d9970825f87e95fbc4c54e7c35cb2af141a29fd65f21908d86e29ef9af2da914"));
     models.sort(Comparator.comparing(model -> model.descriptor().getCatalogId()));
     return List.copyOf(models);
+  }
+
+  /**
+   * Creates the four pinned Apache UD 1.3 pipeline models of one language: sentence
+   * detector, tokenizer, POS tagger, and lemmatizer, all released by the Apache OpenNLP
+   * project and activated on the next server start after installation.
+   */
+  private List<CatalogModel> udPipeline(String language, String languageName, String treebank,
+      long sentenceSize, String sentenceSha256, long tokensSize, String tokensSha256,
+      long posSize, String posSha256, long lemmasSize, String lemmasSha256) {
+    final String modelId = language + "-ud-" + treebank;
+    return List.of(
+        udModel(modelId, languageName, language, treebank, "sentence",
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR,
+            "sentence detector", sentenceSize, sentenceSha256),
+        udModel(modelId, languageName, language, treebank, "tokens",
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_TOKENIZER,
+            "tokenizer", tokensSize, tokensSha256),
+        udModel(modelId, languageName, language, treebank, "pos",
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_POS_TAGGER,
+            "POS tagger", posSize, posSha256),
+        udModel(modelId, languageName, language, treebank, "lemmas",
+            ModelArtifactRole.MODEL_ARTIFACT_ROLE_LEMMATIZER,
+            "lemmatizer", lemmasSize, lemmasSha256));
+  }
+
+  /** Creates one pinned Apache UD 1.3 model entry. */
+  private CatalogModel udModel(String modelId, String languageName, String language,
+      String treebank, String fileKind, ModelArtifactRole role, String roleName,
+      long byteSize, String sha256) {
+    final String fileName =
+        "opennlp-" + language + "-ud-" + treebank + "-" + fileKind + "-1.3-2.5.4.bin";
+    final ModelCatalogDescriptor descriptor = ModelCatalogDescriptor.newBuilder()
+        .setCatalogId(modelId + "-" + fileKind)
+        .setDisplayName(languageName + " UD " + roleName)
+        .setRole(role)
+        .setModelId(modelId)
+        .setSourceUri(UD_MODELS_SOURCE)
+        .setRevision(UD_MODELS_REVISION)
+        .setLicenseName(APACHE_2)
+        .setLicenseUri(APACHE_2_URI)
+        .setByteSize(byteSize)
+        .addLanguages(language)
+        .setDescription("Apache OpenNLP " + languageName + " " + roleName
+            + " trained from the UD " + treebank.toUpperCase(java.util.Locale.ROOT)
+            + " treebank")
+        .build();
+    return new CatalogModel(descriptor, List.of(new CatalogFile(Path.of(fileName),
+        URI.create(UD_MODELS_ROOT + "/" + fileName), byteSize, sha256)));
   }
 
   /** Creates the pinned English distillation teacher entry. */
@@ -82,6 +151,26 @@ final class StandardModelCatalog {
                 "acb92769e8195aabd29b7b2137a9e6d6e25c476a4f15aa4355c233426c61576b"),
             file(repository, revision, "onnx/model.onnx", 90_405_214,
                 "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452")));
+  }
+
+  /** Creates the pinned multilingual distillation teacher entry. */
+  private CatalogModel multilingualTeacher() {
+    final String revision = "e8f8c211226b894fcb81acc59f3b34ba3efd5f42";
+    final String repository = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2";
+    return model("paraphrase-multilingual-minilm-l12-v2-teacher",
+        "paraphrase-multilingual-MiniLM-L12-v2 teacher",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER,
+        "paraphrase-multilingual-minilm-l12-v2", repository, revision, APACHE_2, APACHE_2_URI,
+        0, List.of("multilingual"),
+        "Multilingual ONNX sentence-transformer teacher (50+ languages) for "
+            + "Model2Vec-style distillation",
+        List.of(
+            file(repository, revision, "tokenizer.json", 9_081_518,
+                "2c3387be76557bd40970cec13153b3bbf80407865484b209e655e5e4729076b8"),
+            file(repository, revision, "tokenizer_config.json", 526,
+                "5036ea374ffedd706e3bef33e2e0d6953cb868ef8a490e76e32ba0faa37a6b9b"),
+            file(repository, revision, "onnx/model.onnx", 470_301_610,
+                "10f7a088420252b26caf819236ca2c9d2987afd0fc06fec7553b542a5655a05a")));
   }
 
   /** Creates the pinned general-purpose English static model entry. */

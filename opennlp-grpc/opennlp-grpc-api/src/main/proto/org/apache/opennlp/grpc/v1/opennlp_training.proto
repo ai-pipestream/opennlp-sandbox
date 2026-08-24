@@ -83,6 +83,14 @@ enum ModelArtifactRole {
   MODEL_ARTIFACT_ROLE_PARSER = 3;
   // OpenNLP syntactic chunker model activated on the next server start.
   MODEL_ARTIFACT_ROLE_CHUNKER = 4;
+  // OpenNLP sentence detector model activated on the next server start.
+  MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR = 5;
+  // OpenNLP tokenizer model activated on the next server start.
+  MODEL_ARTIFACT_ROLE_TOKENIZER = 6;
+  // OpenNLP part-of-speech tagger model activated on the next server start.
+  MODEL_ARTIFACT_ROLE_POS_TAGGER = 7;
+  // OpenNLP lemmatizer model activated on the next server start.
+  MODEL_ARTIFACT_ROLE_LEMMATIZER = 8;
 }
 
 // One immutable entry in the server-owned model catalog. Source_uri is a

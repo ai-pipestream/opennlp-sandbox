@@ -24,7 +24,9 @@ import {
 } from "./analysis-config";
 import { errorMessage, requiredElement } from "./ui-utils";
 
-export type ModelArtifactRole = "teacher" | "static" | "parser" | "chunker";
+export type ModelArtifactRole =
+  "teacher" | "static" | "parser" | "chunker"
+  | "sentence-detector" | "tokenizer" | "pos-tagger" | "lemmatizer";
 
 export interface ModelCatalogSummary {
   catalogId: string;
@@ -321,7 +323,11 @@ export function readModelCatalog(
       model.role === "MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER" ? "teacher"
       : model.role === "MODEL_ARTIFACT_ROLE_STATIC_EMBEDDING" ? "static"
       : model.role === "MODEL_ARTIFACT_ROLE_PARSER" ? "parser"
-      : model.role === "MODEL_ARTIFACT_ROLE_CHUNKER" ? "chunker" : undefined;
+      : model.role === "MODEL_ARTIFACT_ROLE_CHUNKER" ? "chunker"
+      : model.role === "MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR" ? "sentence-detector"
+      : model.role === "MODEL_ARTIFACT_ROLE_TOKENIZER" ? "tokenizer"
+      : model.role === "MODEL_ARTIFACT_ROLE_POS_TAGGER" ? "pos-tagger"
+      : model.role === "MODEL_ARTIFACT_ROLE_LEMMATIZER" ? "lemmatizer" : undefined;
     if (!role) {
       throw new Error(`Catalog model '${catalogId}' has an unsupported role.`);
     }
@@ -420,7 +426,9 @@ function byteLabel(bytes: number): string {
 }
 
 function restartRole(role: ModelArtifactRole | undefined): boolean {
-  return role === "parser" || role === "chunker";
+  return role === "parser" || role === "chunker"
+    || role === "sentence-detector" || role === "tokenizer"
+    || role === "pos-tagger" || role === "lemmatizer";
 }
 
 function roleLabel(role: ModelArtifactRole): string {
@@ -430,17 +438,29 @@ function roleLabel(role: ModelArtifactRole): string {
   if (role === "teacher") {
     return "Training teacher";
   }
-  return role === "parser" ? "Constituency parser" : "Syntactic chunker";
+  const labels: Record<string, string> = {
+    parser: "Constituency parser",
+    chunker: "Syntactic chunker",
+    "sentence-detector": "Sentence detector",
+    tokenizer: "Tokenizer",
+    "pos-tagger": "POS tagger",
+    lemmatizer: "Lemmatizer",
+  };
+  return labels[role] ?? role;
 }
 
 function installLabel(role: ModelArtifactRole): string {
-  if (role === "static") {
-    return "Download and activate";
-  }
-  if (role === "teacher") {
-    return "Download teacher";
-  }
-  return role === "parser" ? "Download parser" : "Download chunker";
+  const labels: Record<string, string> = {
+    static: "Download and activate",
+    teacher: "Download teacher",
+    parser: "Download parser",
+    chunker: "Download chunker",
+    "sentence-detector": "Download sentence detector",
+    tokenizer: "Download tokenizer",
+    "pos-tagger": "Download POS tagger",
+    lemmatizer: "Download lemmatizer",
+  };
+  return labels[role] ?? "Download model";
 }
 
 function timestampText(value: unknown): string {

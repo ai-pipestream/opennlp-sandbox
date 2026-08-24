@@ -70,11 +70,36 @@ describe("model catalog readers", () => {
         sourceUri: "https://example.test/chunker", revision: "chunker-revision",
         licenseName: "CC-BY-4.0", licenseUri: "https://example.test/chunker-license",
       },
+      {
+        catalogId: "de-sentence", displayName: "German UD sentence detector", modelId: "de-ud",
+        role: "MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR", byteSize: "50",
+        sourceUri: "https://example.test/de", revision: "ud-revision",
+        licenseName: "Apache-2.0", licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+      },
+      {
+        catalogId: "de-tokens", displayName: "German UD tokenizer", modelId: "de-ud",
+        role: "MODEL_ARTIFACT_ROLE_TOKENIZER", byteSize: "51",
+        sourceUri: "https://example.test/de", revision: "ud-revision",
+        licenseName: "Apache-2.0", licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+      },
+      {
+        catalogId: "de-pos", displayName: "German UD POS tagger", modelId: "de-ud",
+        role: "MODEL_ARTIFACT_ROLE_POS_TAGGER", byteSize: "52",
+        sourceUri: "https://example.test/de", revision: "ud-revision",
+        licenseName: "Apache-2.0", licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+      },
+      {
+        catalogId: "de-lemmas", displayName: "German UD lemmatizer", modelId: "de-ud",
+        role: "MODEL_ARTIFACT_ROLE_LEMMATIZER", byteSize: "53",
+        sourceUri: "https://example.test/de", revision: "ud-revision",
+        licenseName: "Apache-2.0", licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+      },
     ] });
 
     expect(result.installsEnabled).toBe(true);
     expect(result.models.map((model) => model.role))
-      .toEqual(["teacher", "static", "parser", "chunker"]);
+      .toEqual(["teacher", "static", "parser", "chunker",
+        "sentence-detector", "tokenizer", "pos-tagger", "lemmatizer"]);
     expect(result.models[1]?.dimension).toBe(256);
     expect(readInstalledModels({ models: [{
       catalog: { catalogId: "static" }, artifactHash: "abc", byteSize: "20", loaded: true,
