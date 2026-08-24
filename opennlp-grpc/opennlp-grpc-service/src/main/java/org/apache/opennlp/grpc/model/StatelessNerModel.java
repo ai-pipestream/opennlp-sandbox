@@ -21,46 +21,50 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import opennlp.tools.namefind.NameFinderME;
+import opennlp.tools.namefind.TokenNameFinder;
 import opennlp.tools.util.Span;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
-import org.apache.opennlp.grpc.v1.AnnotationSpan;
-import org.apache.opennlp.grpc.v1.CoordinateSpace;
 import org.apache.opennlp.grpc.v1.NamedEntity;
-import org.apache.opennlp.grpc.v1.Token;
 
 /**
- * {@link NerModel} backed by a classic OpenNLP {@link NameFinderME}. Each instance serves
- * exactly one entity type. {@code find} returns token-index spans, which this model maps
- * to document character offsets using the tokens' own spans.
+ * {@link NerModel} backed by a stateless model-free {@link TokenNameFinder}, such as a
+ * dictionary or regex name finder. Each instance serves exactly one entity type, keeps no
+ * adaptive state, and attaches no probabilities because these finders compute none.
  */
-final class ClassicNerModel implements NerModel {
-
-  /** Backend id reported for models served by the classic OpenNLP maxent runtime. */
-  static final String BACKEND_ID = "opennlp-me";
+final class StatelessNerModel implements NerModel {
 
   private final String entityType;
-  private final NameFinderME nameFinder;
+  private final TokenNameFinder nameFinder;
+  private final String backendId;
   private final int priority;
   private final String artifactHash;
 
   /**
-   * Creates a classic name-finder registration.
+   * Creates a stateless name-finder registration.
    *
-   * @param entityType The logical entity type and model id.
-   * @param nameFinder The initialized OpenNLP name finder.
+   * @param entityType The logical entity type and model id. Must not be {@code null}.
+   * @param nameFinder The initialized finder. Must not be {@code null}.
+   * @param backendId The open backend id reported for this model. Must not be {@code null}.
    * @param priority The selection priority among engines serving {@code entityType}.
-   * @param artifactHash The model artifact hash, or blank when unavailable.
+   * @param artifactHash The source file hash, or blank when unavailable.
+   *
+   * @throws IllegalArgumentException If {@code entityType}, {@code nameFinder}, or
+   *     {@code backendId} is {@code null}.
    */
-  ClassicNerModel(String entityType, NameFinderME nameFinder, int priority, String artifactHash) {
+  StatelessNerModel(String entityType, TokenNameFinder nameFinder, String backendId,
+      int priority, String artifactHash) {
     if (entityType == null) {
       throw new IllegalArgumentException("entityType must not be null");
     }
-    this.entityType = entityType;
     if (nameFinder == null) {
       throw new IllegalArgumentException("nameFinder must not be null");
     }
+    if (backendId == null) {
+      throw new IllegalArgumentException("backendId must not be null");
+    }
+    this.entityType = entityType;
     this.nameFinder = nameFinder;
+    this.backendId = backendId;
     this.priority = priority;
     this.artifactHash = artifactHash == null ? "" : artifactHash;
   }
@@ -74,7 +78,7 @@ final class ClassicNerModel implements NerModel {
   /** {@inheritDoc} */
   @Override
   public String backendId() {
-    return BACKEND_ID;
+    return backendId;
   }
 
   /** {@inheritDoc} */
@@ -98,19 +102,13 @@ final class ClassicNerModel implements NerModel {
   /** {@inheritDoc} */
   @Override
   public boolean isStateful() {
-    return true;
+    return false;
   }
 
   /** {@inheritDoc} */
   @Override
   public void clearAdaptiveData() {
-    nameFinder.clearAdaptiveData();
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public void clearThreadLocalState() {
-    nameFinder.clearThreadLocalState();
+    // Dictionary and regex finders keep no adaptive state.
   }
 
   /** {@inheritDoc} */
@@ -119,18 +117,13 @@ final class ClassicNerModel implements NerModel {
     if (sentence.getTokensCount() == 0) {
       return List.of();
     }
-    final String[] tokens = NerSpans.tokenTexts(sentence);
-    final Span[] spans = nameFinder.find(tokens);
-    final double[] probabilities = includeProbabilities ? nameFinder.probs(spans) : null;
+    final Span[] spans = nameFinder.find(NerSpans.tokenTexts(sentence));
     final List<NamedEntity> entities = new ArrayList<>(spans.length);
-    for (int e = 0; e < spans.length; e++) {
-      final NamedEntity.Builder entity = NamedEntity.newBuilder()
-          .setAnnotationSpan(NerSpans.tokenSpanToDocumentSpan(sentence, spans[e]))
-          .setEntityType(NerSpans.resolveEntityType(entityType, spans[e]));
-      if (probabilities != null && e < probabilities.length) {
-        entity.setProbability(probabilities[e]);
-      }
-      entities.add(entity.build());
+    for (Span span : spans) {
+      entities.add(NamedEntity.newBuilder()
+          .setAnnotationSpan(NerSpans.tokenSpanToDocumentSpan(sentence, span))
+          .setEntityType(NerSpans.resolveEntityType(entityType, span))
+          .build());
     }
     return entities;
   }
