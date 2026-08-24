@@ -78,6 +78,7 @@ import org.apache.opennlp.grpc.v1.NamedEntity;
 import org.apache.opennlp.grpc.v1.NormalizationResult;
 import org.apache.opennlp.grpc.v1.Normalizer;
 import org.apache.opennlp.grpc.v1.NormalizationSpec;
+import org.apache.opennlp.grpc.v1.LanguageScore;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.POSTagFormat;
 import org.apache.opennlp.grpc.v1.ParseFormat;
@@ -120,14 +121,30 @@ final class ClassicStepRunner {
 
   /**
    * Predicts the dominant document language and records it as an ISO 639-3 code
-   * (e.g. {@code "eng"}) together with the model confidence.
+   * (e.g. {@code "eng"}) together with the model confidence. A positive
+   * {@code rankedLanguageCount} additionally records that many ranked predictions,
+   * best first, as {@link OpenNlpDocument#getRankedLanguagesList()}.
    */
   void detectLanguage(
       String rawText,
       OpenNlpDocument.Builder document,
+      int rankedLanguageCount,
       List<ProcessingDiagnostic> diagnostics) {
     final LanguageDetectorME detector = modelBundleCache.getLanguageDetector();
-    final Language language = detector.predictLanguage(rawText);
+    final Language language;
+    if (rankedLanguageCount > 0) {
+      final Language[] ranked = detector.predictLanguages(rawText);
+      final int limit = Math.min(rankedLanguageCount, ranked.length);
+      for (int i = 0; i < limit; i++) {
+        document.addRankedLanguages(LanguageScore.newBuilder()
+            .setLanguage(ranked[i].getLang())
+            .setConfidence((float) ranked[i].getConfidence())
+            .build());
+      }
+      language = ranked.length > 0 ? ranked[0] : detector.predictLanguage(rawText);
+    } else {
+      language = detector.predictLanguage(rawText);
+    }
     document.setDetectedLanguage(language.getLang());
     document.setLanguageConfidence((float) language.getConfidence());
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT,

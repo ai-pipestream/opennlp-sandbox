@@ -600,6 +600,11 @@ message AnalysisOptions {
   // Post-processing for the optional document centroid. Unset means NONE.
   // Setting this while include_document_centroid is false is invalid.
   VectorNormalization document_centroid_normalization = 10;
+  // Number of ranked language predictions LANGUAGE_DETECT reports in
+  // OpenNlpDocument.ranked_languages and the opennlp:language layer, best first.
+  // Unset or 0 keeps today's single best prediction. A value above the
+  // predictor's language count returns every prediction it makes.
+  optional uint32 ranked_language_count = 11;
 }
 
 // Selects which view(s) of a constituency parse the server fills in ParseTree. Independent

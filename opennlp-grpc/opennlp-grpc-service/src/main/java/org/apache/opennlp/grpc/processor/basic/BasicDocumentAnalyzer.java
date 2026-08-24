@@ -273,9 +273,11 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
     }
 
     if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT)) {
+      final int rankedLanguageCount =
+          request.hasOptions() ? request.getOptions().getRankedLanguageCount() : 0;
       runStep(
           PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT,
-          () -> classicSteps.detectLanguage(rawText, document, diagnostics));
+          () -> classicSteps.detectLanguage(rawText, document, rankedLanguageCount, diagnostics));
     } else {
       diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT));
     }
