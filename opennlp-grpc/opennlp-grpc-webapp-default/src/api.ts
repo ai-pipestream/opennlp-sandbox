@@ -128,7 +128,7 @@ export interface SetCollectionRequest {
   dictionaryArtifactId?: string;
   vocabularyArtifactId?: string;
   modelArtifactId?: string;
-  /** Accreted new-term count that triggers the drift watch event; 0 disables. */
+  /** Out-of-vocabulary term count that triggers the drift watch event; 0 disables. */
   driftNewTermThreshold?: number;
 }
 

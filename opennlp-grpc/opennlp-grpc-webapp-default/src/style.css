@@ -415,8 +415,17 @@ select:disabled { cursor: not-allowed; opacity: 0.6; }
 .xray-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; margin: 0.8rem 1rem 1rem; border: 1px solid #2a374c; border-radius: 0.5rem; background: #2a374c; }
 .xray-pane { min-width: 0; background: #101a2a; }
 .xray-pane-label { display: block; padding: 0.5rem 0.7rem 0; color: #67d5f5; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-.xray-pane-body { padding: 0.5rem 0.7rem 0.8rem; color: #d9e3f1; font: 0.8rem/2 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-.xray-segment { margin: 0; padding: 0.1rem 0.14rem; border: 0; border-bottom: 2px solid transparent; border-radius: 0.2rem; background: transparent; color: inherit; font: inherit; line-height: inherit; transition: background 120ms ease, box-shadow 120ms ease; }
+.xray-pane-body { max-height: 26rem; padding: 0.5rem 0.7rem 0.8rem; overflow-y: auto; color: #d9e3f1; font: 0.8rem/2 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.help-callout { margin: 0.9rem 0 0; border: 1px solid #253147; border-radius: 0.6rem; background: rgb(23 105 224 / 6%); color: #aebccf; font-size: 0.78rem; }
+.help-callout summary { padding: 0.55rem 0.9rem; color: #9fc3f0; font-weight: 750; cursor: pointer; }
+.help-callout summary:focus-visible { outline: 3px solid rgb(23 105 224 / 35%); outline-offset: 2px; }
+.help-callout[open] summary { border-bottom: 1px solid #253147; }
+.help-callout ol { margin: 0.6rem 0 0.4rem; padding: 0 1rem 0 2.1rem; line-height: 1.55; }
+.help-callout li + li { margin-top: 0.35rem; }
+.help-callout .help-code { margin: 0.55rem 0 0.85rem; padding: 0 1rem; line-height: 1.55; color: #8d9cb3; }
+.help-callout code { color: #9fc3f0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; }
+.xray-segment { display: inline; margin: 0; padding: 0.1rem 0; border-bottom: 2px solid transparent; border-radius: 0.2rem; box-decoration-break: clone; -webkit-box-decoration-break: clone; scroll-margin: 3rem; transition: background 120ms ease, box-shadow 120ms ease; }
 .xray-segment.is-equal { color: #8d9cb3; }
 .xray-segment.is-replaced { border-bottom-color: #ff91b5; background: rgb(218 76 126 / 14%); color: #ffd7e4; }
 .xray-segment.is-empty { color: #63728a; }

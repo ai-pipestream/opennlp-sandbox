@@ -38,3 +38,26 @@ export function emptyMessage(value: string): HTMLParagraphElement {
 export function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
+
+/**
+ * Appends one wrapped name/value row to a fact list, linking the value to
+ * `href` in a new tab when one is given.
+ */
+export function addFact(list: HTMLDListElement, term: string, value: string, href?: string): void {
+  const container = document.createElement("div");
+  const name = document.createElement("dt");
+  name.textContent = term;
+  const detail = document.createElement("dd");
+  if (href) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = value;
+    detail.append(link);
+  } else {
+    detail.textContent = value;
+  }
+  container.append(name, detail);
+  list.append(container);
+}

@@ -21,7 +21,7 @@ import type { ReindexIndexRequest, SetCollectionRequest } from "./api";
 import type { CollectionEventView, CollectionView } from "./collection-adapter";
 import type { IndexAliasView, SearchIndex, SearchProviderInstance } from "./search-adapter";
 import { formatInteger } from "./text-utils";
-import { emptyMessage, errorMessage, requiredElement } from "./ui-utils";
+import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
 import type { TrainedModelSummary } from "./vocabulary-trainer";
 
 export interface LifecycleApi {
@@ -480,7 +480,7 @@ export class LifecycleWorkbench {
     this.#coverageBar.style.width = `${coverage}%`;
     this.#coverageLabel.textContent = collection.vocabularyArtifactId
       ? `${coverage}% of term occurrences hit vocabulary '${collection.vocabularyArtifactId}'.`
-      : "No vocabulary artifact is configured; every accreted term counts as new.";
+      : "No vocabulary artifact is configured; every indexed term counts as new.";
     if (collection.termStatistics.length === 0) {
       this.#termStatistics.append(emptyMessage("The member indexes hold no analyzable terms yet."));
       return;
@@ -490,7 +490,7 @@ export class LifecycleWorkbench {
       chip.className = entry.inVocabulary ? "term-statistic is-known" : "term-statistic";
       chip.textContent = `${entry.term} ×${formatInteger(entry.occurrences)}`;
       chip.title = entry.inVocabulary
-        ? "A row of the current vocabulary" : "Accreted outside the current vocabulary";
+        ? "In the current vocabulary" : "Out of the current vocabulary";
       this.#termStatistics.append(chip);
     }
     if (collection.termStatistics.length > 40 || collection.omittedTermCount > 0) {
@@ -537,16 +537,6 @@ export class LifecycleWorkbench {
     this.#status.textContent = message;
     this.#status.classList.toggle("is-error", error);
   }
-}
-
-function addFact(list: HTMLDListElement, term: string, value: string): void {
-  const container = document.createElement("div");
-  const name = document.createElement("dt");
-  name.textContent = term;
-  const detail = document.createElement("dd");
-  detail.textContent = value;
-  container.append(name, detail);
-  list.append(container);
 }
 
 function delay(millis: number): Promise<void> {

@@ -75,6 +75,26 @@
           </dl>
         </div>
 
+        <details class="help-callout">
+          <summary>How to use this workbench</summary>
+          <ol>
+            <li>Paste a document (or press <strong>Load Alice novel</strong>), pick a feature preset,
+              and choose an embedding model if you want vectors attached to the output.</li>
+            <li>Press <strong>Analyze text</strong>. The complete typed response renders as the
+              Document, Chunks, Heatmap, Graph, and Protobuf JSON projections; select any
+              annotation to inspect its exact span and payload.</li>
+            <li>Press <strong>Add to server workspace</strong> to index the analyzed document, then
+              query it from the Workspace search tab.</li>
+          </ol>
+          <p class="help-code">
+            From code this is one <code>AnalyzeDocument</code> gRPC call, or
+            <code>POST /api/v1/analyze</code> on this gateway; Copy JSON and Download .pb export
+            exactly what your client receives. Runnable Python, Node.js, Java, and Go quickstarts
+            live in the repository's <code>examples/</code> directory, and any other gRPC language
+            generates a client straight from the <code>opennlp-grpc-api</code> protos.
+          </p>
+        </details>
+
         <nav id="tool-navigation" class="tool-nav extension-switcher" aria-label="OpenNLP tools" hidden>
           <a href="/" class="is-active" aria-current="page">
             <span class="tool-icon" aria-hidden="true">AO</span>
@@ -328,6 +348,26 @@
             </div>
           </div>
 
+          <details class="help-callout">
+            <summary>How to use corpus search</summary>
+            <ol>
+              <li>Pick a configured index; its size, dimensions, and provenance appear beside it.</li>
+              <li>Type a natural-language query. The server embeds it, ranks every candidate chunk
+                by cosine similarity, and returns the scored results; the browser never ranks.</li>
+              <li>Switch between the ranked list and the heatmap, which shades each returned chunk
+                over the original document text on the fixed score scale above.</li>
+              <li>Open a hit to compare the indexed (normalized) chunk with its original source
+                span, and to browse the typed OpenNLP annotations for that document.</li>
+              <li>Need exact matches too? Open the compound query builder to combine phrase,
+                keyword, and semantic clauses in one request.</li>
+            </ol>
+            <p class="help-code">
+              From code this is <code>SearchIndex</code> on <code>OpenNlpSearchService</code>, or
+              <code>POST /api/v1/search</code> with a document-shaped query;
+              <code>GET /api/v1/search-indexes</code> lists what you can search.
+            </p>
+          </details>
+
           <form id="server-search-form" class="server-search-form">
             <div class="field">
               <label for="server-search-index">Search index</label>
@@ -484,6 +524,25 @@
               <option value="STANDARD_SEARCH_PROVIDER_FLAT_FLOAT">Flat float (exact)</option>
               <option value="STANDARD_SEARCH_PROVIDER_TURBO_QUANT">TurboQuant (quantized)</option>
             </select>
+            <details class="help-callout">
+              <summary>How to use workspace search</summary>
+              <ol>
+                <li>On the Analyze tab, analyze a document with an embedding model selected.</li>
+                <li>Choose the vector storage above, exact flat float or quantized TurboQuant,
+                  then press <strong>Add to server workspace</strong> there. The first add creates
+                  a new workspace index in server memory.</li>
+                <li>Describe what you want to find; the server embeds the query and returns
+                  ranked chunks with their source spans.</li>
+                <li>To keep a workspace across restarts, or to seal, alias, or reindex it, use
+                  the Lifecycle tab.</li>
+              </ol>
+              <p class="help-code">
+                From code this is <code>IndexDocuments</code> then <code>SearchIndex</code>, or
+                <code>POST /api/v1/index-documents</code> and <code>POST /api/v1/search</code>;
+                the Python, Node.js, Java, and Go quickstarts in <code>examples/</code> run
+                exactly this flow.
+              </p>
+            </details>
           </div>
           <div class="semantic-console">
             <form id="semantic-search-form">
@@ -514,6 +573,22 @@
             </div>
             <strong id="resource-summary">Discovering resources</strong>
           </header>
+          <details class="help-callout">
+            <summary>How to use models &amp; data</summary>
+            <ol>
+              <li>Pipeline readiness lists every analysis feature: ready means it runs now,
+                anything else names the model or data resource an operator still has to provide.</li>
+              <li>The pinned catalog downloads verified models to this server node; every file is
+                checksum-verified before it is published, and nothing third-party is bundled.</li>
+              <li>Static tables and teacher models serve immediately after download; parser and
+                syntactic chunker models activate on the next server restart.</li>
+            </ol>
+            <p class="help-code">
+              From code this is <code>ListModelBundles</code>, <code>ListModelCatalog</code>, and
+              the streaming <code>InstallModel</code>, or <code>GET /api/v1/model-bundles</code>,
+              <code>GET /api/v1/model-catalog</code>, and <code>POST /api/v1/install-model</code>.
+            </p>
+          </details>
           <div class="model-data-grid">
             <section>
               <h4>Pipeline readiness</h4>
@@ -579,6 +654,24 @@
               </p>
             </div>
           </header>
+          <details class="help-callout">
+            <summary>How to use the trainer</summary>
+            <ol>
+              <li>Optionally import a dictionary; its headwords become guaranteed terms of every
+                vocabulary learned afterwards.</li>
+              <li>Paste corpus documents and learn a vocabulary; the minimum frequency controls
+                which corpus terms survive.</li>
+              <li>Distill the vocabulary against an operator-approved teacher model. The result is
+                a static embedding model this server serves immediately: select it on the Analyze
+                tab, index with it, and search with it.</li>
+            </ol>
+            <p class="help-code">
+              From code this is <code>OpenNlpVocabularyService</code> and
+              <code>OpenNlpModelTrainingService</code>, or the gateway's
+              <code>POST /api/v1/import-dictionary</code>, <code>POST /api/v1/learn-vocabulary</code>,
+              and training endpoints; the Python quickstart's second example streams this whole flow.
+            </p>
+          </details>
           <p id="trainer-status" class="form-status" role="status" aria-live="polite">
             Loading the trainer catalog.
           </p>
@@ -651,10 +744,29 @@
               <p>
                 Checkpoint and seal dynamic workspaces, point logical aliases at the current
                 index, rebuild blue/green into a newly trained vector space, and group
-                workspaces into collections whose accreted term drift the server streams live.
+                workspaces into collections whose vocabulary drift the server streams live.
               </p>
             </div>
           </header>
+          <details class="help-callout">
+            <summary>How to use lifecycle</summary>
+            <ol>
+              <li>Persist a checkpoint to keep a dynamic workspace across server restarts, or seal
+                it to make it immutable.</li>
+              <li>Point a logical alias at the current index so clients keep one stable name while
+                you swap the index behind it, blue/green style.</li>
+              <li>Reindex a workspace into a newly trained vector space without changing its
+                documents.</li>
+              <li>Group workspaces into a collection to watch its vocabulary drift live: the
+                stream reports new terms that fall outside the current vocabulary artifact.</li>
+            </ol>
+            <p class="help-code">
+              From code these are the persist, seal, reindex, alias, and collection RPCs on
+              <code>OpenNlpSearchService</code>, mirrored by the gateway's
+              <code>/api/v1/persist-index</code>, <code>/api/v1/seal-index</code>,
+              <code>/api/v1/reindex-index</code>, alias, and collection endpoints.
+            </p>
+          </details>
           <p id="lifecycle-status" class="form-status" role="status" aria-live="polite">
             Loading the lifecycle catalog.
           </p>
@@ -728,7 +840,7 @@
               </div>
               <p id="collection-coverage-label" class="coverage-label">No collection selected.</p>
               <dl id="collection-drift-stats" class="search-hit-facts"></dl>
-              <h5>Accreted term statistics</h5>
+              <h5>Out-of-vocabulary terms</h5>
               <div id="collection-term-statistics" class="collection-term-statistics"></div>
               <h5>Watch stream</h5>
               <p id="collection-watch-status" class="form-status" role="status" aria-live="polite">

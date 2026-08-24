@@ -52,7 +52,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Bounded registry of collections: the scope vocabulary accretion is measured over.
+ * Bounded registry of collections: the scope vocabulary drift is measured over.
  *
  * <p>A collection stores configured state only: its member index ids, artifact lineage,
  * and drift threshold. The term statistics and drift statistics are recomputed on every read

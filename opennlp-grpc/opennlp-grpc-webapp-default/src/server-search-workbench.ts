@@ -49,7 +49,7 @@ import {
   replaceCharacter,
   withoutPrefix,
 } from "./text-utils";
-import { emptyMessage, errorMessage, requiredElement } from "./ui-utils";
+import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
 
 export interface ServerSearchWorkbenchOptions {
   listIndexes(): Promise<SearchIndex[]>;
@@ -588,25 +588,6 @@ function scoreBadge(score: number): HTMLSpanElement {
   badge.style.color = color.foreground;
   badge.setAttribute("aria-label", `Cosine score ${score.toFixed(3)}`);
   return badge;
-}
-
-function addFact(list: HTMLDListElement, term: string, value: string, href?: string): void {
-  const container = document.createElement("div");
-  const name = document.createElement("dt");
-  name.textContent = term;
-  const detail = document.createElement("dd");
-  if (href) {
-    const link = document.createElement("a");
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = value;
-    detail.append(link);
-  } else {
-    detail.textContent = value;
-  }
-  container.append(name, detail);
-  list.append(container);
 }
 
 function configuredRouteLabel(hit: SearchHit): string {
