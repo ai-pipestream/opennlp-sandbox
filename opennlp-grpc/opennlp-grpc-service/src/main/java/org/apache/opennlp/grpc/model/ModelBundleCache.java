@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.util.ArrayList;
@@ -37,6 +38,8 @@ import java.util.jar.JarFile;
 
 import opennlp.tools.langdetect.LanguageDetectorME;
 import opennlp.tools.langdetect.LanguageDetectorModel;
+import opennlp.tools.lemmatizer.DictionaryLemmatizer;
+import opennlp.tools.lemmatizer.Lemmatizer;
 import opennlp.tools.lemmatizer.LemmatizerME;
 import opennlp.tools.lemmatizer.LemmatizerModel;
 import opennlp.tools.postag.POSModel;
@@ -90,6 +93,8 @@ public final class ModelBundleCache implements AutoCloseable {
   private static final String KEY_TOKENIZER_PATH = "model.tokenizer.path";
   private static final String KEY_POS_TAGGER_PATH = "model.pos_tagger.path";
   private static final String KEY_LEMMATIZER_PATH = "model.lemmatizer.path";
+  private static final String KEY_LEMMATIZER_DICTIONARY = "model.lemmatizer.dictionary";
+  private static final String DICTIONARY_LEMMATIZER_NAME = "lemmatizer-dictionary";
   private static final String KEY_LANGDETECT_PATH = "model.language_detector.path";
 
   /** Backend id reported for models served by the classic OpenNLP maxent runtime. */
@@ -112,7 +117,10 @@ public final class ModelBundleCache implements AutoCloseable {
   private final SentenceDetectorME sentenceDetector;
   private final TokenizerME tokenizer;
   private final POSTaggerME posTagger;
-  private final LemmatizerME lemmatizer;
+  private final Lemmatizer lemmatizer;
+  // Set only when the lemmatizer is the statistical decoder, whose caller-specific state
+  // must be released after each document; a dictionary lemmatizer holds none.
+  private final LemmatizerME statisticalLemmatizer;
   private final LanguageDetectorME languageDetector;
   private final EmbeddingProvider embeddingProvider;
   private final TrainedModelEmbeddingProvider trainedModelRegistry;
@@ -175,15 +183,15 @@ public final class ModelBundleCache implements AutoCloseable {
         KEY_TOKENIZER_PATH, BUNDLED_TOKENIZER_MODEL_FRAGMENT, "tokenizer", TokenizerModel::new);
     final LoadedArtifact<POSModel> loadedPos = loadModel(configuration,
         KEY_POS_TAGGER_PATH, BUNDLED_POS_MODEL_FRAGMENT, "POS tagger", POSModel::new);
-    final LoadedArtifact<LemmatizerModel> loadedLemma = loadModel(configuration,
-        KEY_LEMMATIZER_PATH, BUNDLED_LEMMATIZER_MODEL_FRAGMENT, "lemmatizer", LemmatizerModel::new);
+    final LoadedLemmatizer loadedLemmatizer = loadLemmatizer(configuration);
     final LoadedArtifact<LanguageDetectorModel> loadedLangDetect =
         loadLanguageDetectorModel(configuration);
     this.sentenceDetector = new SentenceDetectorME(loadedSentence.model());
     this.tokenizer = new TokenizerME(loadedTokenizer.model());
     this.posModel = loadedPos.model();
     this.posTagger = new POSTaggerME(posModel);
-    this.lemmatizer = new LemmatizerME(loadedLemma.model());
+    this.lemmatizer = loadedLemmatizer.lemmatizer();
+    this.statisticalLemmatizer = loadedLemmatizer.statistical();
     this.languageDetector = new LanguageDetectorME(loadedLangDetect.model());
     // The embedding provider and the three registries may hold native resources (ONNX sessions,
     // remote connections). If a later load fails, release the ones already created so a failed
@@ -218,10 +226,10 @@ public final class ModelBundleCache implements AutoCloseable {
       this.parserRegistry = ParserRegistry.create(configuration);
       this.bundles = buildBundleCatalog(
           loadedLangDetect.hash(), loadedSentence.hash(), loadedTokenizer.hash(),
-          loadedPos.hash(), loadedLemma.hash());
+          loadedPos.hash(), loadedLemmatizer.hash(), loadedLemmatizer.name());
       this.artifactRegistry = buildArtifactRegistry(
           loadedLangDetect.hash(), loadedSentence.hash(), loadedTokenizer.hash(),
-          loadedPos.hash(), loadedLemma.hash());
+          loadedPos.hash(), loadedLemmatizer.hash(), loadedLemmatizer.name());
       constructed = true;
     } finally {
       if (!constructed) {
@@ -307,11 +315,13 @@ public final class ModelBundleCache implements AutoCloseable {
   }
 
   /**
-   * Returns the shared lemmatizer. Always available through the bundled default when unconfigured.
+   * Returns the shared lemmatizer: the dictionary lemmatizer when
+   * {@code model.lemmatizer.dictionary} is configured, otherwise the statistical decoder,
+   * always available through the bundled default when unconfigured.
    *
    * @return The lemmatizer. Never {@code null}.
    */
-  public LemmatizerME getLemmatizer() {
+  public Lemmatizer getLemmatizer() {
     return lemmatizer;
   }
 
@@ -332,7 +342,9 @@ public final class ModelBundleCache implements AutoCloseable {
     sentenceDetector.clearThreadLocalState();
     tokenizer.clearThreadLocalState();
     posTagger.clearThreadLocalState();
-    lemmatizer.clearThreadLocalState();
+    if (statisticalLemmatizer != null) {
+      statisticalLemmatizer.clearThreadLocalState();
+    }
     nameFinderRegistry.clearThreadLocalState();
     chunkerRegistry.clearThreadLocalState();
     parserRegistry.clearThreadLocalState();
@@ -669,6 +681,65 @@ public final class ModelBundleCache implements AutoCloseable {
    * {@code model.properties} descriptors of the model jars on the classpath, then the
    * binary bundled inside the shaded server jar.
    */
+  /**
+   * The lemmatizer serving PIPELINE_STEP_LEMMATIZE with its reporting identity.
+   *
+   * @param lemmatizer The lemmatizer to serve. Never {@code null}.
+   * @param statistical The statistical decoder when it backs {@code lemmatizer}, or
+   *     {@code null} for a dictionary lemmatizer.
+   * @param hash The lowercase hex SHA-256 digest of the source artifact.
+   * @param name The artifact name reported in the bundle catalog.
+   */
+  private record LoadedLemmatizer(
+      Lemmatizer lemmatizer, LemmatizerME statistical, String hash, String name) {
+  }
+
+  /**
+   * Loads the configured lemmatizer: the tab-separated dictionary named by
+   * {@code model.lemmatizer.dictionary}, or the statistical model named by
+   * {@code model.lemmatizer.path} (falling back to the bundled English model).
+   * Configuring both sources fails loud.
+   */
+  private LoadedLemmatizer loadLemmatizer(Map<String, String> configuration) {
+    final String dictionaryPath = configuration.get(KEY_LEMMATIZER_DICTIONARY);
+    final String modelPath = configuration.get(KEY_LEMMATIZER_PATH);
+    final boolean dictionaryConfigured = dictionaryPath != null && !dictionaryPath.isBlank();
+    if (dictionaryConfigured && modelPath != null && !modelPath.isBlank()) {
+      throw AnalysisException.invalidArgument(KEY_LEMMATIZER_PATH + " and "
+          + KEY_LEMMATIZER_DICTIONARY + " are mutually exclusive; configure one lemmatizer "
+          + "source");
+    }
+    if (!dictionaryConfigured) {
+      final LoadedArtifact<LemmatizerModel> loaded = loadModel(configuration,
+          KEY_LEMMATIZER_PATH, BUNDLED_LEMMATIZER_MODEL_FRAGMENT, "lemmatizer",
+          LemmatizerModel::new);
+      final LemmatizerME statistical = new LemmatizerME(loaded.model());
+      return new LoadedLemmatizer(statistical, statistical, loaded.hash(),
+          "opennlp-models-lemmatizer-" + DEFAULT_LANGUAGE);
+    }
+    final byte[] bytes;
+    try {
+      bytes = Files.readAllBytes(Path.of(dictionaryPath));
+    } catch (NoSuchFileException | FileNotFoundException e) {
+      throw AnalysisException.notFound(
+          "Lemmatizer dictionary file not found: " + dictionaryPath);
+    } catch (IOException e) {
+      throw AnalysisException.internal(
+          "Failed to read lemmatizer dictionary " + dictionaryPath, e);
+    }
+    try {
+      final DictionaryLemmatizer dictionary =
+          new DictionaryLemmatizer(new ByteArrayInputStream(bytes));
+      logger.info("Loaded dictionary lemmatizer from {} ({} entries)",
+          dictionaryPath, dictionary.getDictMap().size());
+      return new LoadedLemmatizer(dictionary, null,
+          ModelArtifactHasher.sha256Hex(bytes), DICTIONARY_LEMMATIZER_NAME);
+    } catch (IOException | RuntimeException e) {
+      throw AnalysisException.invalidArgument("Lemmatizer dictionary " + dictionaryPath
+          + " is not a valid word<TAB>postag<TAB>lemma file: " + e.getMessage());
+    }
+  }
+
   private LoadedArtifact<LanguageDetectorModel> loadLanguageDetectorModel(
       Map<String, String> configuration) {
     try {
@@ -842,7 +913,8 @@ public final class ModelBundleCache implements AutoCloseable {
       String sentenceHash,
       String tokenizerHash,
       String posHash,
-      String lemmaHash) {
+      String lemmaHash,
+      String lemmaName) {
     final ModelArtifactRegistry.Builder builder = ModelArtifactRegistry.builder()
         .register(ComponentType.COMPONENT_TYPE_LANGUAGE_DETECTOR, langDetectHash,
             "opennlp-models-langdetect")
@@ -852,8 +924,7 @@ public final class ModelBundleCache implements AutoCloseable {
             TOKENIZER_MODEL_NAME)
         .register(ComponentType.COMPONENT_TYPE_POS_TAGGER, posHash,
             POS_MODEL_NAME)
-        .register(ComponentType.COMPONENT_TYPE_LEMMATIZER, lemmaHash,
-            "opennlp-models-lemmatizer-" + DEFAULT_LANGUAGE);
+        .register(ComponentType.COMPONENT_TYPE_LEMMATIZER, lemmaHash, lemmaName);
     for (String modelId : embeddingProvider.registeredModelIds()) {
       final String hash = embeddingProvider.modelArtifactHash(modelId);
       if (hash != null && !hash.isBlank()) {
@@ -970,7 +1041,8 @@ public final class ModelBundleCache implements AutoCloseable {
       String sentenceHash,
       String tokenizerHash,
       String posHash,
-      String lemmaHash) {
+      String lemmaHash,
+      String lemmaName) {
     final ModelBundleInfo.Builder bundle = ModelBundleInfo.newBuilder()
         .setBundleId(ProfileRegistry.DEFAULT_BUNDLE_ID)
         .addSupportedLanguages(DEFAULT_LANGUAGE)
@@ -1000,7 +1072,7 @@ public final class ModelBundleCache implements AutoCloseable {
             DEFAULT_LANGUAGE,
             posHash))
         .addModels(classicModelDescriptor(
-            "opennlp-models-lemmatizer-" + DEFAULT_LANGUAGE,
+            lemmaName,
             ComponentType.COMPONENT_TYPE_LEMMATIZER,
             DEFAULT_LANGUAGE,
             lemmaHash));

@@ -32,7 +32,7 @@ import opennlp.tools.geo.Geocoder;
 import opennlp.tools.langdetect.Language;
 import opennlp.wordnet.LexicalExpander;
 import opennlp.tools.langdetect.LanguageDetectorME;
-import opennlp.tools.lemmatizer.LemmatizerME;
+import opennlp.tools.lemmatizer.Lemmatizer;
 import opennlp.tools.postag.POSTaggerME;
 import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.sentdetect.SentenceDetectorME;
@@ -824,14 +824,15 @@ final class ClassicStepRunner {
   }
 
   /**
-   * Assigns a lemma to every token using the statistical lemmatizer, which requires the
-   * POS tags produced by {@link PipelineStep#PIPELINE_STEP_POS_TAG}. When that step converted
-   * tags to a requested output tagset, the lemmatizer (trained on the tagger's native tagset)
-   * is fed native tags re-derived from the same model instead of the converted token tags.
+   * Assigns a lemma to every token using the configured lemmatizer (statistical or
+   * dictionary-backed), which requires the POS tags produced by
+   * {@link PipelineStep#PIPELINE_STEP_POS_TAG}. When that step converted tags to a requested
+   * output tagset, the lemmatizer (keyed on the tagger's native tagset) is fed native tags
+   * re-derived from the same model instead of the converted token tags.
    */
   void lemmatize(OpenNlpDocument.Builder document, POSTagFormat posTagFormat,
       List<ProcessingDiagnostic> diagnostics) {
-    final LemmatizerME lemmatizer = modelBundleCache.getLemmatizer();
+    final Lemmatizer lemmatizer = modelBundleCache.getLemmatizer();
     final POSTaggerME nativeTagger = modelBundleCache.convertsPosTagFormat(posTagFormat)
         ? modelBundleCache.createPosTagger(POSTagFormat.POS_TAG_FORMAT_UNSPECIFIED)
         : null;
