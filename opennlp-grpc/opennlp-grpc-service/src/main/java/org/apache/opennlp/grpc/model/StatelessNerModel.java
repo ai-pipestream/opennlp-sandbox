@@ -28,8 +28,8 @@ import org.apache.opennlp.grpc.v1.NamedEntity;
 
 /**
  * {@link NerModel} backed by a stateless model-free {@link TokenNameFinder}, such as a
- * dictionary or regex name finder. Each instance serves exactly one entity type, keeps no
- * adaptive state, and attaches no probabilities because these finders compute none.
+ * dictionary or regex name finder. Each instance serves exactly one entity type and keeps
+ * no adaptive state. Matches are deterministic, so a requested probability is exactly 1.
  */
 final class StatelessNerModel implements NerModel {
 
@@ -120,10 +120,14 @@ final class StatelessNerModel implements NerModel {
     final Span[] spans = nameFinder.find(NerSpans.tokenTexts(sentence));
     final List<NamedEntity> entities = new ArrayList<>(spans.length);
     for (Span span : spans) {
-      entities.add(NamedEntity.newBuilder()
+      final NamedEntity.Builder entity = NamedEntity.newBuilder()
           .setAnnotationSpan(NerSpans.tokenSpanToDocumentSpan(sentence, span))
-          .setEntityType(NerSpans.resolveEntityType(entityType, span))
-          .build());
+          .setEntityType(NerSpans.resolveEntityType(entityType, span));
+      if (includeProbabilities) {
+        // A dictionary or regex match either holds exactly or not at all.
+        entity.setProbability(1.0);
+      }
+      entities.add(entity.build());
     }
     return entities;
   }

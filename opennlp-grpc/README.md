@@ -830,7 +830,9 @@ model.name_finder_regex.invoice.path=/srv/opennlp/patterns/invoice.regex
 
 Dictionary, regex, classic, and ONNX recognizers share the entity-type namespace and the
 `opennlp:entities` layer; the same type served by several engines participates in priority and
-`EnginePolicy` routing under the open engine ids `dictionary` and `regex`.
+`EnginePolicy` routing under the open engine ids `dictionary` and `regex`. Every file-backed
+namespace accepts a `.priority` key beside `.path` for that routing, and because a dictionary or
+regex match is deterministic, it reports probability 1 when the request asks for probabilities.
 
 Request NER by adding `PIPELINE_STEP_NER` to the analysis profile (or use the
 built-in `en-ner` profile / `en-ner` bundle when models are configured). Optionally
