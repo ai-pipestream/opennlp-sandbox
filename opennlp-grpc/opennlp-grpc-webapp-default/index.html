@@ -286,8 +286,9 @@
                 <div id="layer-list" aria-label="Annotation layers" class="layer-list"></div>
               </div>
               <div class="annotation-canvas">
-                <p class="canvas-hint">All layers are overlaid by default. Click text to inspect every annotation
-                  covering it, or choose one layer to isolate that projection.</p>
+                <p class="canvas-hint">Entities and sentences are highlighted by default. Click text to inspect
+                  every annotation covering it, choose All annotations to overlay every layer, or choose one
+                  layer to isolate that projection.</p>
                 <div id="document-window-controls" class="document-window-controls" hidden>
                   <label id="document-window-label" for="document-window-position">
                     Complete document
@@ -503,11 +504,11 @@
               </div>
 
               <dl id="search-analytics" aria-label="Selected document analytics" class="search-analytics">
-                <div><dt>Sentences</dt><dd id="search-sentence-count">0</dd></div>
-                <div><dt>Tokens</dt><dd id="search-token-count">0</dd></div>
-                <div><dt>Entities</dt><dd id="search-entity-count">0</dd></div>
-                <div><dt>Chunks</dt><dd id="search-chunk-count">0</dd></div>
-                <div><dt>Terms</dt><dd id="search-term-count">0</dd></div>
+                <div><dt>Sentences</dt><dd id="search-sentence-count">…</dd></div>
+                <div><dt>Tokens</dt><dd id="search-token-count">…</dd></div>
+                <div><dt>Entities</dt><dd id="search-entity-count">…</dd></div>
+                <div><dt>Chunks</dt><dd id="search-chunk-count">…</dd></div>
+                <div><dt>Terms</dt><dd id="search-term-count">…</dd></div>
               </dl>
 
               <div class="source-evidence">
@@ -521,7 +522,7 @@
               </div>
 
               <div class="chunk-comparison" aria-label="Original and indexed chunk comparison">
-                <article>
+                <article id="search-original-panel">
                   <span>Original source span</span>
                   <pre id="search-original-span">No selection</pre>
                 </article>

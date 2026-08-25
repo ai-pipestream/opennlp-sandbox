@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SearchIndex } from "../src/search-adapter";
+import type { SearchHit, SearchIndex } from "../src/search-adapter";
 import { ServerSearchWorkbench } from "../src/server-search-workbench";
 
 const html = readFileSync(join(import.meta.dirname, "..", "index.html"), "utf8");
@@ -55,6 +55,94 @@ async function mountWorkbench(): Promise<ServerSearchWorkbench> {
   await workbench.initialize();
   return workbench;
 }
+
+function testHit(overrides: Partial<SearchHit> = {}): SearchHit {
+  return {
+    id: "hit-1",
+    documentId: "alice-1",
+    chunkId: "chunk-1",
+    chunkGroupId: "group-1",
+    score: 0.9,
+    sourceDocument: {},
+    sourceText: "Alice went home.",
+    start: 0,
+    end: 5,
+    offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+    indexedChunkText: "Alice",
+    modelId: "static-model-test",
+    backendId: "static",
+    vectorSpaceId: "space-test",
+    providerId: "turbo-quant",
+    indexId: "workspace-test",
+    corpusTitle: "Test corpus",
+    provenance: "Built by the workbench test",
+    build: {},
+    matchedSpans: [],
+    ...overrides,
+  };
+}
+
+/** Mounts the workbench, runs one query returning the hit, and waits for its selection. */
+async function searchOneHit(
+  hit: SearchHit,
+  analyzeSource: () => Promise<never>,
+): Promise<void> {
+  document.body.innerHTML = html.replace(/^[\s\S]*<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "");
+  const workbench = new ServerSearchWorkbench({
+    listIndexes: () => Promise.resolve([testIndex()]),
+    search: () => Promise.resolve({ hits: [hit], truncated: false }),
+    analyzeSource,
+  });
+  await workbench.initialize();
+  const query = document.getElementById("server-search-query") as HTMLInputElement;
+  query.value = "alice";
+  query.dispatchEvent(new Event("input", { bubbles: true }));
+  document.getElementById("server-search-form")
+    ?.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+  await vi.waitFor(() => {
+    expect(document.getElementById("search-original-span")?.textContent).not.toBe("No selection");
+  });
+}
+
+describe("server search hit inspection", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("shows the chunk once when it exactly matches the original span", async () => {
+    await searchOneHit(testHit(), () => new Promise<never>(() => undefined));
+
+    const panel = document.getElementById("search-original-panel") as HTMLElement;
+    expect(panel.hidden).toBe(true);
+    expect(document.querySelector(".chunk-comparison")?.classList.contains("is-single")).toBe(true);
+    expect(document.getElementById("chunk-comparison-status")?.textContent)
+      .toContain("shown once");
+    // Analysis has not returned yet, so the counters stay pending.
+    expect(document.getElementById("search-entity-count")?.textContent).toBe("…");
+  });
+
+  it("shows both copies when the indexed chunk differs from the source span", async () => {
+    await searchOneHit(testHit({ indexedChunkText: "alice" }),
+      () => new Promise<never>(() => undefined));
+
+    const panel = document.getElementById("search-original-panel") as HTMLElement;
+    expect(panel.hidden).toBe(false);
+    expect(document.querySelector(".chunk-comparison")?.classList.contains("is-single")).toBe(false);
+    expect(document.getElementById("chunk-comparison-status")?.textContent)
+      .toContain("differs");
+  });
+
+  it("marks the analytics counters unavailable when lazy analysis fails", async () => {
+    await searchOneHit(testHit(), () => Promise.reject(new Error("analysis backend down")));
+
+    await vi.waitFor(() => {
+      expect(document.getElementById("search-entity-count")?.textContent).toBe("n/a");
+    });
+    expect(document.getElementById("search-sentence-count")?.textContent).toBe("n/a");
+    expect(document.getElementById("search-hit-annotations")?.textContent)
+      .toContain("unavailable");
+  });
+});
 
 describe("server search workbench compound queries", () => {
   beforeEach(() => {

@@ -24,6 +24,7 @@ import {
   combinedAnnotationSegments,
   documentAnnotationChips,
   documentScopedAnnotations,
+  isDefaultOverlayLayer,
   layerAccent,
   readDocumentShape,
   summarizeDocumentShape,
@@ -294,6 +295,22 @@ describe("document shape reader", () => {
     // Non-category layers keep one chip per document-scoped annotation.
     expect(chips[1]).toMatchObject({ annotation: { label: "eng" }, totalCount: 1 });
     expect(chips[2]).toMatchObject({ annotation: { label: "deu" }, totalCount: 1 });
+  });
+
+  it("keeps only entity and sentence layers in the calm first-run overlay", () => {
+    const layer = (id: string, standardIdentity?: string) => ({
+      id,
+      title: id,
+      scope: "LAYER_SCOPE_POSITIONAL",
+      valueType: "String",
+      standardIdentity,
+      annotations: [],
+    });
+
+    expect(isDefaultOverlayLayer(layer("custom:names", "STANDARD_LAYER_ENTITIES"))).toBe(true);
+    expect(isDefaultOverlayLayer(layer("opennlp:sentences"))).toBe(true);
+    expect(isDefaultOverlayLayer(layer("opennlp:tokens", "STANDARD_LAYER_TOKENS"))).toBe(false);
+    expect(isDefaultOverlayLayer(layer("opennlp:pos-tags"))).toBe(false);
   });
 
   it("ranks annotation confidence as probability first, then score, then zero", () => {

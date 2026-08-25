@@ -71,6 +71,7 @@ import { ChunkProjectionView } from "./chunk-projection-view";
 import {
   combinedAnnotationSegments,
   documentAnnotationChips,
+  isDefaultOverlayLayer,
   layerAccent,
   readDocumentShape,
   summarizeDocumentShape,
@@ -182,6 +183,8 @@ let currentResponse: unknown;
 let currentShape: DocumentShapeView | undefined;
 let currentLayer: AnnotationLayerView | undefined;
 let currentCombinedSegments: CombinedAnnotationSegment[] = [];
+let currentHighlightSegments: CombinedAnnotationSegment[] = [];
+let currentOverlayKind: "all" | "highlights" = "all";
 
 const analysisControls = new AnalysisControls(updateFormState);
 const annotationDrawer = new AnnotationDrawer();
@@ -525,6 +528,7 @@ function renderDocumentShape(shape: DocumentShapeView): void {
   currentShape = shape;
   currentLayer = undefined;
   currentCombinedSegments = [];
+  currentHighlightSegments = [];
   layerList.replaceChildren();
   annotatedText.replaceChildren();
   annotationDrawer.reset();
@@ -547,13 +551,36 @@ function renderDocumentShape(shape: DocumentShapeView): void {
     return;
   }
 
+  // A calmer default view exists only when entities or sentences are a proper
+  // subset of the layers; otherwise Highlights and All would be the same view.
+  const highlightLayers = shape.layers.filter(isDefaultOverlayLayer);
+  const offerHighlights = highlightLayers.length > 0 && highlightLayers.length < shape.layers.length;
+  if (offerHighlights) {
+    const highlightsButton = document.createElement("button");
+    highlightsButton.type = "button";
+    highlightsButton.className = "layer-button";
+    highlightsButton.dataset.layerKind = "highlights";
+    highlightsButton.dataset.searchText = "highlights entities sentences";
+    highlightsButton.dataset.accent = "blue";
+    highlightsButton.setAttribute("aria-pressed", "false");
+    const highlightsName = document.createElement("span");
+    highlightsName.textContent = "Highlights";
+    const highlightsCount = document.createElement("small");
+    highlightsCount.textContent = String(highlightLayers
+      .reduce((total, layer) => total + layer.annotations.length, 0));
+    highlightsButton.append(highlightsName, highlightsCount);
+    highlightsButton.title = "Entities and sentences only; select All annotations for every layer";
+    highlightsButton.addEventListener("click", () => selectHighlightLayers(shape));
+    layerList.append(highlightsButton);
+  }
+
   const allButton = document.createElement("button");
   allButton.type = "button";
   allButton.className = "layer-button";
   allButton.dataset.layerKind = "all";
   allButton.dataset.searchText = "all annotations combined";
   allButton.dataset.accent = "blue";
-  allButton.setAttribute("aria-pressed", "true");
+  allButton.setAttribute("aria-pressed", "false");
   const allName = document.createElement("span");
   allName.textContent = "All annotations";
   const allCount = document.createElement("small");
@@ -581,7 +608,11 @@ function renderDocumentShape(shape: DocumentShapeView): void {
     button.addEventListener("click", () => selectLayer(shape, layer));
     layerList.append(button);
   }
-  selectAllLayers(shape);
+  if (offerHighlights) {
+    selectHighlightLayers(shape);
+  } else {
+    selectAllLayers(shape);
+  }
 }
 
 function selectLayer(shape: DocumentShapeView, layer: AnnotationLayerView): void {
@@ -635,13 +666,39 @@ function selectLayer(shape: DocumentShapeView, layer: AnnotationLayerView): void
 }
 
 function selectAllLayers(shape: DocumentShapeView): void {
+  if (currentCombinedSegments.length === 0) {
+    currentCombinedSegments = combinedAnnotationSegments(shape);
+  }
+  renderCombinedOverlay(shape, "all", currentCombinedSegments,
+    "All typed annotations over document text");
+}
+
+/** Renders the calm default overlay: entity and sentence layers only. */
+function selectHighlightLayers(shape: DocumentShapeView): void {
+  if (currentHighlightSegments.length === 0) {
+    currentHighlightSegments = combinedAnnotationSegments({
+      ...shape,
+      layers: shape.layers.filter(isDefaultOverlayLayer),
+    });
+  }
+  renderCombinedOverlay(shape, "highlights", currentHighlightSegments,
+    "Entity and sentence annotations over document text");
+}
+
+function renderCombinedOverlay(
+  shape: DocumentShapeView,
+  kind: "all" | "highlights",
+  segments: CombinedAnnotationSegment[],
+  ariaLabel: string,
+): void {
   currentLayer = undefined;
+  currentOverlayKind = kind;
   for (const button of layerList.querySelectorAll<HTMLButtonElement>(".layer-button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.layerKind === "all"));
+    button.setAttribute("aria-pressed", String(button.dataset.layerKind === kind));
   }
   annotatedText.replaceChildren();
   annotatedText.dataset.accent = "blue";
-  annotatedText.setAttribute("aria-label", "All typed annotations over document text");
+  annotatedText.setAttribute("aria-label", ariaLabel);
 
   const documentEntries = documentAnnotationChips(shape)
     .filter((entry) => !isTermVectorLayer(entry.layer));
@@ -679,12 +736,9 @@ function selectAllLayers(shape: DocumentShapeView): void {
     annotatedText.append(scoped);
   }
 
-  if (currentCombinedSegments.length === 0) {
-    currentCombinedSegments = combinedAnnotationSegments(shape);
-  }
   const view = currentDocumentWindow(shape.rawText.length);
   let cursor = view.start;
-  for (const segment of currentCombinedSegments) {
+  for (const segment of segments) {
     if (segment.end <= view.start || segment.start >= view.end) {
       continue;
     }
@@ -769,6 +823,8 @@ function renderCurrentDocumentWindow(): void {
   annotatedText.scrollTop = 0;
   if (currentLayer) {
     selectLayer(currentShape, currentLayer);
+  } else if (currentOverlayKind === "highlights") {
+    selectHighlightLayers(currentShape);
   } else {
     selectAllLayers(currentShape);
   }
@@ -798,6 +854,8 @@ function filterLayerButtons(): void {
     const next = buttons.find((button) => !button.hidden);
     if (next?.dataset.layerKind === "all") {
       selectAllLayers(currentShape);
+    } else if (next?.dataset.layerKind === "highlights") {
+      selectHighlightLayers(currentShape);
     } else {
       const layer = currentShape.layers.find((candidate) => candidate.id === next?.dataset.layerId);
       if (layer) {

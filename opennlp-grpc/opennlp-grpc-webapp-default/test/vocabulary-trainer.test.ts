@@ -261,6 +261,26 @@ describe("trainer workbench", () => {
     expect(onModelsChanged).toHaveBeenLastCalledWith([MODEL]);
   });
 
+  it("disables the TSV export with a reason until a vocabulary is selected", async () => {
+    const trainer = new VocabularyTrainerWorkbench(stubApi(), {
+      onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn(),
+    });
+    await trainer.initialize();
+    const button = document.getElementById("trainer-download-tsv-button") as HTMLButtonElement;
+
+    expect(button.disabled).toBe(true);
+    expect(button.title).toContain("vocabulary");
+
+    const vocabularySelect =
+      document.getElementById("trainer-vocabulary-select") as HTMLSelectElement;
+    vocabularySelect.add(new Option("Legal vocabulary", "vocabulary-1"));
+    vocabularySelect.value = "vocabulary-1";
+    vocabularySelect.dispatchEvent(new Event("change"));
+
+    expect(button.disabled).toBe(false);
+    expect(button.title).toBe("");
+  });
+
   it("surfaces training failures in the status line", async () => {
     const api = stubApi({
       trainStaticModel: vi.fn(async () => {

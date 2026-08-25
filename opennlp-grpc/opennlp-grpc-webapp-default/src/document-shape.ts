@@ -216,6 +216,15 @@ export function annotationConfidence(annotation: AnnotationView): number {
   return annotation.probability ?? annotation.score ?? 0;
 }
 
+/**
+ * Decides whether a layer belongs to the calm first-run overlay: entities and
+ * sentences only, so a fresh analysis does not open with every token boxed.
+ */
+export function isDefaultOverlayLayer(layer: AnnotationLayerView): boolean {
+  const identity = asciiLowerCase(`${layer.id} ${layer.standardIdentity ?? ""}`);
+  return identity.includes("entit") || identity.includes("sentence");
+}
+
 export function layerAccent(layer: AnnotationLayerView): LayerAccent {
   const identity = asciiLowerCase(`${layer.id} ${layer.standardIdentity ?? ""}`);
   if (identity.includes("entit") || identity.includes("geo")) {

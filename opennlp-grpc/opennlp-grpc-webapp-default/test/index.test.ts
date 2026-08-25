@@ -120,6 +120,16 @@ describe("analysis playground markup", () => {
     expect(html).toContain('STANDARD_SEARCH_PROVIDER_TURBO_QUANT');
   });
 
+  it("holds inspector placeholders until an analyzed document is selected", () => {
+    // Counts render as ellipses so zeros are never mistaken for analysis data.
+    expect(html).toContain('<div><dt>Sentences</dt><dd id="search-sentence-count">…</dd></div>');
+    expect(html).toContain('<dd id="search-token-count">…</dd>');
+    expect(html).toContain('<dd id="search-entity-count">…</dd>');
+    expect(html).toContain('<dd id="search-chunk-count">…</dd>');
+    expect(html).toContain('<dd id="search-term-count">…</dd>');
+    expect(html).toContain('id="search-original-panel"');
+  });
+
   it("scopes the hero to the Analyze panel and bridges the two search tabs", () => {
     // The hero and the analyzer callout live inside the Analyze tab panel, so
     // other tabs render under their own headings.

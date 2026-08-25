@@ -126,6 +126,7 @@ export class VocabularyTrainerWorkbench {
     this.#learnButton.addEventListener("click", () => void this.learnVocabulary());
     this.#downloadTsvButton.addEventListener("click", () => void this.downloadTsv());
     this.#trainButton.addEventListener("click", () => void this.train());
+    this.#vocabularySelect.addEventListener("change", () => this.updateControls());
     this.#corpus.addEventListener("input", () => this.renderCorpusStats());
     this.renderCorpusStats();
   }
@@ -344,7 +345,11 @@ export class VocabularyTrainerWorkbench {
     const enabled = this.#writesEnabled && !this.#busy;
     this.#importButton.disabled = !enabled;
     this.#learnButton.disabled = !enabled;
-    this.#downloadTsvButton.disabled = !enabled;
+    const vocabularySelected = this.#vocabularySelect.value !== "";
+    this.#downloadTsvButton.disabled = !enabled || !vocabularySelected;
+    this.#downloadTsvButton.title = vocabularySelected
+      ? ""
+      : "Learn and select a vocabulary first; the TSV export needs one.";
     this.#trainButton.disabled = !enabled;
   }
 

@@ -70,6 +70,7 @@ export class ServerSearchWorkbench {
   readonly #results = requiredElement<HTMLElement>("server-search-results");
   readonly #resultCount = requiredElement<HTMLElement>("server-result-count");
   readonly #sourceText = requiredElement<HTMLElement>("search-source-text");
+  readonly #originalPanel = requiredElement<HTMLElement>("search-original-panel");
   readonly #originalSpan = requiredElement<HTMLElement>("search-original-span");
   readonly #indexedChunk = requiredElement<HTMLElement>("search-indexed-chunk");
   readonly #comparisonStatus = requiredElement<HTMLElement>("chunk-comparison-status");
@@ -414,9 +415,18 @@ export class ServerSearchWorkbench {
       }
     } catch {
       if (generation === this.#selectionGeneration && this.#selection.selectedId === hit.id) {
-        this.#annotations.replaceChildren(emptyMessage("Typed annotation analysis is unavailable for this source."));
+        this.renderAnalysisUnavailable();
       }
     }
+  }
+
+  /** Marks the analytics counters unavailable so a stalled ellipsis never suggests loading. */
+  private renderAnalysisUnavailable(): void {
+    for (const element of Object.values(this.#analytics)) {
+      element.textContent = "n/a";
+    }
+    this.#annotations.replaceChildren(
+      emptyMessage("Typed annotation analysis is unavailable for this source."));
   }
 
   private renderHit(hit: SearchHit): void {
@@ -436,10 +446,13 @@ export class ServerSearchWorkbench {
       document.createTextNode(highlight.after));
 
     const comparison = compareChunkText(highlight.selected, hit.indexedChunkText);
+    // A byte-identical chunk collapses to one panel; the note explains the missing copy.
+    this.#originalPanel.hidden = comparison.exact;
+    this.#originalPanel.parentElement?.classList.toggle("is-single", comparison.exact);
     this.#originalSpan.textContent = comparison.original;
     this.renderIndexedChunk(hit);
     this.#comparisonStatus.textContent = comparison.exact
-      ? "The indexed chunk exactly matches the original source span."
+      ? "The indexed chunk exactly matches the original source span, so it is shown once."
       : "The indexed chunk differs from the original span, usually because normalization was "
         + "applied before indexing.";
     this.#comparisonStatus.classList.toggle("is-different", !comparison.exact);
