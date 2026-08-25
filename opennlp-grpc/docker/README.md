@@ -77,6 +77,47 @@ mvn package -DskipTests   # or a full build; the script only needs the jars
 bash docker/test-image.sh
 ```
 
+## NVIDIA GPU flavor (ONNX Runtime CUDA)
+
+`docker/Dockerfile.gpu` builds the same stack on the `nvidia/cuda` cuDNN
+runtime base so embedding models run on the ONNX Runtime CUDA execution
+provider. It needs jars built with the `gpu` Maven flavor, which replaces the
+`onnxruntime` jar inside the shaded server jar with `onnxruntime_gpu`, and the
+[NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/)
+on the host. The image is `linux/amd64` only; CUDA 12 and cuDNN 9 come from
+the base image and the host provides only the driver.
+
+```bash
+mvn clean install -Dgpu                                   # from opennlp-grpc/
+export OPENNLP_GPU_MODELS=/path/to/models   # holds minilm/model.onnx + vocab.txt
+cd docker
+docker compose -f docker-compose.gpu.yml up --build
+```
+
+`config/server.properties.gpu` registers the mounted model on the `cuda`
+backend through `model.embedder.<id>.cuda.path`; every CPU feature of the
+default image keeps working unchanged. GPU access needs no extra Linux
+capabilities, so the hardened flags stay identical.
+
+## OpenVINO flavor (remote OpenVINO Model Server)
+
+`docker-compose.openvino.yml` pairs the standard CPU image with an
+[OpenVINO Model Server](https://docs.openvino.ai/2026/model-server/ovms_what_is_openvino_model_server.html)
+container that serves a fused text-to-vector graph over the KServe v2 gRPC
+API; see [the backend README](../opennlp-grpc-backend-openvino/README.md).
+Export the model once, then start the pair:
+
+```bash
+cd ../opennlp-grpc-integration-tests
+./scripts/ovms-server.sh prepare --model sentence-transformers/all-MiniLM-L6-v2
+cd ../opennlp-grpc/docker
+docker compose -f docker-compose.openvino.yml up --build
+```
+
+The inference API stays on the internal compose network. OVMS runs on CPU
+everywhere; on Intel GPU hosts map `/dev/dri` into the `ovms` service and add
+`--target_device GPU` (there is no CUDA variant of OVMS).
+
 ## Configuration and state
 
 `/srv/opennlp` is a volume for server-owned state (model catalog downloads,

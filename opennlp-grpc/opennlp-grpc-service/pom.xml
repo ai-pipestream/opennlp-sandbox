@@ -31,8 +31,9 @@
     <name>Apache OpenNLP gRPC Server</name>
 
     <properties>
-        <!-- Must match the onnxruntime version managed by opennlp-dl ${opennlp.version}. -->
-        <onnxruntime.version>1.25.0</onnxruntime.version>
+        <!-- Must match the onnxruntime version managed by opennlp-dl and
+             opennlp-embeddings in ${opennlp.version}, which exclude it here. -->
+        <onnxruntime.version>1.29.0</onnxruntime.version>
     </properties>
 
     <dependencies>
@@ -60,11 +61,18 @@
             <groupId>org.apache.opennlp</groupId>
             <artifactId>opennlp-model-resolver</artifactId>
         </dependency>
-        <!-- Immutable vector indexes and the normalized legal-passage interchange contract. -->
+        <!-- Immutable vector indexes and the normalized legal-passage interchange contract.
+             The onnxruntime jar is excluded for the same reason as on opennlp-dl below. -->
         <dependency>
             <groupId>org.apache.opennlp</groupId>
             <artifactId>opennlp-embeddings</artifactId>
             <version>${opennlp.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.microsoft.onnxruntime</groupId>
+                    <artifactId>onnxruntime</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- SentencePiece subword tokenization for PIPELINE_STEP_SUBWORD_TOKENIZE. -->
         <dependency>

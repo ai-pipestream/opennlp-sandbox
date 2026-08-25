@@ -28,6 +28,7 @@ import java.util.Set;
 
 import ai.onnxruntime.NodeInfo;
 import ai.onnxruntime.OnnxTensor;
+import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import ai.onnxruntime.TensorInfo;
@@ -124,9 +125,17 @@ final class OnnxSentenceEmbedder extends AbstractDL {
     }
   }
 
-  /** Builds session options, registering the CUDA provider when GPU inference is requested. */
+  /**
+   * Builds session options, registering the CUDA provider when GPU inference is requested.
+   *
+   * @throws OrtException If the CUDA execution provider cannot be registered.
+   */
   private static OrtSession.SessionOptions sessionOptions(boolean useCuda, int gpuDeviceId)
       throws OrtException {
+    // Registering an execution provider requires the ONNX Runtime environment
+    // (and its default logger) to exist; the singleton is created eagerly here
+    // because the shared session that normally creates it is built afterwards.
+    OrtEnvironment.getEnvironment();
     final OrtSession.SessionOptions sessionOptions = new OrtSession.SessionOptions();
     if (useCuda) {
       sessionOptions.addCUDA(gpuDeviceId);
