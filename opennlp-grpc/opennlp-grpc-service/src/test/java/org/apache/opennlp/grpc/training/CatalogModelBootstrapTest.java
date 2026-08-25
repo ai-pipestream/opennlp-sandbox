@@ -104,16 +104,16 @@ class CatalogModelBootstrapTest {
   }
 
   @Test
-  void addsVerifiedClassicPipelinePathsForAnInstalledLanguagePack() throws Exception {
+  void addsVerifiedLanguagePipelinePathsForAnInstalledLanguagePack() throws Exception {
     final Path root = temporaryDirectory.resolve("ud-catalog");
     final CatalogModel sentence = model(modelSource("de-sentence"), "de-sentence",
-        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR);
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR, "de");
     final CatalogModel tokenizer = model(modelSource("de-tokenizer"), "de-tokenizer",
-        ModelArtifactRole.MODEL_ARTIFACT_ROLE_TOKENIZER);
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_TOKENIZER, "de");
     final CatalogModel pos = model(modelSource("de-pos"), "de-pos",
-        ModelArtifactRole.MODEL_ARTIFACT_ROLE_POS_TAGGER);
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_POS_TAGGER, "de");
     final CatalogModel lemmatizer = model(modelSource("de-lemmatizer"), "de-lemmatizer",
-        ModelArtifactRole.MODEL_ARTIFACT_ROLE_LEMMATIZER);
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_LEMMATIZER, "de");
     final List<CatalogModel> catalog = List.of(sentence, tokenizer, pos, lemmatizer);
     for (CatalogModel model : catalog) {
       install(root, catalog, model);
@@ -122,22 +122,46 @@ class CatalogModelBootstrapTest {
     final Map<String, String> prepared = CatalogModelBootstrap.prepare(
         Map.of(CatalogModelStore.CATALOG_ROOT_KEY, root.toString()), catalog);
 
-    assertEquals(installedPath(root, sentence), prepared.get("model.sentence_detector.path"));
-    assertEquals(installedPath(root, tokenizer), prepared.get("model.tokenizer.path"));
-    assertEquals(installedPath(root, pos), prepared.get("model.pos_tagger.path"));
-    assertEquals(installedPath(root, lemmatizer), prepared.get("model.lemmatizer.path"));
+    assertEquals(installedPath(root, sentence),
+        prepared.get("model.pipeline.de.sentence_detector.path"));
+    assertEquals(installedPath(root, tokenizer),
+        prepared.get("model.pipeline.de.tokenizer.path"));
+    assertEquals(installedPath(root, pos),
+        prepared.get("model.pipeline.de.pos_tagger.path"));
+    assertEquals(installedPath(root, lemmatizer),
+        prepared.get("model.pipeline.de.lemmatizer.path"));
   }
 
   @Test
-  void refusesASecondModelForOneClassicPipelineSlot() throws Exception {
-    final Path root = temporaryDirectory.resolve("slot-collision-catalog");
+  void installedLanguagePacksCoexistAcrossLanguages() throws Exception {
+    final Path root = temporaryDirectory.resolve("multi-language-catalog");
     final CatalogModel german = model(modelSource("de-sentence"), "de-sentence",
-        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR);
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR, "de");
     final CatalogModel french = model(modelSource("fr-sentence"), "fr-sentence",
-        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR);
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR, "fr");
     final List<CatalogModel> catalog = List.of(german, french);
     install(root, catalog, german);
     install(root, catalog, french);
+
+    final Map<String, String> prepared = CatalogModelBootstrap.prepare(
+        Map.of(CatalogModelStore.CATALOG_ROOT_KEY, root.toString()), catalog);
+
+    assertEquals(installedPath(root, german),
+        prepared.get("model.pipeline.de.sentence_detector.path"));
+    assertEquals(installedPath(root, french),
+        prepared.get("model.pipeline.fr.sentence_detector.path"));
+  }
+
+  @Test
+  void refusesASecondModelForOneLanguagePipelineSlot() throws Exception {
+    final Path root = temporaryDirectory.resolve("slot-collision-catalog");
+    final CatalogModel first = model(modelSource("de-sentence"), "de-sentence",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR, "de");
+    final CatalogModel second = model(modelSource("de-sentence-2"), "de-sentence-2",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR, "de");
+    final List<CatalogModel> catalog = List.of(first, second);
+    install(root, catalog, first);
+    install(root, catalog, second);
 
     final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
         () -> CatalogModelBootstrap.prepare(
@@ -188,6 +212,11 @@ class CatalogModelBootstrapTest {
 
   private static CatalogModel model(
       Path source, String modelId, ModelArtifactRole role) throws IOException {
+    return model(source, modelId, role, "en");
+  }
+
+  private static CatalogModel model(
+      Path source, String modelId, ModelArtifactRole role, String language) throws IOException {
     final Path modelFile = source.resolve("model.bin");
     final ArtifactDigests.SizedDigest digest;
     try (InputStream input = Files.newInputStream(modelFile)) {
@@ -205,7 +234,7 @@ class CatalogModelBootstrapTest {
         .setLicenseName("Test-License")
         .setLicenseUri("https://example.invalid/license")
         .setByteSize(digest.size())
-        .addLanguages("en")
+        .addLanguages(language)
         .setDescription("Test model")
         .build(), List.of(file));
   }
