@@ -119,6 +119,17 @@ describe("analysis playground markup", () => {
     expect(html).toContain('workspace-provider-select');
     expect(html).toContain('STANDARD_SEARCH_PROVIDER_TURBO_QUANT');
   });
+
+  it("scopes the hero to the Analyze panel and bridges the two search tabs", () => {
+    // The hero and the analyzer callout live inside the Analyze tab panel, so
+    // other tabs render under their own headings.
+    const analysisPanel = html.slice(html.indexOf('id="analysis-workbench"'), html.indexOf('id="server-search"'));
+    expect(analysisPanel).toContain('id="playground-heading"');
+    expect(analysisPanel).toContain('How to use the analyzer');
+    expect(html).toContain('id="workspace-index-select"');
+    expect(html).toContain('data-workbench-jump="session-search"');
+    expect(html).toContain('data-workbench-jump="corpus-search"');
+  });
 });
 
 describe("large-document layout contract", () => {

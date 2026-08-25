@@ -22,11 +22,12 @@ import type {
   ChunkProjectionGroup,
   ChunkProjectionItem,
 } from "./chunk-projection";
-import type {
-  AnnotationEntry,
-  AnnotationLayerView,
-  AnnotationView,
-  DocumentShapeView,
+import {
+  annotationConfidence,
+  type AnnotationEntry,
+  type AnnotationLayerView,
+  type AnnotationView,
+  type DocumentShapeView,
 } from "./document-shape";
 import type { SearchHit } from "./search-adapter";
 import { annotationsIntersecting, hitAnnotations, sourceHighlight } from "./search-view-model";
@@ -134,6 +135,38 @@ export class AnnotationDrawer {
     trigger: HTMLElement,
   ): void {
     this.showAnnotations(text, start, end, annotationsIntersecting(shape, start, end), trigger);
+  }
+
+  /** Pops out one document-scoped category layer as its full ranked distribution. */
+  showCategoryDistribution(layer: AnnotationLayerView, trigger?: HTMLElement): void {
+    const ranked = [...layer.annotations]
+      .sort((left, right) => annotationConfidence(right) - annotationConfidence(left));
+    const title = document.createElement("strong");
+    title.textContent = layer.title;
+    const summary = document.createElement("p");
+    summary.textContent = `${ranked.length} category ${ranked.length === 1 ? "prediction" : "predictions"}, `
+      + "ranked by confidence. Select one for its typed annotation.";
+    const list = document.createElement("ol");
+    list.className = "term-vector-list";
+    for (const annotation of ranked) {
+      const item = document.createElement("li");
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "term-vector-row";
+      const label = document.createElement("span");
+      label.className = "term-vector-row-term";
+      label.textContent = annotation.label;
+      const value = document.createElement("span");
+      value.className = "term-vector-row-count";
+      const confidence = annotationConfidence(annotation);
+      value.textContent = confidence > 0 ? `${(confidence * 100).toFixed(1)}%` : "not reported";
+      row.append(label, value);
+      row.addEventListener("click", () => this.showAnnotation(layer, annotation, trigger));
+      item.append(row);
+      list.append(item);
+    }
+    this.#content.replaceChildren(title, summary, list);
+    this.open(trigger);
   }
 
   /** Pops out one term-vector layer as its full ranked term list. */

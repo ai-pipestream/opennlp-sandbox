@@ -20,7 +20,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  annotationConfidence,
   combinedAnnotationSegments,
+  documentAnnotationChips,
   documentScopedAnnotations,
   layerAccent,
   readDocumentShape,
@@ -253,4 +255,50 @@ describe("document shape reader", () => {
     expect(segments).toHaveLength(annotationCount);
     expect(performance.now() - started).toBeLessThan(1_000);
   }, 2_000);
+
+  it("collapses a document-scoped category layer to its most probable chip", () => {
+    const sentiment = {
+      id: "opennlp:sentiment",
+      title: "Sentiment",
+      scope: "LAYER_SCOPE_DOCUMENT",
+      valueType: "Category",
+      annotations: [
+        { label: "1 star", probability: 0.05, source: {} },
+        { label: "4 stars", probability: 0.62, source: {} },
+        { label: "5 stars", probability: 0.21, source: {} },
+        { label: "3 stars", probability: 0.08, source: {} },
+        { label: "2 stars", probability: 0.04, source: {} },
+      ],
+    };
+    const language = {
+      id: "opennlp:language",
+      title: "Language",
+      scope: "LAYER_SCOPE_DOCUMENT",
+      valueType: "String",
+      annotations: [
+        { label: "eng", source: {} },
+        { label: "deu", source: {} },
+      ],
+    };
+    const chips = documentAnnotationChips({
+      rawText: "Lovely.",
+      offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+      layers: [sentiment, language],
+    });
+
+    expect(chips).toHaveLength(3);
+    expect(chips[0]).toMatchObject({
+      annotation: { label: "4 stars" },
+      totalCount: 5,
+    });
+    // Non-category layers keep one chip per document-scoped annotation.
+    expect(chips[1]).toMatchObject({ annotation: { label: "eng" }, totalCount: 1 });
+    expect(chips[2]).toMatchObject({ annotation: { label: "deu" }, totalCount: 1 });
+  });
+
+  it("ranks annotation confidence as probability first, then score, then zero", () => {
+    expect(annotationConfidence({ label: "a", probability: 0.4, score: 0.9, source: {} })).toBe(0.4);
+    expect(annotationConfidence({ label: "a", score: 0.9, source: {} })).toBe(0.9);
+    expect(annotationConfidence({ label: "a", source: {} })).toBe(0);
+  });
 });

@@ -292,9 +292,9 @@ export class ServerSearchWorkbench {
       const body = document.createElement("span");
       body.className = "server-hit-body";
       const identity = document.createElement("strong");
-      identity.textContent = hit.chunkId;
+      identity.textContent = hit.documentId;
       const provenance = document.createElement("small");
-      provenance.textContent = `${hit.documentId} · ${hit.corpusTitle}`;
+      provenance.textContent = `chunk ${ellipsizeCodePoints(hit.chunkId, 24)} · ${hit.corpusTitle}`;
       const preview = document.createElement("span");
       preview.className = "server-hit-preview";
       preview.textContent = previewText(sourceHighlight(hit).selected || hit.indexedChunkText, 120);

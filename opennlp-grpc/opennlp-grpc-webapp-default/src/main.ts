@@ -70,7 +70,7 @@ import { AnnotationDrawer } from "./annotation-drawer";
 import { ChunkProjectionView } from "./chunk-projection-view";
 import {
   combinedAnnotationSegments,
-  documentScopedAnnotations,
+  documentAnnotationChips,
   layerAccent,
   readDocumentShape,
   summarizeDocumentShape,
@@ -203,7 +203,7 @@ const modelDataWorkbench = new ModelDataWorkbench({
 const chunkProjectionView = new ChunkProjectionView((group, chunk, trigger) => {
   annotationDrawer.showChunk(group, chunk, trigger);
 });
-new WorkbenchNavigation();
+const workbenchNavigation = new WorkbenchNavigation();
 
 const vocabularyTrainer = new VocabularyTrainerWorkbench({
   listDictionaryFormats: async () => readDictionaryFormats(await getDictionaryFormats()),
@@ -226,6 +226,13 @@ const vocabularyTrainer = new VocabularyTrainerWorkbench({
     }
     publishRuntimeEmbeddingModels();
   },
+  onUseInAnalyze: (model) => {
+    const selected = analysisControls.selectEmbeddingModel(model.artifactId);
+    workbenchNavigation.show("analysis");
+    setFormStatus(selected
+      ? `'${model.displayName}' is selected as the embedding model. Analyze text to use it.`
+      : `'${model.displayName}' is not offered as an embedding model on this server.`, !selected);
+  },
 });
 void vocabularyTrainer.initialize();
 void modelDataWorkbench.initialize();
@@ -236,6 +243,7 @@ function publishRuntimeEmbeddingModels(): void {
 }
 
 const semanticWorkbench = new SemanticWorkbench({
+  listIndexes: async () => readSearchIndexes(await getSearchIndexes()),
   index: async (request) => {
     const response = await indexDocuments(request) as Record<string, unknown>;
     const index = readSearchIndexes({ indexes: response.index ? [response.index] : [] })[0];
@@ -350,6 +358,9 @@ async function initialize(): Promise<void> {
   serviceAvailable = true;
   setServiceState("ready", "Connected");
   void serverSearchWorkbench.initialize();
+  void semanticWorkbench.initializeWorkspaces().catch(() => {
+    // The picker keeps its "new workspace" default when discovery is unavailable.
+  });
   const [infoResult, bundlesResult] = await Promise.allSettled([getServiceInfo(), getModelBundles()]);
   const serviceInfo = infoResult.status === "fulfilled" ? infoResult.value : undefined;
   const bundlesInfo = bundlesResult.status === "fulfilled" ? bundlesResult.value : undefined;
@@ -632,7 +643,7 @@ function selectAllLayers(shape: DocumentShapeView): void {
   annotatedText.dataset.accent = "blue";
   annotatedText.setAttribute("aria-label", "All typed annotations over document text");
 
-  const documentEntries = documentScopedAnnotations(shape)
+  const documentEntries = documentAnnotationChips(shape)
     .filter((entry) => !isTermVectorLayer(entry.layer));
   const termVectorLayers = shape.layers
     .filter((layer) => isTermVectorLayer(layer) && layer.annotations.length > 0);
@@ -648,7 +659,16 @@ function selectAllLayers(shape: DocumentShapeView): void {
       chip.className = "document-annotation-chip";
       chip.dataset.accent = layerAccent(entry.layer);
       chip.textContent = `${entry.layer.title}: ${entry.annotation.label}`;
-      chip.addEventListener("click", () => annotationDrawer.showAnnotation(entry.layer, entry.annotation, chip));
+      if (entry.totalCount > 1) {
+        const distribution = document.createElement("small");
+        distribution.textContent = `top of ${entry.totalCount}`;
+        chip.append(" ", distribution);
+        chip.addEventListener("click",
+          () => annotationDrawer.showCategoryDistribution(entry.layer, chip));
+      } else {
+        chip.addEventListener("click",
+          () => annotationDrawer.showAnnotation(entry.layer, entry.annotation, chip));
+      }
       chips.append(chip);
     }
     scoped.append(heading, chips);

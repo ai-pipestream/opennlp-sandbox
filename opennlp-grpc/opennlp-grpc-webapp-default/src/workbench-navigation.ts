@@ -19,7 +19,7 @@
 
 import { requiredElement } from "./ui-utils";
 
-type WorkbenchName =
+export type WorkbenchName =
   | "analysis" | "corpus-search" | "session-search" | "models" | "trainer" | "lifecycle";
 
 export class WorkbenchNavigation {
@@ -36,6 +36,14 @@ export class WorkbenchNavigation {
       tab.addEventListener("click", () => this.select(workbenchName(tab.dataset.workbenchTab)));
       tab.addEventListener("keydown", (event) => this.navigate(event));
     }
+    for (const jump of document.querySelectorAll<HTMLElement>("[data-workbench-jump]")) {
+      jump.addEventListener("click", () => this.show(workbenchName(jump.dataset.workbenchJump)));
+    }
+  }
+
+  /** Switches to the named workbench, exactly as selecting its tab would. */
+  show(name: WorkbenchName): void {
+    this.select(name);
   }
 
   private select(name: WorkbenchName): void {

@@ -59,43 +59,7 @@
     </header>
 
     <main>
-      <section id="playground" class="playground" aria-labelledby="playground-heading">
-        <div class="workbench-heading">
-          <div>
-            <p class="section-kicker">Apache OpenNLP gRPC</p>
-            <h1 id="playground-heading">Document analysis workbench</h1>
-            <p id="service-description">
-              Connecting to the service and discovering the analysis features available on this instance.
-            </p>
-          </div>
-          <dl class="service-facts">
-            <div><dt>Service</dt><dd id="service-name">Discovering</dd></div>
-            <div><dt>Profiles</dt><dd id="profile-count">...</dd></div>
-            <div><dt>Bundles</dt><dd id="model-count">...</dd></div>
-            <div><dt>Languages</dt><dd id="pipeline-language-count">...</dd></div>
-          </dl>
-        </div>
-
-        <details class="help-callout">
-          <summary>How to use this workbench</summary>
-          <ol>
-            <li>Paste a document (or press <strong>Load Alice novel</strong>), pick a feature preset,
-              and choose an embedding model if you want vectors attached to the output.</li>
-            <li>Press <strong>Analyze text</strong>. The complete typed response renders as the
-              Document, Chunks, Heatmap, Graph, and Protobuf JSON projections; select any
-              annotation to inspect its exact span and payload.</li>
-            <li>Press <strong>Add to server workspace</strong> to index the analyzed document, then
-              query it from the Workspace search tab.</li>
-          </ol>
-          <p class="help-code">
-            From code this is one <code>AnalyzeDocument</code> gRPC call, or
-            <code>POST /api/v1/analyze</code> on this gateway; Copy JSON and Download .pb export
-            exactly what your client receives. Runnable Python, Node.js, Java, and Go quickstarts
-            live in the repository's <code>examples/</code> directory, and any other gRPC language
-            generates a client straight from the <code>opennlp-grpc-api</code> protos.
-          </p>
-        </details>
-
+      <section id="playground" class="playground" aria-label="OpenNLP workbench">
         <nav id="tool-navigation" class="tool-nav extension-switcher" aria-label="OpenNLP tools" hidden>
           <a href="/" class="is-active" aria-current="page">
             <span class="tool-icon" aria-hidden="true">AO</span>
@@ -108,6 +72,42 @@
 
         <div id="analysis-workbench" class="workspace workspace-wide" role="tabpanel"
           aria-labelledby="analysis-workbench-tab">
+          <div class="workbench-heading">
+            <div>
+              <p class="section-kicker">Apache OpenNLP gRPC</p>
+              <h1 id="playground-heading">Document analysis workbench</h1>
+              <p id="service-description">
+                Connecting to the service and discovering the analysis features available on this instance.
+              </p>
+            </div>
+            <dl class="service-facts">
+              <div><dt>Service</dt><dd id="service-name">Discovering</dd></div>
+              <div><dt>Profiles</dt><dd id="profile-count">...</dd></div>
+              <div><dt>Bundles</dt><dd id="model-count">...</dd></div>
+              <div><dt>Languages</dt><dd id="pipeline-language-count">...</dd></div>
+            </dl>
+          </div>
+
+          <details class="help-callout">
+            <summary>How to use the analyzer</summary>
+            <ol>
+              <li>Paste a document (or press <strong>Load Alice novel</strong>), pick a feature preset,
+                and choose an embedding model if you want vectors attached to the output.</li>
+              <li>Press <strong>Analyze text</strong>. The complete typed response renders as the
+                Document, Chunks, Heatmap, Graph, and Protobuf JSON projections; select any
+                annotation to inspect its exact span and payload.</li>
+              <li>Press <strong>Add to server workspace</strong> to index the analyzed document, then
+                query it from the Workspace search tab.</li>
+            </ol>
+            <p class="help-code">
+              From code this is one <code>AnalyzeDocument</code> gRPC call, or
+              <code>POST /api/v1/analyze</code> on this gateway; Copy JSON and Download .pb export
+              exactly what your client receives. Runnable Python, Node.js, Java, and Go quickstarts
+              live in the repository's <code>examples/</code> directory, and any other gRPC language
+              generates a client straight from the <code>opennlp-grpc-api</code> protos.
+            </p>
+          </details>
+
           <form id="analysis-form" class="analysis-form analysis-composer">
             <div class="field text-field">
               <div class="label-row">
@@ -383,6 +383,10 @@
               <h3 id="server-search-heading">Explore an immutable index</h3>
               <p>Search a configured corpus, compare transformed chunks with their authoritative source spans,
                 and inspect the document evidence behind every score.</p>
+              <p class="tab-bridge">This tab searches read-only indexes an operator configured or persisted.
+                Documents you analyze and add yourself are searched on the
+                <button type="button" class="link-button" data-workbench-jump="session-search">Workspace
+                search</button> tab.</p>
             </div>
             <div id="score-legend" aria-label="Similarity score color scale from minus one to one"
               class="score-legend">
@@ -557,11 +561,19 @@
               stored exact (flat float) or quantized (TurboQuant). The browser renders server scores and
               never performs vector ranking.
             </p>
+            <p class="tab-bridge">This tab searches dynamic workspaces held in server memory.
+              Read-only corpus and persisted indexes are searched on the
+              <button type="button" class="link-button" data-workbench-jump="corpus-search">Corpus
+              search</button> tab.</p>
             <dl class="semantic-facts">
               <div><dt>Indexed chunks</dt><dd id="index-count">0</dd></div>
               <div><dt>Similarity</dt><dd>Cosine</dd></div>
               <div><dt>Storage</dt><dd>gRPC server memory</dd></div>
             </dl>
+            <label for="workspace-index-select">Workspace to search</label>
+            <select id="workspace-index-select">
+              <option value="">New workspace (created on first add)</option>
+            </select>
             <label for="workspace-provider-select">Vector storage for the next new index</label>
             <select id="workspace-provider-select">
               <option value="STANDARD_SEARCH_PROVIDER_FLAT_FLOAT">Flat float (exact)</option>

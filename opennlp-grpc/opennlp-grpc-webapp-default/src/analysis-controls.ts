@@ -110,6 +110,20 @@ export class AnalysisControls {
   }
 
   /**
+   * Selects the given embedding model when the selector offers it.
+   *
+   * @return whether the model is offered and now selected
+   */
+  selectEmbeddingModel(modelId: string): boolean {
+    if (!this.mergedEmbeddingModels().some((option) => option.id === modelId)) {
+      return false;
+    }
+    this.#embeddingModel.value = modelId;
+    this.renderFeatures();
+    return true;
+  }
+
+  /**
    * Combines the startup-configured embedding models with the runtime-trained
    * ones, so a later {@link AnalysisControls#configure} call cannot drop models
    * that arrived first through {@link AnalysisControls#setTrainedEmbeddingModels}.

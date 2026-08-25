@@ -134,4 +134,17 @@ describe("analysis controls profile selection", () => {
     expect(values).toContain("minilm");
     expect(values).toContain("static-model-1234");
   });
+
+  it("selects an offered embedding model programmatically and rejects unknown ids", () => {
+    const controls = new AnalysisControls(() => undefined);
+    controls.setTrainedEmbeddingModels([
+      { id: "static-model-1234", label: "Alice model2vec (trained)" },
+    ]);
+    const select = document.getElementById("embedding-model-select") as HTMLSelectElement;
+
+    expect(controls.selectEmbeddingModel("static-model-1234")).toBe(true);
+    expect(select.value).toBe("static-model-1234");
+    expect(controls.selectEmbeddingModel("static-model-missing")).toBe(false);
+    expect(select.value).toBe("static-model-1234");
+  });
 });

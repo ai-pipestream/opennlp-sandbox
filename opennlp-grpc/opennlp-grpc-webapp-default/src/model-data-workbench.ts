@@ -22,6 +22,7 @@ import {
   PIPELINE_ORDER,
   type AnalysisCapabilities,
 } from "./analysis-config";
+import { timestampLabel } from "./text-utils";
 import { errorMessage, requiredElement } from "./ui-utils";
 
 export type ModelArtifactRole =
@@ -56,6 +57,84 @@ export interface ModelInstallProgress {
   message: string;
   completedBytes: number;
   totalBytes: number;
+}
+
+/**
+ * The four classic-pipeline models of one language, offered under a single
+ * license review and installed with one action.
+ */
+export interface LanguagePack {
+  /** Shared serving model id, e.g. "de-ud-gsd"; also the pack's stable key. */
+  modelId: string;
+  /** The language code every member reports. */
+  language: string;
+  /** Members in pipeline order: sentence detector, tokenizer, POS tagger, lemmatizer. */
+  models: ModelCatalogSummary[];
+  licenseName: string;
+  licenseUri: string;
+  byteSize: number;
+}
+
+/** The roles a language pack must cover, in pipeline order. */
+const PACK_ROLES: readonly ModelArtifactRole[] =
+  ["sentence-detector", "tokenizer", "pos-tagger", "lemmatizer"];
+
+/**
+ * Groups catalog entries into language packs: the pipeline-role models sharing
+ * one serving model id, one language, and one license, with all four roles
+ * present. Every other entry stays a single card.
+ */
+export function groupCatalogPacks(models: ModelCatalogSummary[]): {
+  packs: LanguagePack[];
+  singles: ModelCatalogSummary[];
+} {
+  const candidates = new Map<string, ModelCatalogSummary[]>();
+  for (const model of models) {
+    if (PACK_ROLES.includes(model.role)) {
+      const members = candidates.get(model.modelId) ?? [];
+      members.push(model);
+      candidates.set(model.modelId, members);
+    }
+  }
+  const packs: LanguagePack[] = [];
+  const packedIds = new Set<string>();
+  for (const [modelId, members] of candidates) {
+    const ordered = PACK_ROLES.flatMap((role) =>
+      members.filter((member) => member.role === role));
+    const language = members[0]!.languages[0] ?? "";
+    const licenseName = members[0]!.licenseName;
+    const complete = ordered.length === PACK_ROLES.length
+      && PACK_ROLES.every((role) => members.some((member) => member.role === role))
+      && members.every((member) => member.licenseName === licenseName
+        && (member.languages[0] ?? "") === language);
+    if (!complete) {
+      continue;
+    }
+    packs.push({
+      modelId,
+      language,
+      models: ordered,
+      licenseName,
+      licenseUri: members[0]!.licenseUri,
+      byteSize: ordered.reduce((total, member) => total + member.byteSize, 0),
+    });
+    for (const member of ordered) {
+      packedIds.add(member.catalogId);
+    }
+  }
+  return { packs, singles: models.filter((model) => !packedIds.has(model.catalogId)) };
+}
+
+/** Returns the language's English display name, or the code when unknown. */
+export function languageDisplayName(code: string): string {
+  if (!code) {
+    return "Unknown language";
+  }
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
 
 export interface ModelCatalogApi {
@@ -134,8 +213,9 @@ export class ModelDataWorkbench {
         ? "Installed and active"
         : restartRole(model?.role) ? "Installed, restart required" : "Installed, not loaded";
       const facts = document.createElement("span");
+      const installedLabel = timestampLabel(installed.installedAt);
       facts.textContent = `${byteLabel(installed.byteSize)}`
-        + (installed.installedAt ? ` · installed ${installed.installedAt}` : "");
+        + (installedLabel ? ` · installed ${installedLabel}` : "");
       const hash = document.createElement("code");
       hash.textContent = installed.artifactHash || "Artifact hash unavailable";
       row.append(heading, state, facts, hash);
@@ -193,7 +273,11 @@ export class ModelDataWorkbench {
   ): void {
     this.#catalog.replaceChildren();
     const installed = new Map(installedModels.map((model) => [model.catalogId, model]));
-    for (const model of models) {
+    const { packs, singles } = groupCatalogPacks(models);
+    for (const pack of packs) {
+      this.#catalog.append(this.packCard(pack, installed, installsEnabled));
+    }
+    for (const model of singles) {
       const active = installed.get(model.catalogId);
       const card = document.createElement("article");
       card.className = "catalog-model-card";
@@ -263,6 +347,133 @@ export class ModelDataWorkbench {
       this.#catalog.textContent = "This build does not publish a standard model catalog.";
     } else if (!installsEnabled) {
       this.setStatus("Catalog browsing is available. Configure model.catalog_root to enable node downloads.");
+    }
+  }
+
+  /** Builds one language-pack card: four pipeline models, one license review, one install. */
+  private packCard(
+    pack: LanguagePack,
+    installed: Map<string, InstalledModelSummary>,
+    installsEnabled: boolean,
+  ): HTMLElement {
+    const languageLabel = languageDisplayName(pack.language);
+    const card = document.createElement("article");
+    card.className = "catalog-model-card catalog-pack-card";
+    card.dataset.packModelId = pack.modelId;
+
+    const header = document.createElement("header");
+    const title = document.createElement("h5");
+    title.textContent = `${languageLabel} language pack`;
+    const role = document.createElement("span");
+    role.className = "catalog-role is-pack";
+    role.textContent = "Classic pipeline";
+    header.append(title, role);
+
+    const description = document.createElement("p");
+    description.textContent = `The four '${pack.modelId}' models the classic pipeline needs for `
+      + `${languageLabel}: sentence detector, tokenizer, POS tagger, and lemmatizer. After a `
+      + "server restart, analysis routes to them automatically when it detects the language.";
+    const facts = document.createElement("p");
+    facts.className = "catalog-model-facts";
+    facts.textContent = `${byteLabel(pack.byteSize)} total · ${pack.licenseName} · ${pack.language}`;
+
+    const members = document.createElement("ul");
+    members.className = "catalog-pack-members";
+    for (const model of pack.models) {
+      const member = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = `${roleLabel(model.role)} · ${byteLabel(model.byteSize)}`;
+      const state = document.createElement("small");
+      const active = installed.get(model.catalogId);
+      state.textContent = !active
+        ? "Not installed"
+        : active.loaded ? "Installed and active" : "Installed, restart required";
+      state.className = active ? "is-loaded" : "is-not-loaded";
+      member.append(name, state);
+      members.append(member);
+    }
+
+    const source = document.createElement("a");
+    source.href = pack.models[0]!.sourceUri;
+    source.target = "_blank";
+    source.rel = "noopener noreferrer";
+    source.textContent = "Model card";
+    const license = document.createElement("a");
+    license.href = pack.licenseUri;
+    license.target = "_blank";
+    license.rel = "noopener noreferrer";
+    license.textContent = `${pack.licenseName} license`;
+    const references = document.createElement("div");
+    references.className = "catalog-model-references";
+    references.append(source, license);
+    card.append(header, description, facts, members, references);
+
+    const remaining = pack.models.filter((model) => !installed.has(model.catalogId));
+    if (remaining.length === 0) {
+      const state = document.createElement("strong");
+      state.className = "catalog-installed-state";
+      state.textContent = pack.models.every((model) => installed.get(model.catalogId)?.loaded)
+        ? "Installed and active"
+        : "Installed, restart required";
+      card.append(state);
+      return card;
+    }
+    const consent = document.createElement("label");
+    consent.className = "catalog-consent";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.packConsent = pack.modelId;
+    const consentText = document.createElement("span");
+    consentText.textContent = `I reviewed ${pack.licenseName} once and approve all `
+      + `${remaining.length} node downloads.`;
+    consent.append(checkbox, consentText);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.packInstall = pack.modelId;
+    button.textContent = remaining.length === pack.models.length
+      ? "Install all four models"
+      : `Install the remaining ${remaining.length}`;
+    button.disabled = true;
+    checkbox.disabled = !installsEnabled;
+    checkbox.addEventListener("change", () => {
+      button.disabled = !installsEnabled || !checkbox.checked || this.#busy;
+    });
+    button.addEventListener("click", () => void this.installPack(pack, remaining, checkbox));
+    card.append(consent, button);
+    return card;
+  }
+
+  /** Installs a language pack's missing models one after another, then refreshes. */
+  private async installPack(
+    pack: LanguagePack,
+    remaining: ModelCatalogSummary[],
+    consent: HTMLInputElement,
+  ): Promise<void> {
+    if (!consent.checked || this.#busy) {
+      return;
+    }
+    this.#busy = true;
+    const label = `${languageDisplayName(pack.language)} language pack`;
+    try {
+      let position = 0;
+      for (const model of remaining) {
+        position++;
+        const prefix = `${label}, ${position} of ${remaining.length}`;
+        this.setStatus(`${prefix}: starting verified download for ${model.displayName}.`);
+        await this.#api.install({
+          catalogId: model.catalogId,
+          revision: model.revision,
+          licenseName: model.licenseName,
+          licenseAcknowledged: true,
+        }, (progress) => this.setStatus(`${prefix}: ${progressStatus(model, progress)}`));
+      }
+      this.setStatus(`The ${label} is installed; restart the server to activate `
+        + `the '${pack.language}' pipeline.`);
+      await this.initialize();
+    } catch (error) {
+      this.setStatus(errorMessage(error, `Could not install the ${label}.`), true);
+    } finally {
+      this.#busy = false;
     }
   }
 

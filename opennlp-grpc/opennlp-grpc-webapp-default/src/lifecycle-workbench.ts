@@ -20,7 +20,7 @@
 import type { ReindexIndexRequest, SetCollectionRequest } from "./api";
 import type { CollectionEventView, CollectionView } from "./collection-adapter";
 import type { IndexAliasView, SearchIndex, SearchProviderInstance } from "./search-adapter";
-import { formatInteger } from "./text-utils";
+import { ellipsizeCodePoints, formatInteger } from "./text-utils";
 import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
 import type { TrainedModelSummary } from "./vocabulary-trainer";
 
@@ -175,7 +175,7 @@ export class LifecycleWorkbench {
     }
     addFact(this.#indexFacts, "Provider", index.providerId);
     addFact(this.#indexFacts, "Embedding model", index.modelId);
-    addFact(this.#indexFacts, "Vector space", index.vectorSpaceId);
+    addFact(this.#indexFacts, "Vector space", ellipsizeCodePoints(index.vectorSpaceId, 24));
     addFact(this.#indexFacts, "Chunks", formatInteger(index.size ?? 0));
     addFact(this.#indexFacts, "Sealed", index.immutable ? "yes" : "no");
   }
@@ -243,13 +243,9 @@ export class LifecycleWorkbench {
     const selectedCollection = this.#collectionModel.value;
     this.#collectionModel.replaceChildren(new Option("No model selected", ""));
     for (const model of models) {
-      this.#reindexModel.add(new Option(`${model.displayName} (${model.artifactId})`,
-        model.artifactId));
-      this.#collectionModel.add(new Option(`${model.displayName} (${model.artifactId})`,
-        model.artifactId));
-    }
-    if (models.length === 0) {
-      this.#reindexModel.add(new Option("Train a model first", ""));
+      const label = `${model.displayName} (${ellipsizeCodePoints(model.artifactId, 20)})`;
+      this.#reindexModel.add(new Option(label, model.artifactId));
+      this.#collectionModel.add(new Option(label, model.artifactId));
     }
     this.#reindexModel.value = selectedReindex;
     this.#collectionModel.value = selectedCollection;

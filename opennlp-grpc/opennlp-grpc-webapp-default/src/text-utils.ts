@@ -284,3 +284,29 @@ function isBlankLine(line: string): boolean {
   }
   return true;
 }
+
+/**
+ * Formats a protobuf JSON timestamp, given as an ISO-8601 string or as epoch
+ * seconds, as "YYYY-MM-DD HH:MM UTC"; empty when the value is unreadable.
+ */
+export function timestampLabel(value: string): string {
+  if (!value) {
+    return "";
+  }
+  const date = isDecimalDigits(value) ? new Date(Number(value) * 1000) : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const iso = date.toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+/** Reports whether a non-empty string holds only the ASCII digits 0-9. */
+function isDecimalDigits(value: string): boolean {
+  for (const character of value) {
+    if (character < "0" || character > "9") {
+      return false;
+    }
+  }
+  return value.length > 0;
+}

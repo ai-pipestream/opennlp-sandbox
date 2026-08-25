@@ -46,6 +46,7 @@ const MODEL: TrainedModelSummary = {
   explainedVarianceRatio: 0.97,
   artifactHash: "abc",
   byteSize: 31_000_000,
+  createdAt: "2026-08-20T14:00:00Z",
 };
 
 describe("trainer readers", () => {
@@ -74,11 +75,11 @@ describe("trainer readers", () => {
     expect(readStaticModels({ models: [{
       artifactId: "static-model-1", displayName: "m", dimension: 3, termCount: "12", teacherId: "mini",
       family: "wordpiece", vocabularySize: 30_522, explainedVarianceRatio: 0.97,
-      artifactHash: "abc", byteSize: "31000000",
+      artifactHash: "abc", byteSize: "31000000", createdAt: "2026-08-20T14:00:00Z",
     }] })).toEqual([{
       artifactId: "static-model-1", displayName: "m", dimension: 3, termCount: 12, teacherId: "mini",
       family: "wordpiece", vocabularySize: 30_522, explainedVarianceRatio: 0.97,
-      artifactHash: "abc", byteSize: 31_000_000,
+      artifactHash: "abc", byteSize: 31_000_000, createdAt: "2026-08-20T14:00:00Z",
     }]);
     expect(() => readTrainedModel({})).toThrow(/invalid static model/);
     expect(readImportedDictionary({ artifactId: "dictionary-1", entryCount: 2 }))
@@ -156,7 +157,7 @@ describe("trainer workbench", () => {
 
   it("initializes the catalog and reports existing models", async () => {
     const onModelsChanged = vi.fn();
-    const trainer = new VocabularyTrainerWorkbench(stubApi(), { onModelsChanged });
+    const trainer = new VocabularyTrainerWorkbench(stubApi(), { onModelsChanged, onUseInAnalyze: vi.fn() });
 
     await trainer.initialize();
 
@@ -168,8 +169,37 @@ describe("trainer workbench", () => {
       .toBe(false);
   });
 
+  it("names teachers without their filesystem reference, kept as a tooltip", async () => {
+    const trainer = new VocabularyTrainerWorkbench(stubApi(), {
+      onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn(),
+    });
+    await trainer.initialize();
+
+    const option = (document.getElementById("trainer-teacher-select") as HTMLSelectElement)
+      .options[0]!;
+    expect(option.textContent).toBe("Mini");
+    expect(option.title).toBe("org/mini");
+  });
+
+  it("renders trained models with their name, training time, and a Use in Analyze action", async () => {
+    const onUseInAnalyze = vi.fn();
+    const trainer = new VocabularyTrainerWorkbench(stubApi(), {
+      onModelsChanged: vi.fn(), onUseInAnalyze,
+    });
+    await trainer.initialize();
+
+    const row = document.querySelector(".trainer-model-row")!;
+    expect(row.querySelector("strong")?.textContent).toBe("Legal static model");
+    expect(row.textContent).toContain("trained 2026-08-20 14:00 UTC");
+    expect(row.querySelector("code")?.textContent).toBe("static-model-1");
+    const use = [...row.querySelectorAll("button")]
+      .find((button) => button.textContent === "Use in Analyze")!;
+    use.click();
+    expect(onUseInAnalyze).toHaveBeenCalledWith(MODEL);
+  });
+
   it("shows a waiting state and live corpus document and byte counts", async () => {
-    const trainer = new VocabularyTrainerWorkbench(stubApi(), { onModelsChanged: vi.fn() });
+    const trainer = new VocabularyTrainerWorkbench(stubApi(), { onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn() });
     await trainer.initialize();
     const corpus = document.getElementById("trainer-corpus") as HTMLTextAreaElement;
 
@@ -190,7 +220,7 @@ describe("trainer workbench", () => {
       listTeachers: vi.fn(async () => ({ teachers: [], writesEnabled: false })),
       listStaticModels: vi.fn(async () => []),
     });
-    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged: vi.fn() });
+    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn() });
 
     await trainer.initialize();
 
@@ -202,7 +232,7 @@ describe("trainer workbench", () => {
   it("learns a vocabulary and trains a model with streamed progress", async () => {
     const api = stubApi();
     const onModelsChanged = vi.fn();
-    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged });
+    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged, onUseInAnalyze: vi.fn() });
     await trainer.initialize();
 
     const dictionarySelect =
@@ -237,7 +267,7 @@ describe("trainer workbench", () => {
         throw new Error("Unknown teacher 'other'");
       }),
     });
-    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged: vi.fn() });
+    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn() });
     await trainer.initialize();
     const vocabularySelect =
       document.getElementById("trainer-vocabulary-select") as HTMLSelectElement;

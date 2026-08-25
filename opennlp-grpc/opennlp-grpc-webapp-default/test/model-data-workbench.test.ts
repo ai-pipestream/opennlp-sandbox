@@ -22,10 +22,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  groupCatalogPacks,
+  languageDisplayName,
   ModelDataWorkbench,
   readInstalledModels,
   readModelCatalog,
   type ModelCatalogApi,
+  type ModelCatalogSummary,
 } from "../src/model-data-workbench";
 
 const STATIC_MODEL = {
@@ -42,6 +45,32 @@ const STATIC_MODEL = {
   languages: ["en"],
   description: "Ready-to-serve static embeddings.",
 };
+
+function germanPackModel(
+  role: ModelCatalogSummary["role"],
+  suffix: string,
+): ModelCatalogSummary {
+  return {
+    ...STATIC_MODEL,
+    catalogId: `de-ud-gsd-${suffix}`,
+    displayName: `German UD ${suffix}`,
+    role,
+    modelId: "de-ud-gsd",
+    licenseName: "Apache-2.0",
+    licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+    byteSize: 1_048_576,
+    dimension: 0,
+    languages: ["de"],
+    description: `German ${suffix} model.`,
+  };
+}
+
+const GERMAN_PACK: ModelCatalogSummary[] = [
+  germanPackModel("sentence-detector", "sentence"),
+  germanPackModel("tokenizer", "tokens"),
+  germanPackModel("pos-tagger", "pos"),
+  germanPackModel("lemmatizer", "lemmas"),
+];
 
 describe("model catalog readers", () => {
   it("reads every first-class catalog artifact role", () => {
@@ -121,6 +150,35 @@ describe("model catalog readers", () => {
       sourceUri: "https://example.test/model", licenseName: "MIT",
       licenseUri: "https://opensource.org/license/mit",
     }] })).toThrow(/revision/);
+  });
+});
+
+describe("catalog language packs", () => {
+  it("groups the four pipeline roles sharing one model id into a language pack", () => {
+    const { packs, singles } = groupCatalogPacks([STATIC_MODEL, ...GERMAN_PACK]);
+
+    expect(packs).toHaveLength(1);
+    expect(packs[0]).toMatchObject({
+      modelId: "de-ud-gsd",
+      language: "de",
+      licenseName: "Apache-2.0",
+      byteSize: 4 * 1_048_576,
+    });
+    expect(packs[0]!.models.map((model) => model.role))
+      .toEqual(["sentence-detector", "tokenizer", "pos-tagger", "lemmatizer"]);
+    expect(singles).toEqual([STATIC_MODEL]);
+  });
+
+  it("keeps an incomplete pipeline group as single cards", () => {
+    const { packs, singles } = groupCatalogPacks(GERMAN_PACK.slice(0, 3));
+
+    expect(packs).toHaveLength(0);
+    expect(singles).toHaveLength(3);
+  });
+
+  it("names languages for people and falls back to the raw code", () => {
+    expect(languageDisplayName("de")).toBe("German");
+    expect(languageDisplayName("")).toBe("Unknown language");
   });
 });
 
@@ -256,7 +314,46 @@ describe("model catalog workbench", () => {
     expect(inventory.textContent).toContain(STATIC_MODEL.displayName);
     expect(inventory.textContent).toContain("Installed and active");
     expect(inventory.textContent).toContain("28.8 MiB");
-    expect(inventory.textContent).toContain("2026-08-21T20:00:00Z");
+    expect(inventory.textContent).toContain("installed 2026-08-21 20:00 UTC");
     expect(inventory.textContent).toContain("a4b3ea50e20ed3f");
+  });
+
+  it("installs a whole language pack behind one license review", async () => {
+    const service = api();
+    service.listCatalog = vi.fn(async () => ({
+      models: [STATIC_MODEL, ...GERMAN_PACK],
+      installsEnabled: true,
+    }));
+    service.install = vi.fn(async (request) => ({
+      catalogId: request.catalogId,
+      artifactHash: "abc",
+      byteSize: 1_048_576,
+      installedAt: "now",
+      loaded: false,
+    }));
+    const workbench = new ModelDataWorkbench(service, {
+      onEmbeddingModelInstalled: vi.fn(),
+      onTeacherInstalled: vi.fn(),
+    });
+    await workbench.initialize();
+
+    const card = document.querySelector<HTMLElement>(".catalog-pack-card")!;
+    expect(card.textContent).toContain("German language pack");
+    expect(card.querySelectorAll(".catalog-pack-members li")).toHaveLength(4);
+    const button = card.querySelector<HTMLButtonElement>("[data-pack-install]")!;
+    expect(button.textContent).toBe("Install all four models");
+    expect(button.disabled).toBe(true);
+
+    card.querySelector<HTMLInputElement>("[data-pack-consent]")!.click();
+    expect(button.disabled).toBe(false);
+    button.click();
+    await vi.waitFor(() => expect(service.install).toHaveBeenCalledTimes(4));
+
+    expect(vi.mocked(service.install).mock.calls.map(([request]) => request.catalogId))
+      .toEqual(["de-ud-gsd-sentence", "de-ud-gsd-tokens", "de-ud-gsd-pos", "de-ud-gsd-lemmas"]);
+    expect(vi.mocked(service.install).mock.calls.every(
+      ([request]) => request.licenseAcknowledged)).toBe(true);
+    expect(document.getElementById("resource-install-status")?.textContent)
+      .toContain("restart the server to activate the 'de' pipeline");
   });
 });

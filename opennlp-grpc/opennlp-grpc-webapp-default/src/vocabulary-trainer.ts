@@ -22,7 +22,12 @@ import type {
   LearnVocabularyUpload,
   TrainStaticModelRequest,
 } from "./api";
-import { formatInteger, splitBlankLineDocuments } from "./text-utils";
+import {
+  ellipsizeCodePoints,
+  formatInteger,
+  splitBlankLineDocuments,
+  timestampLabel,
+} from "./text-utils";
 import { requiredElement } from "./ui-utils";
 
 const CARRIAGE_RETURN = "\r";
@@ -51,6 +56,8 @@ export interface TrainedModelSummary {
   explainedVarianceRatio: number;
   artifactHash: string;
   byteSize: number;
+  /** ISO-8601 creation time from the server, or empty when not reported. */
+  createdAt: string;
 }
 
 export interface TrainerApi {
@@ -73,6 +80,8 @@ export interface TrainerApi {
 export interface TrainerCallbacks {
   /** Fired after training or deletion changes the served model catalog. */
   onModelsChanged(models: TrainedModelSummary[]): void;
+  /** Fired when the user asks to select a trained model on the Analyze tab. */
+  onUseInAnalyze(model: TrainedModelSummary): void;
 }
 
 /**
@@ -136,7 +145,8 @@ export class VocabularyTrainerWorkbench {
       })), "No formats available");
       populate(this.#teacherSelect, teachers.teachers.map((teacher) => ({
         value: teacher.id,
-        label: `${teacher.label} (${teacher.reference})`,
+        label: teacher.label,
+        title: teacher.reference,
       })), "No teachers configured");
       this.renderModels(models);
       if (!this.#writesEnabled) {
@@ -265,15 +275,34 @@ export class VocabularyTrainerWorkbench {
     for (const model of models) {
       const row = document.createElement("div");
       row.className = "trainer-model-row";
-      const label = document.createElement("span");
-      label.textContent = `${model.displayName} · ${model.artifactId} `
-        + `· dim ${model.dimension} · ${formatInteger(model.termCount)} terms `
-        + `· ${model.family || "unknown tokenizer"} · teacher ${model.teacherId}`;
+      const identity = document.createElement("span");
+      identity.className = "trainer-model-identity";
+      const name = document.createElement("strong");
+      name.textContent = model.displayName;
+      const facts = document.createElement("small");
+      const created = timestampLabel(model.createdAt);
+      facts.textContent = `dim ${model.dimension} · ${formatInteger(model.termCount)} terms `
+        + `· ${model.family || "unknown tokenizer"} · teacher ${model.teacherId}`
+        + (created ? ` · trained ${created}` : "");
+      const shortId = document.createElement("code");
+      shortId.textContent = ellipsizeCodePoints(model.artifactId, 20);
+      shortId.title = model.artifactId;
+      identity.append(name, facts, shortId);
+      const use = document.createElement("button");
+      use.type = "button";
+      use.textContent = "Use in Analyze";
+      use.addEventListener("click", () => this.#callbacks.onUseInAnalyze(model));
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "secondary-button";
+      copy.textContent = "Copy id";
+      copy.addEventListener("click", () => void copyText(copy, model.artifactId));
       const remove = document.createElement("button");
       remove.type = "button";
+      remove.className = "secondary-button";
       remove.textContent = "Delete";
       remove.addEventListener("click", () => void this.deleteModel(model.artifactId));
-      row.append(label, remove);
+      row.append(identity, use, copy, remove);
       this.#modelList.append(row);
     }
     this.#callbacks.onModelsChanged(models);
@@ -394,6 +423,7 @@ export function readTrainedModel(value: unknown): TrainedModelSummary {
     explainedVarianceRatio: asRatio(model.explainedVarianceRatio),
     artifactHash: typeof model.artifactHash === "string" ? model.artifactHash : "",
     byteSize: asCount(model.byteSize),
+    createdAt: typeof model.createdAt === "string" ? model.createdAt : "",
   };
 }
 
@@ -502,7 +532,7 @@ function boundedInt(value: string, fallback: number): number {
 
 function populate(
   select: HTMLSelectElement,
-  options: Array<{ value: string; label: string }>,
+  options: Array<{ value: string; label: string; title?: string }>,
   emptyLabel: string,
 ): void {
   select.replaceChildren();
@@ -512,7 +542,11 @@ function populate(
     return;
   }
   for (const option of options) {
-    select.add(new Option(option.label, option.value));
+    const element = new Option(option.label, option.value);
+    if (option.title) {
+      element.title = option.title;
+    }
+    select.add(element);
   }
   select.disabled = false;
 }
@@ -524,6 +558,16 @@ function addOption(select: HTMLSelectElement, value: string, label: string): voi
   select.add(new Option(label, value));
   select.value = value;
   select.disabled = false;
+}
+
+/** Copies text to the clipboard, reporting the outcome on the pressed button. */
+async function copyText(button: HTMLButtonElement, text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    button.textContent = "Copied";
+  } catch {
+    button.textContent = "Copy failed";
+  }
 }
 
 function saveTextFile(name: string, text: string): void {

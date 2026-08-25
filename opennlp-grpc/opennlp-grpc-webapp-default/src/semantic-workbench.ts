@@ -52,6 +52,7 @@ export type ResultViewName = "document" | "chunks" | "heatmap" | "graph" | "json
 export interface SemanticWorkbenchOptions {
   index(request: IndexDocumentsRequest): Promise<SearchIndex>;
   search(request: SearchRequest): Promise<SearchResponse>;
+  listIndexes(): Promise<SearchIndex[]>;
   deleteIndex(indexId: string): Promise<void>;
   openDocument(hit: SearchHit): void;
   inspectChunk(hit: SearchHit, shape: DocumentShapeView, trigger: HTMLElement): void;
@@ -83,12 +84,15 @@ type HeatmapMode = "query" | "sentiment";
 
 const ALL_PROJECTIONS = "ALL_PROJECTIONS";
 const TURBO_QUANT_PROVIDER = "STANDARD_SEARCH_PROVIDER_TURBO_QUANT";
+/** Display-name prefix marking the short-lived heatmap indexes this tab creates. */
+const HEATMAP_INDEX_PREFIX = "Current document heatmap:";
 
 /** Coordinates server-owned, in-memory workspace indexing and query rendering. */
 export class SemanticWorkbench {
   readonly #options: SemanticWorkbenchOptions;
   readonly #addButton = requiredElement<HTMLButtonElement>("add-to-index-button");
   readonly #clearButton = requiredElement<HTMLButtonElement>("clear-index-button");
+  readonly #workspaceSelect = requiredElement<HTMLSelectElement>("workspace-index-select");
   readonly #providerSelect = requiredElement<HTMLSelectElement>("workspace-provider-select");
   readonly #searchForm = requiredElement<HTMLFormElement>("semantic-search-form");
   readonly #query = requiredElement<HTMLTextAreaElement>("semantic-query");
@@ -128,6 +132,7 @@ export class SemanticWorkbench {
     this.#options = options;
     this.#addButton.addEventListener("click", () => void this.addCurrentDocument());
     this.#clearButton.addEventListener("click", () => void this.clear());
+    this.#workspaceSelect.addEventListener("change", () => void this.attachSelectedWorkspace());
     this.#searchForm.addEventListener("submit", (event) => void this.search(event));
     this.#query.addEventListener("input", () => this.updateControls());
     this.#heatmapQueryForm.addEventListener("submit", (event) => void this.searchHeatmap(event));
@@ -162,6 +167,67 @@ export class SemanticWorkbench {
     this.#documentRevision++;
     this.#heatmapSelection.textContent = "Select a colored segment to inspect its text and score.";
     this.updateHeatmapStatus();
+    this.updateControls();
+  }
+
+  /** Loads the server's existing dynamic workspaces into the picker; call once at startup. */
+  async initializeWorkspaces(): Promise<void> {
+    await this.refreshWorkspaces();
+  }
+
+  /**
+   * Repopulates the workspace picker with every searchable dynamic workspace on
+   * the server, keeping the attached one selected when it still exists.
+   */
+  private async refreshWorkspaces(): Promise<void> {
+    const indexes = await this.#options.listIndexes();
+    const workspaces = indexes.filter((index) => !index.immutable
+      && !index.label.startsWith(HEATMAP_INDEX_PREFIX));
+    const selected = this.#workspace?.id ?? this.#workspaceSelect.value;
+    this.#workspaceSelect.replaceChildren(
+      new Option("New workspace (created on first add)", ""));
+    for (const workspace of workspaces) {
+      const size = workspace.size ?? 0;
+      this.#workspaceSelect.add(new Option(
+        `${workspace.label} · ${size} ${size === 1 ? "chunk" : "chunks"}`, workspace.id));
+    }
+    this.#workspaceSelect.value =
+      workspaces.some((workspace) => workspace.id === selected) ? selected : "";
+  }
+
+  /** Refreshes the picker after an index change without surfacing discovery errors. */
+  private refreshWorkspacesQuietly(): void {
+    void this.refreshWorkspaces().catch(() => {
+      // The picker keeps its current options when discovery is unavailable.
+    });
+  }
+
+  /** Attaches search to the picked existing workspace, or detaches back to a new one. */
+  private async attachSelectedWorkspace(): Promise<void> {
+    const id = this.#workspaceSelect.value;
+    if (!id) {
+      this.#workspace = undefined;
+      this.#workspaceDocumentRevision = -1;
+      this.setStatus("Detached. The next add creates a new workspace index.");
+      this.updateControls();
+      return;
+    }
+    try {
+      const indexes = await this.#options.listIndexes();
+      const workspace = indexes.find((index) => index.id === id);
+      if (!workspace) {
+        throw new Error("The selected workspace no longer exists on the server.");
+      }
+      this.#workspace = workspace;
+      // The attached workspace is searched as it stands; the current document
+      // only joins it through an explicit "Add to server workspace".
+      this.#workspaceDocumentRevision = this.#documentRevision;
+      const size = workspace.size ?? 0;
+      this.setStatus(`Attached to '${workspace.label}': `
+        + `${size} ${size === 1 ? "chunk is" : "chunks are"} searchable.`);
+    } catch (error) {
+      this.setStatus(error instanceof Error ? error.message : "Could not attach the workspace.", true);
+    }
     this.updateControls();
   }
 
@@ -209,6 +275,7 @@ export class SemanticWorkbench {
       await this.deleteHeatmapIndexes();
       this.#results.replaceChildren(emptyMessage("No workspace search results yet."));
       this.setStatus("The gRPC server deleted the workspace index.");
+      this.refreshWorkspacesQuietly();
     } catch (error) {
       this.setStatus(error instanceof Error ? error.message : "Could not delete the workspace index.", true);
     } finally {
@@ -269,6 +336,7 @@ export class SemanticWorkbench {
       chunkGroupIds: current.groupIds,
     });
     this.#workspaceDocumentRevision = this.#documentRevision;
+    this.refreshWorkspacesQuietly();
     return this.#workspace;
   }
 
@@ -537,6 +605,7 @@ export class SemanticWorkbench {
   }
 
   private updateControls(): void {
+    this.#workspaceSelect.disabled = this.#busy;
     this.#providerSelect.disabled = Boolean(this.#workspace) || this.#busy;
     const indexable = Boolean(this.#current?.wireDocument && this.#current.modelId);
     const searchable = Boolean(this.#workspace) || indexable;

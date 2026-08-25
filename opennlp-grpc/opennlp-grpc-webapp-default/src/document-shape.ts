@@ -177,6 +177,45 @@ export function documentScopedAnnotations(shape: DocumentShapeView): AnnotationE
     hasUsableSpan(annotation, shape.rawText.length) ? [] : [{ layer, annotation }]));
 }
 
+export interface DocumentAnnotationChip extends AnnotationEntry {
+  /** Document-scoped annotations this chip stands for; above 1 only for collapsed category layers. */
+  totalCount: number;
+}
+
+/**
+ * Builds the document-wide chip list: category layers with several
+ * document-scoped predictions (sentiment, document categories) collapse into
+ * one chip carrying the most confident label, while every other layer keeps
+ * one chip per annotation.
+ */
+export function documentAnnotationChips(shape: DocumentShapeView): DocumentAnnotationChip[] {
+  const chips: DocumentAnnotationChip[] = [];
+  const collapsed = new Map<string, DocumentAnnotationChip>();
+  for (const { layer, annotation } of documentScopedAnnotations(shape)) {
+    if (layer.valueType !== "Category") {
+      chips.push({ layer, annotation, totalCount: 1 });
+      continue;
+    }
+    const existing = collapsed.get(layer.id);
+    if (!existing) {
+      const chip = { layer, annotation, totalCount: 1 };
+      collapsed.set(layer.id, chip);
+      chips.push(chip);
+      continue;
+    }
+    existing.totalCount++;
+    if (annotationConfidence(annotation) > annotationConfidence(existing.annotation)) {
+      existing.annotation = annotation;
+    }
+  }
+  return chips;
+}
+
+/** Returns an annotation's confidence: its probability, else its score, else 0. */
+export function annotationConfidence(annotation: AnnotationView): number {
+  return annotation.probability ?? annotation.score ?? 0;
+}
+
 export function layerAccent(layer: AnnotationLayerView): LayerAccent {
   const identity = asciiLowerCase(`${layer.id} ${layer.standardIdentity ?? ""}`);
   if (identity.includes("entit") || identity.includes("geo")) {
