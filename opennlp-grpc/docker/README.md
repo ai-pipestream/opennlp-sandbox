@@ -115,8 +115,11 @@ docker compose -f docker-compose.openvino.yml up --build
 ```
 
 The inference API stays on the internal compose network. OVMS runs on CPU
-everywhere; on Intel GPU hosts map `/dev/dri` into the `ovms` service and add
-`--target_device GPU` (there is no CUDA variant of OVMS).
+everywhere; on Intel GPU hosts use the `openvino/model_server:latest-gpu`
+image, map `/dev/dri` into the `ovms` service (with the render group in
+`group_add`), and add `--target_device HETERO:GPU,CPU`. HETERO matters: the
+fused tokenizer's string operations only compile on CPU, while the
+transformer layers run on the GPU. There is no CUDA variant of OVMS.
 
 ## Configuration and state
 

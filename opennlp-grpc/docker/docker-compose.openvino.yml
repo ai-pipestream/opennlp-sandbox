@@ -21,8 +21,11 @@
 #   cd ../../opennlp-grpc-integration-tests && ./scripts/ovms-server.sh prepare
 # then from this directory:
 #   docker compose -f docker-compose.openvino.yml up --build
-# OVMS runs on CPU everywhere; on Intel GPU hosts add a /dev/dri device
-# mapping and --target_device GPU to the ovms service (there is no CUDA OVMS).
+# OVMS runs on CPU everywhere; on Intel GPU hosts switch the ovms service to
+# the latest-gpu image, map /dev/dri (with the render group in group_add), and
+# add --target_device HETERO:GPU,CPU so the fused tokenizer's string
+# operations stay on CPU while the transformer runs on the GPU (there is no
+# CUDA variant of OVMS).
 services:
   ovms:
     image: openvino/model_server:latest
