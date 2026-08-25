@@ -127,7 +127,9 @@
                     <option value="custom">Choose features</option>
                     <option value="automatic">Server automatic</option>
                   </select>
-                  <small class="field-help">Combines every safely configured feature reported by this server.</small>
+                  <small class="field-help">Combines every safely configured feature reported by this
+                    server. Pick "Choose features" to open the feature checklist and select them
+                    yourself.</small>
                 </div>
                 <div class="field">
                   <label for="embedding-model-select">Embedding model</label>
@@ -191,7 +193,7 @@
               </div>
             </div>
 
-            <fieldset class="feature-picker">
+            <fieldset id="feature-picker" class="feature-picker" hidden>
               <legend>Analysis features</legend>
               <p>Select any configured feature. Required backbone steps are added automatically.</p>
               <div id="feature-options" class="feature-options" aria-label="Selectable analysis features">
@@ -235,7 +237,7 @@
             <ol id="batch-results" class="batch-results" aria-label="Batch results"></ol>
           </details>
 
-          <section class="response-panel" aria-labelledby="response-heading">
+          <section id="analysis-result-panel" class="response-panel" aria-labelledby="response-heading">
             <div class="response-header">
               <div>
                 <span class="response-label">Document shape</span>
@@ -493,7 +495,7 @@
             <section id="search-inspector" class="search-inspector" aria-labelledby="search-inspector-heading">
               <div class="panel-heading">
                 <div><span>Selected evidence</span><h4 id="search-inspector-heading">Result inspector</h4></div>
-                <output id="selected-search-score" class="selected-score">No score</output>
+                <span class="score-with-caption"><output id="selected-search-score" class="selected-score">No score</output><small class="score-caption">similarity</small></span>
               </div>
 
               <dl id="search-analytics" aria-label="Selected document analytics" class="search-analytics">
@@ -815,36 +817,66 @@
           <div class="lifecycle-grid">
             <section class="lifecycle-panel">
               <h4>Workspaces</h4>
-              <label for="lifecycle-index-select">Dynamic workspace</label>
-              <select id="lifecycle-index-select" disabled></select>
-              <dl id="lifecycle-index-facts" class="search-hit-facts"></dl>
-              <div class="form-actions">
-                <button id="lifecycle-persist-button" type="button" disabled>Save checkpoint</button>
-                <button id="lifecycle-seal-button" type="button" class="secondary-button"
-                  disabled>Seal as read-only</button>
-                <button id="lifecycle-refresh-button" type="button" class="secondary-button">Refresh</button>
+              <div class="lifecycle-subcard">
+                <h5>Checkpoint and seal</h5>
+                <label for="lifecycle-index-select">Dynamic workspace</label>
+                <select id="lifecycle-index-select" disabled></select>
+                <dl id="lifecycle-index-facts" class="search-hit-facts"></dl>
+                <div class="form-actions">
+                  <button id="lifecycle-persist-button" type="button" disabled>Save checkpoint</button>
+                  <button id="lifecycle-seal-button" type="button" class="secondary-button"
+                    disabled>Seal as read-only</button>
+                  <button id="lifecycle-refresh-button" type="button" class="secondary-button">Refresh</button>
+                </div>
+                <small class="field-help"><strong>Save checkpoint</strong> writes the workspace to
+                  disk, and it keeps accepting new documents.</small>
+                <small class="field-help"><strong>Seal as read-only</strong> writes it to disk too,
+                  and also makes it permanently read-only: it accepts no further documents.</small>
+                <p id="lifecycle-workspace-status" class="form-status" role="status"
+                  aria-live="polite"></p>
               </div>
-              <h5>Aliases</h5>
-              <div class="lifecycle-inline">
-                <label for="lifecycle-alias-input" class="visually-hidden">Alias name</label>
-                <input id="lifecycle-alias-input" type="text" placeholder="legal-current" />
-                <button id="lifecycle-set-alias-button" type="button" disabled>Point alias at workspace</button>
+              <div class="lifecycle-subcard">
+                <h5>Aliases</h5>
+                <div class="lifecycle-inline">
+                  <label for="lifecycle-alias-input" class="visually-hidden">Alias name</label>
+                  <input id="lifecycle-alias-input" type="text" placeholder="legal-current" />
+                  <button id="lifecycle-set-alias-button" type="button" disabled>Point alias at workspace</button>
+                </div>
+                <div id="lifecycle-alias-list" class="lifecycle-alias-list"></div>
+                <p id="lifecycle-alias-status" class="form-status" role="status"
+                  aria-live="polite"></p>
               </div>
-              <div id="lifecycle-alias-list" class="lifecycle-alias-list"></div>
-              <h5>Rebuild with a new model</h5>
-              <small class="field-help">The same documents are indexed again with the embedding model
-                you pick, while the old index keeps answering searches. Once the new index is built,
-                the alias below is pointed at it, so clients switch over without an outage (a
-                blue/green swap).</small>
-              <label for="lifecycle-reindex-model">Embedding model for the new index</label>
-              <select id="lifecycle-reindex-model"></select>
-              <label for="lifecycle-reindex-provider">Vector storage</label>
-              <select id="lifecycle-reindex-provider"></select>
-              <label for="lifecycle-reindex-alias">Alias to point at the new index (optional)</label>
-              <input id="lifecycle-reindex-alias" type="text" placeholder="legal-current" />
-              <button id="lifecycle-reindex-button" type="button" disabled>Rebuild index</button>
-              <h5>Provider instances</h5>
-              <div id="lifecycle-provider-list" class="lifecycle-provider-list"></div>
+              <div class="lifecycle-subcard">
+                <h5>Rebuild with a new model</h5>
+                <small class="field-help">The same documents are indexed again with the embedding model
+                  you pick, while the old index keeps answering searches. Once the new index is built,
+                  the alias below is pointed at it, so clients switch over without an outage (a
+                  blue/green swap).</small>
+                <div class="lifecycle-step">
+                  <h6>1 · Pick the new embedding model</h6>
+                  <label for="lifecycle-reindex-model">Embedding model for the new index</label>
+                  <select id="lifecycle-reindex-model"></select>
+                </div>
+                <div class="lifecycle-step">
+                  <h6>2 · Pick vector storage</h6>
+                  <label for="lifecycle-reindex-provider">Vector storage</label>
+                  <select id="lifecycle-reindex-provider"></select>
+                  <small class="field-help">Exact flat float keeps full-precision vectors; TurboQuant
+                    quantizes them for a fraction of the memory with near-identical ranking.</small>
+                </div>
+                <div class="lifecycle-step">
+                  <h6>3 · Optional alias to switch</h6>
+                  <label for="lifecycle-reindex-alias">Alias to point at the new index (optional)</label>
+                  <input id="lifecycle-reindex-alias" type="text" placeholder="legal-current" />
+                </div>
+                <button id="lifecycle-reindex-button" type="button" disabled>Rebuild index</button>
+                <p id="lifecycle-rebuild-status" class="form-status" role="status"
+                  aria-live="polite"></p>
+              </div>
+              <div class="lifecycle-subcard">
+                <h5>Provider instances</h5>
+                <div id="lifecycle-provider-list" class="lifecycle-provider-list"></div>
+              </div>
             </section>
             <section class="lifecycle-panel">
               <h4>Collections</h4>
@@ -874,12 +906,16 @@
               </div>
               <label for="collection-model-id">Serving model artifact</label>
               <select id="collection-model-id"></select>
-              <label for="collection-threshold">Report vocabulary drift after this many new terms (0 never reports)</label>
-              <input id="collection-threshold" type="number" min="0" value="0" inputmode="numeric" />
+              <div class="lifecycle-field-row">
+                <label for="collection-threshold">Report vocabulary drift after this many new terms</label>
+                <input id="collection-threshold" type="number" min="0" value="0" inputmode="numeric" />
+              </div>
+              <small class="field-help">Leave this at 0 to never report drift.</small>
               <div class="form-actions">
                 <button id="collection-save-button" type="button">Save collection</button>
                 <button id="collection-delete-button" type="button" class="secondary-button">Delete</button>
               </div>
+              <p id="collection-status" class="form-status" role="status" aria-live="polite"></p>
               <h5>Vocabulary drift</h5>
               <div class="coverage-meter" role="img" aria-label="Vocabulary coverage">
                 <i id="collection-coverage-bar" style="width: 0%"></i>

@@ -56,6 +56,10 @@ export class LifecycleWorkbench {
   readonly #api: LifecycleApi;
 
   readonly #status = requiredElement<HTMLElement>("lifecycle-status");
+  readonly #workspaceStatus = requiredElement<HTMLElement>("lifecycle-workspace-status");
+  readonly #aliasStatus = requiredElement<HTMLElement>("lifecycle-alias-status");
+  readonly #rebuildStatus = requiredElement<HTMLElement>("lifecycle-rebuild-status");
+  readonly #collectionStatus = requiredElement<HTMLElement>("collection-status");
   readonly #indexSelect = requiredElement<HTMLSelectElement>("lifecycle-index-select");
   readonly #refreshButton = requiredElement<HTMLButtonElement>("lifecycle-refresh-button");
   readonly #indexFacts = requiredElement<HTMLDListElement>("lifecycle-index-facts");
@@ -217,9 +221,9 @@ export class LifecycleWorkbench {
       remove.type = "button";
       remove.className = "secondary-button";
       remove.textContent = "Delete";
-      remove.addEventListener("click", () => void this.run(async () => {
+      remove.addEventListener("click", () => void this.run(this.#aliasStatus, async () => {
         await this.#api.deleteAlias(alias.alias);
-        this.setStatus(`Deleted alias '${alias.alias}'.`);
+        this.report(this.#aliasStatus, `Deleted alias '${alias.alias}'.`);
         await this.refresh();
       }));
       row.append(label, remove);
@@ -230,6 +234,12 @@ export class LifecycleWorkbench {
   private renderModels(models: TrainedModelSummary[]): void {
     const selectedReindex = this.#reindexModel.value;
     this.#reindexModel.replaceChildren();
+    if (models.length === 0) {
+      this.#reindexModel.add(new Option("No trained model yet: distill one on the Trainer tab", ""));
+      this.#reindexModel.disabled = true;
+    } else {
+      this.#reindexModel.disabled = false;
+    }
     const selectedCollection = this.#collectionModel.value;
     this.#collectionModel.replaceChildren(new Option("No model selected", ""));
     for (const model of models) {
@@ -251,14 +261,14 @@ export class LifecycleWorkbench {
   private async persistSelected(seal: boolean): Promise<void> {
     const index = this.selectedIndex();
     if (!index) {
-      this.setStatus("Select a dynamic workspace first.", true);
+      this.report(this.#workspaceStatus, "Select a dynamic workspace first.", true);
       return;
     }
-    await this.run(async () => {
+    await this.run(this.#workspaceStatus, async () => {
       const updated = seal
         ? await this.#api.seal(index.id)
         : await this.#api.persist(index.id);
-      this.setStatus(seal
+      this.report(this.#workspaceStatus, seal
         ? `Sealed '${index.label}': it is now read-only and saved to disk.`
         : `Saved a checkpoint of '${index.label}' (${formatInteger(updated?.size ?? 0)} chunks); `
           + "it now survives a server restart.");
@@ -270,13 +280,13 @@ export class LifecycleWorkbench {
     const index = this.selectedIndex();
     const alias = this.#aliasInput.value.trim();
     if (!index || !alias) {
-      this.setStatus("Select a workspace and enter an alias name.", true);
+      this.report(this.#aliasStatus, "Select a workspace and enter an alias name.", true);
       return;
     }
-    await this.run(async () => {
+    await this.run(this.#aliasStatus, async () => {
       await this.#api.setAlias(alias, index.id);
       this.#aliasInput.value = "";
-      this.setStatus(`Alias '${alias}' now resolves to '${index.id}'.`);
+      this.report(this.#aliasStatus, `Alias '${alias}' now resolves to '${index.id}'.`);
       await this.refresh();
     });
   }
@@ -285,13 +295,15 @@ export class LifecycleWorkbench {
     const index = this.selectedIndex();
     const modelId = this.#reindexModel.value;
     if (!index || !modelId) {
-      this.setStatus("Select a workspace and a trained model to rebuild it with.", true);
+      this.report(this.#rebuildStatus,
+        "Select a workspace and a trained model to rebuild it with.", true);
       return;
     }
     const provider = this.#reindexProvider.value;
     const alias = this.#reindexAlias.value.trim();
-    await this.run(async () => {
-      this.setStatus(`The server is rebuilding '${index.label}' with '${modelId}'. `
+    await this.run(this.#rebuildStatus, async () => {
+      this.report(this.#rebuildStatus,
+        `The server is rebuilding '${index.label}' with '${modelId}'. `
         + "The current index keeps serving searches until the new one is ready.");
       const built = await this.#api.reindex({
         indexId: index.id,
@@ -299,7 +311,7 @@ export class LifecycleWorkbench {
         ...(provider ? { provider: { custom: provider } } : {}),
         ...(alias ? { alias } : {}),
       });
-      this.setStatus(built
+      this.report(this.#rebuildStatus, built
         ? `Built '${built.id}' beside '${index.label}'`
           + `${alias ? `, and alias '${alias}' now points at the new index` : ""}.`
         : "The rebuild completed.");
@@ -334,19 +346,22 @@ export class LifecycleWorkbench {
         option.selected = false;
       }
       this.renderCollection(undefined);
+      this.report(this.#collectionStatus, "");
       return;
     }
     try {
       const collection = await this.#api.getCollection(collectionId);
       if (!collection) {
-        this.setStatus(`Collection '${collectionId}' was not found.`, true);
+        this.report(this.#collectionStatus, `Collection '${collectionId}' was not found.`, true);
         return;
       }
       this.fillEditor(collection);
       this.renderCollection(collection);
       this.startWatch(collection.id);
+      this.report(this.#collectionStatus, `Opened collection '${collection.id}'.`);
     } catch (error) {
-      this.setStatus(errorMessage(error, "Could not load the collection."), true);
+      this.report(this.#collectionStatus,
+        errorMessage(error, "Could not load the collection."), true);
     }
   }
 
@@ -370,14 +385,14 @@ export class LifecycleWorkbench {
     const collectionId = this.#collectionId.value.trim();
     const displayName = this.#collectionName.value.trim();
     if (!collectionId || !displayName) {
-      this.setStatus("A collection needs an id and a display name.", true);
+      this.report(this.#collectionStatus, "A collection needs an id and a display name.", true);
       return;
     }
     const vocabulary = this.#collectionVocabulary.value.trim();
     const dictionary = this.#collectionDictionary.value.trim();
     const model = this.#collectionModel.value;
     const threshold = Number.parseInt(this.#collectionThreshold.value, 10);
-    await this.run(async () => {
+    await this.run(this.#collectionStatus, async () => {
       const collection = await this.#api.setCollection({
         collectionId,
         displayName,
@@ -388,7 +403,7 @@ export class LifecycleWorkbench {
         ...(model ? { modelArtifactId: model } : {}),
         driftNewTermThreshold: Number.isFinite(threshold) && threshold > 0 ? threshold : 0,
       });
-      this.setStatus(`Saved collection '${collectionId}'.`);
+      this.report(this.#collectionStatus, `Saved collection '${collectionId}'.`);
       await this.refresh();
       this.#collectionSelect.value = collectionId;
       if (collection) {
@@ -401,18 +416,18 @@ export class LifecycleWorkbench {
   private async deleteCollection(): Promise<void> {
     const collectionId = this.#collectionSelect.value || this.#collectionId.value.trim();
     if (!collectionId) {
-      this.setStatus("Select a collection to delete.", true);
+      this.report(this.#collectionStatus, "Select a collection to delete.", true);
       return;
     }
-    await this.run(async () => {
+    await this.run(this.#collectionStatus, async () => {
       this.stopWatch();
       const deleted = await this.#api.deleteCollection(collectionId);
-      this.setStatus(deleted
-        ? `Deleted collection '${collectionId}'.`
-        : `Collection '${collectionId}' did not exist.`);
       this.#collectionSelect.value = "";
       await this.refresh();
       await this.openSelectedCollection();
+      this.report(this.#collectionStatus, deleted
+        ? `Deleted collection '${collectionId}'.`
+        : `Collection '${collectionId}' did not exist.`);
     });
   }
 
@@ -509,7 +524,11 @@ export class LifecycleWorkbench {
     return this.#indexes.find((index) => index.id === this.#indexSelect.value);
   }
 
-  private async run(work: () => Promise<void>): Promise<void> {
+  /**
+   * Runs one lifecycle action, reporting a failure to the status region that
+   * sits next to the controls that started it.
+   */
+  private async run(region: HTMLElement, work: () => Promise<void>): Promise<void> {
     if (this.#busy) {
       return;
     }
@@ -518,7 +537,7 @@ export class LifecycleWorkbench {
     try {
       await work();
     } catch (error) {
-      this.setStatus(errorMessage(error, "The lifecycle request failed."), true);
+      this.report(region, errorMessage(error, "The lifecycle request failed."), true);
     } finally {
       this.#busy = false;
       this.updateControls();
@@ -536,9 +555,15 @@ export class LifecycleWorkbench {
     this.#refreshButton.disabled = this.#busy;
   }
 
+  /** Reports catalog-level progress in the status line above both panels. */
   private setStatus(message: string, error = false): void {
-    this.#status.textContent = message;
-    this.#status.classList.toggle("is-error", error);
+    this.report(this.#status, message, error);
+  }
+
+  /** Writes one message into the given announced status region. */
+  private report(region: HTMLElement, message: string, error = false): void {
+    region.textContent = message;
+    region.classList.toggle("is-error", error);
   }
 }
 

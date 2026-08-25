@@ -269,7 +269,10 @@ function annotationLabel(annotation: Record<string, unknown>, index: number): st
 function layerTitle(id: string): string {
   const localName = id.includes(":") ? id.slice(id.lastIndexOf(":") + 1) : id;
   return splitOnCharacters(localName, "-_")
-    .map((part) => `${asciiUpperCase(part.charAt(0))}${part.slice(1)}`)
+    .map((part) => part.length <= 3 && part === asciiUpperCase(part)
+      // Short all-caps parts are acronyms (NFC, UD) and keep their casing.
+      ? part
+      : `${asciiUpperCase(part.charAt(0))}${asciiLowerCase(part.slice(1))}`)
     .join(" ") || id;
 }
 

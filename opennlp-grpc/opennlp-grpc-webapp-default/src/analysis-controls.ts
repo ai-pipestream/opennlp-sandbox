@@ -41,6 +41,8 @@ export class AnalysisControls {
   readonly #tokenChunkOverlap = requiredElement<HTMLInputElement>("token-chunk-overlap");
   readonly #enabledFeatures = requiredElement<HTMLUListElement>("enabled-feature-list");
   readonly #featureOptions = requiredElement<HTMLDivElement>("feature-options");
+  /** The checklist wrapper; absent in unit fixtures that mount the grid alone. */
+  readonly #featurePicker = document.getElementById("feature-picker");
   readonly #modelList = requiredElement<HTMLUListElement>("model-list");
   readonly #onChange: () => void;
   #capabilities: AnalysisCapabilities = discoverAnalysisCapabilities(undefined, undefined);
@@ -241,6 +243,9 @@ export class AnalysisControls {
 
   private renderFeatureOptions(): void {
     const mode = this.#profile.value;
+    if (this.#featurePicker) {
+      this.#featurePicker.hidden = mode !== "custom";
+    }
     const selectable = new Set(this.#capabilities.maxSteps);
     const supported = new Set(this.#capabilities.supportedSteps);
     const selected = mode === "max" ? selectable : this.#customSteps;

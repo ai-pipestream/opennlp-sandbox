@@ -31,6 +31,11 @@ describe("analysis playground markup", () => {
     expect(html).toContain('id="service-status" role="status" aria-live="polite"');
     expect(html).toContain('id="form-status" role="status" aria-live="polite"');
     expect(html).toContain('id="response-output"');
+    expect(html).toContain('id="analysis-result-panel"');
+    expect(html).toContain('id="lifecycle-workspace-status" class="form-status" role="status"');
+    expect(html).toContain('id="lifecycle-alias-status" class="form-status" role="status"');
+    expect(html).toContain('id="lifecycle-rebuild-status" class="form-status" role="status"');
+    expect(html).toContain('id="collection-status" class="form-status" role="status"');
     expect(html).toContain('id="download-button"');
     expect(html).toContain('aria-label="Workbench navigation"');
     expect(html).toContain('role="tablist" aria-label="Analysis result views"');
@@ -76,6 +81,10 @@ describe("analysis playground markup", () => {
     expect(html).toContain('id="enabled-feature-list"');
     expect(html).toContain('value="custom"');
     expect(html).toContain('id="feature-options"');
+    expect(html).toContain('<fieldset id="feature-picker" class="feature-picker" hidden>');
+    expect(html).toContain("1 · Pick the new embedding model");
+    expect(html).toContain("2 · Pick vector storage");
+    expect(html).toContain("3 · Optional alias to switch");
     expect(html).toContain('id="annotation-drawer-backdrop"');
     expect(html).toContain('id="annotation-details-close"');
     expect(html).toContain('role="dialog" aria-modal="true"');

@@ -167,6 +167,7 @@ const heatmapView = requiredElement<HTMLElement>("heatmap-view");
 const graphView = requiredElement<HTMLElement>("graph-view");
 const jsonView = requiredElement<HTMLElement>("json-view");
 const resultTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-result-tab]"));
+const analysisResultPanel = requiredElement<HTMLElement>("analysis-result-panel");
 const layerFilter = requiredElement<HTMLInputElement>("layer-filter");
 const resultLayerCount = requiredElement<HTMLElement>("result-layer-count");
 const resultAnnotationCount = requiredElement<HTMLElement>("result-annotation-count");
@@ -469,6 +470,7 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
     semanticWorkbench.setDocument(text, shape, response);
     selectResultTab("document");
     setFormStatus("Analysis complete.");
+    revealAnalysisResult();
   } catch (error) {
     currentJson = "";
     currentResponse = undefined;
@@ -480,6 +482,16 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
     setFormStatus(errorMessage(error, "Analysis failed. Please try again."), true);
   } finally {
     setBusy(false);
+  }
+}
+
+/**
+ * Brings the result panel into view after an analysis, so the answer is not
+ * left below the fold. jsdom has no scrollIntoView, hence the guard.
+ */
+function revealAnalysisResult(): void {
+  if (typeof analysisResultPanel.scrollIntoView === "function") {
+    analysisResultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
 

@@ -186,7 +186,8 @@ describe("document shape reader", () => {
       },
     });
 
-    expect(shape.layers[0]?.title).toBe("CHUNK Group Values");
+    // Long all-caps parts are title-cased; short ones (NFC, UD) stay acronyms.
+    expect(shape.layers[0]?.title).toBe("Chunk Group Values");
     expect(layerAccent(shape.layers[0]!)).toBe("violet");
   });
 
