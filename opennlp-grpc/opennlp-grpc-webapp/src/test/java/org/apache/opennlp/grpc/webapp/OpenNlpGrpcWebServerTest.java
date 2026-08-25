@@ -92,6 +92,39 @@ class OpenNlpGrpcWebServerTest {
   }
 
   @Test
+  void streamsBatchAnalysisAsNdjson() throws Exception {
+    WebUiExtensionRegistry registry = new WebUiExtensionRegistry(List.of(testExtension()));
+    try (OpenNlpGrpcWebServer server = new OpenNlpGrpcWebServer(
+        new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+        new TestAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(),
+        new EmptyTrainingRpc(), registry, 4096)) {
+      server.start();
+      HttpClient client = HttpClient.newHttpClient();
+
+      // The body is the AnalyzeStream frame sequence: one configuration frame,
+      // then one frame per document.
+      final String frames = "["
+          + "{\"configuration\":{\"profile\":{\"steps\":[\"PIPELINE_STEP_SENTENCE_DETECT\"]}}},"
+          + "{\"document\":{\"sequence\":\"1\",\"document\":{\"docId\":\"a\",\"rawText\":\"Hello\"}}},"
+          + "{\"document\":{\"sequence\":\"2\",\"document\":{\"docId\":\"b\",\"rawText\":\"World\"}}}"
+          + "]";
+      HttpRequest analyzeStream = request(server, "/api/v1/analyze-stream")
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(frames))
+          .build();
+      HttpResponse<String> response = client.send(analyzeStream,
+          HttpResponse.BodyHandlers.ofString());
+
+      assertEquals(200, response.statusCode());
+      String[] lines = response.body().strip().split("\n");
+      assertEquals(2, lines.length);
+      assertTrue(lines[0].contains("\"sequence\": \"1\"") || lines[0].contains("\"sequence\":\"1\""));
+      assertTrue(lines[0].contains("\"docId\": \"a\"") || lines[0].contains("\"docId\":\"a\""));
+      assertTrue(lines[1].contains("\"docId\": \"b\"") || lines[1].contains("\"docId\":\"b\""));
+    }
+  }
+
+  @Test
   void transcodesSavedResponsesOverHttp() throws Exception {
     WebUiExtensionRegistry registry = new WebUiExtensionRegistry(List.of(testExtension()));
     try (OpenNlpGrpcWebServer server = new OpenNlpGrpcWebServer(
