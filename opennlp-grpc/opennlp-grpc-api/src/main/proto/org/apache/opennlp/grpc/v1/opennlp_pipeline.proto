@@ -385,6 +385,12 @@ message AnalysisProfile {
   // custom selects a ServiceLoader extension by its stable id.
   optional SentenceDetectorSelector sentence_detector = 19;
 
+  // Explicit classic pipeline language for SENTENCE_DETECT, TOKENIZE, POS_TAG, and
+  // LEMMATIZE, selecting a model.pipeline.<lang> model set by its configured code.
+  // Unset routes by detected language when LANGUAGE_DETECT ran and a configured
+  // pipeline matches, falling back to the default models; an unknown code =>
+  // NOT_FOUND naming the configured pipelines.
+  optional string pipeline_language = 22;
   // Configuration for PIPELINE_STEP_TERM_VECTOR. Required when that step is selected.
   TermVectorSpec term_vector = 20;
 

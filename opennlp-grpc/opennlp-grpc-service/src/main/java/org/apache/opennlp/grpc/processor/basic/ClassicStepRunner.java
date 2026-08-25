@@ -53,6 +53,7 @@ import opennlp.tools.util.normalizer.Term;
 import opennlp.tools.util.normalizer.TermAnalyzer;
 import opennlp.tools.util.normalizer.TextNormalizer;
 import org.apache.opennlp.grpc.model.ChunkerRegistry;
+import org.apache.opennlp.grpc.model.ClassicLanguagePipeline;
 import org.apache.opennlp.grpc.model.DocCategorizerModel;
 import org.apache.opennlp.grpc.model.DocCategorizerRegistry;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
@@ -152,13 +153,14 @@ final class ClassicStepRunner {
             + language.getConfidence() + ")"));
   }
 
-  /** Detects sentences and appends document-relative spans to the document shape. */
+  /** Detects sentences with the routed pipeline's detector, appending document spans. */
   void detectSentences(
+      ClassicLanguagePipeline pipeline,
       String rawText,
       OpenNlpDocument.Builder document,
       boolean includeProbabilities,
       List<ProcessingDiagnostic> diagnostics) {
-    final SentenceDetectorME detector = modelBundleCache.getSentenceDetector();
+    final SentenceDetectorME detector = pipeline.sentenceDetector();
     final Span[] spans = detector.sentPosDetect(rawText);
     final double[] probabilities = includeProbabilities ? detector.probs() : null;
     for (int i = 0; i < spans.length; i++) {
@@ -195,13 +197,14 @@ final class ClassicStepRunner {
         "Detected " + spans.length + " sentence(s) (" + engineId + ")"));
   }
 
-  /** Tokenizes every sentence and preserves document-relative token offsets. */
+  /** Tokenizes every sentence with the routed pipeline's tokenizer, keeping offsets. */
   void tokenize(
+      ClassicLanguagePipeline pipeline,
       String rawText,
       OpenNlpDocument.Builder document,
       boolean includeProbabilities,
       List<ProcessingDiagnostic> diagnostics) {
-    final TokenizerME tokenizer = modelBundleCache.getTokenizer();
+    final TokenizerME tokenizer = pipeline.tokenizer();
     int tokenCount = 0;
     for (int i = 0; i < document.getSentencesCount(); i++) {
       final AnnotatedSentence sentence = document.getSentences(i);
@@ -811,11 +814,12 @@ final class ClassicStepRunner {
    * as a whole so the tagger sees full sentential context.
    */
   void tagPartsOfSpeech(
+      ClassicLanguagePipeline pipeline,
       OpenNlpDocument.Builder document,
       POSTagFormat posTagFormat,
       boolean includeProbabilities,
       List<ProcessingDiagnostic> diagnostics) {
-    final POSTaggerME posTagger = modelBundleCache.createPosTagger(posTagFormat);
+    final POSTaggerME posTagger = pipeline.createPosTagger(posTagFormat);
     int taggedTokens = 0;
     for (int i = 0; i < document.getSentencesCount(); i++) {
       final AnnotatedSentence sentence = document.getSentences(i);
@@ -847,11 +851,11 @@ final class ClassicStepRunner {
    * output tagset, the lemmatizer (keyed on the tagger's native tagset) is fed native tags
    * re-derived from the same model instead of the converted token tags.
    */
-  void lemmatize(OpenNlpDocument.Builder document, POSTagFormat posTagFormat,
-      List<ProcessingDiagnostic> diagnostics) {
-    final Lemmatizer lemmatizer = modelBundleCache.getLemmatizer();
-    final POSTaggerME nativeTagger = modelBundleCache.convertsPosTagFormat(posTagFormat)
-        ? modelBundleCache.createPosTagger(POSTagFormat.POS_TAG_FORMAT_UNSPECIFIED)
+  void lemmatize(ClassicLanguagePipeline pipeline, OpenNlpDocument.Builder document,
+      POSTagFormat posTagFormat, List<ProcessingDiagnostic> diagnostics) {
+    final Lemmatizer lemmatizer = pipeline.lemmatizer();
+    final POSTaggerME nativeTagger = pipeline.convertsPosTagFormat(posTagFormat)
+        ? pipeline.createPosTagger(POSTagFormat.POS_TAG_FORMAT_UNSPECIFIED)
         : null;
     int lemmatizedTokens = 0;
     for (int i = 0; i < document.getSentencesCount(); i++) {

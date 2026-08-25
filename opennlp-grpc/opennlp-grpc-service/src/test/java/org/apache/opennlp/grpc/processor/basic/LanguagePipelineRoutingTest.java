@@ -24,6 +24,7 @@ import java.util.Map;
 
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
+import org.apache.opennlp.grpc.processor.AnalysisException;
 import org.apache.opennlp.grpc.testing.TinyPosLemmaModels;
 import org.apache.opennlp.grpc.v1.AnalysisProfile;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -111,6 +113,37 @@ class LanguagePipelineRoutingTest {
       // "en" pipeline; its probe lemmatizer marks every lemma.
       assertEquals("eng", document.getDetectedLanguage());
       assertEquals("cats-alt", document.getSentences(0).getTokens(1).getLemma());
+    }
+  }
+
+  @Test
+  void explicitPipelineLanguageSelectsWithoutLanguageDetection() {
+    try (BasicDocumentAnalyzer analyzer = new BasicDocumentAnalyzer(pipelineConfiguration)) {
+      final OpenNlpDocument document = analyzer.analyze(AnalyzeDocumentRequest.newBuilder()
+          .setDocument(OpenNlpDocument.newBuilder().setDocId("explicit").setRawText(TEXT))
+          .setProfile(AnalysisProfile.newBuilder()
+              .setPipelineLanguage("en")
+              .addSteps(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT)
+              .addSteps(PipelineStep.PIPELINE_STEP_TOKENIZE)
+              .addSteps(PipelineStep.PIPELINE_STEP_POS_TAG)
+              .addSteps(PipelineStep.PIPELINE_STEP_LEMMATIZE))
+          .build()).getDocument();
+
+      assertEquals("cats-alt", document.getSentences(0).getTokens(1).getLemma());
+    }
+  }
+
+  @Test
+  void unknownPipelineLanguageFailsLoudNamingTheConfiguredOnes() {
+    try (BasicDocumentAnalyzer analyzer = new BasicDocumentAnalyzer(pipelineConfiguration)) {
+      final AnalysisException e = assertThrows(AnalysisException.class,
+          () -> analyzer.analyze(AnalyzeDocumentRequest.newBuilder()
+                  .setDocument(OpenNlpDocument.newBuilder().setDocId("bad").setRawText(TEXT))
+                  .setProfile(AnalysisProfile.newBuilder()
+                      .setPipelineLanguage("tlh")
+                      .addSteps(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT))
+                  .build()));
+      assertTrue(e.getMessage().contains("en"));
     }
   }
 

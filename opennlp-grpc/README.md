@@ -175,6 +175,16 @@ model.catalog_root=/srv/opennlp/catalog-models
 # word<TAB>postag<TAB>lemma dictionary. The two lemmatizer sources are mutually
 # exclusive; the dictionary's tags must match the POS tagger's native tagset.
 # model.lemmatizer.dictionary=/path/to/lemmas.tsv
+
+# Additional per-language classic pipelines beside the default models. Each
+# language configures all four models; requests route to a pipeline when the
+# detected language matches (ISO 639-1 or 639-3), or explicitly through
+# AnalysisProfile.pipeline_language. Installed catalog language packs publish
+# these keys automatically.
+# model.pipeline.de.sentence_detector.path=/path/to/opennlp-de-ud-gsd-sentence.bin
+# model.pipeline.de.tokenizer.path=/path/to/opennlp-de-ud-gsd-tokens.bin
+# model.pipeline.de.pos_tagger.path=/path/to/opennlp-de-ud-gsd-pos.bin
+# model.pipeline.de.lemmatizer.path=/path/to/opennlp-de-ud-gsd-lemmas.bin
 ```
 
 By default no configuration is required: the server loads the bundled language
@@ -223,11 +233,14 @@ The standard catalog currently distinguishes these roles:
 | `paraphrase-multilingual-minilm-l12-v2-teacher` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Multilingual ONNX teacher (50+ languages) selectable by the Model2Vec-style trainer |
 | `de-ud-gsd-*`, `fr-ud-gsd-*`, `es-ud-gsd-*` | Apache OpenNLP UD 1.3 releases | German, French, and Spanish sentence detector, tokenizer, POS tagger, and lemmatizer packs, verified against the published Apache checksums and activated on the next server start |
 
-An installed UD pack model occupies the classic pipeline's single slot
-(`model.sentence_detector.path`, `model.tokenizer.path`, `model.pos_tagger.path`,
-`model.lemmatizer.path`), replacing the bundled English default on the next start; installing a
-second model for one slot fails loud at startup. One server therefore serves one classic pipeline
-language at a time, chosen by the operator.
+An installed UD pack model publishes into its language's pipeline slot
+(`model.pipeline.<lang>.sentence_detector.path` and the tokenizer, POS tagger, and lemmatizer
+equivalents) on the next start, so packs for different languages coexist beside the bundled
+English default; a second model for one language's slot fails loud at startup. Each loaded
+pipeline is advertised as bundle `pipeline-<lang>`, requests route to it automatically when
+`PIPELINE_STEP_LANGUAGE_DETECT` reports that language, and
+`AnalysisProfile.pipeline_language` selects one explicitly (an unknown code returns
+`NOT_FOUND` naming the configured pipelines).
 
 Every entry fixes the upstream revision, file list, byte sizes, SHA-256 values, model page, and
 license identity in server-owned metadata. A static table joins the same embedding provider catalog

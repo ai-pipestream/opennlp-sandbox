@@ -125,8 +125,7 @@ public final class CatalogModelBootstrap {
    */
   private static void addRestartModel(
       Map<String, String> prepared, CatalogModel model, Path directory) {
-    final String key = restartConfigurationKey(model.descriptor().getRole(),
-        model.descriptor().getModelId());
+    final String key = restartConfigurationKey(model.descriptor());
     if (key == null) {
       return;
     }
@@ -139,7 +138,7 @@ public final class CatalogModelBootstrap {
     final String existing = prepared.putIfAbsent(key, value);
     if (existing != null && !existing.equals(value)) {
       throw new IllegalArgumentException(key + " is already configured; a server serves one "
-          + "model per classic pipeline slot, so uninstall the other model or remove the "
+          + "model per language pipeline slot, so uninstall the other model or remove the "
           + "operator setting");
     }
   }
@@ -147,18 +146,32 @@ public final class CatalogModelBootstrap {
   /**
    * Returns the startup configuration key one restart-only role publishes to, or
    * {@code null} for roles that serve without a restart. Parser and chunker keys are
-   * per model id; the sentence detector, tokenizer, POS tagger, and lemmatizer occupy
-   * the classic pipeline's single slots, replacing the bundled English defaults.
+   * per model id; the sentence detector, tokenizer, POS tagger, and lemmatizer publish
+   * into the {@code model.pipeline.<lang>} set of the pack's declared language, so
+   * packs for different languages coexist and route by language at request time.
    */
-  private static String restartConfigurationKey(ModelArtifactRole role, String modelId) {
-    return switch (role) {
+  private static String restartConfigurationKey(
+      org.apache.opennlp.grpc.v1.ModelCatalogDescriptor descriptor) {
+    final String modelId = descriptor.getModelId();
+    return switch (descriptor.getRole()) {
       case MODEL_ARTIFACT_ROLE_PARSER -> "model.parser." + modelId + ".path";
       case MODEL_ARTIFACT_ROLE_CHUNKER -> "model.chunker." + modelId + ".path";
-      case MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR -> "model.sentence_detector.path";
-      case MODEL_ARTIFACT_ROLE_TOKENIZER -> "model.tokenizer.path";
-      case MODEL_ARTIFACT_ROLE_POS_TAGGER -> "model.pos_tagger.path";
-      case MODEL_ARTIFACT_ROLE_LEMMATIZER -> "model.lemmatizer.path";
+      case MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR ->
+          pipelineKey(descriptor, "sentence_detector");
+      case MODEL_ARTIFACT_ROLE_TOKENIZER -> pipelineKey(descriptor, "tokenizer");
+      case MODEL_ARTIFACT_ROLE_POS_TAGGER -> pipelineKey(descriptor, "pos_tagger");
+      case MODEL_ARTIFACT_ROLE_LEMMATIZER -> pipelineKey(descriptor, "lemmatizer");
       default -> null;
     };
+  }
+
+  /** Builds one language pipeline slot key from the pack's declared language. */
+  private static String pipelineKey(
+      org.apache.opennlp.grpc.v1.ModelCatalogDescriptor descriptor, String slot) {
+    if (descriptor.getLanguagesCount() != 1 || descriptor.getLanguages(0).isBlank()) {
+      throw new IllegalArgumentException("Catalog model '" + descriptor.getCatalogId()
+          + "' must declare exactly one language for role " + descriptor.getRole());
+    }
+    return "model.pipeline." + descriptor.getLanguages(0) + "." + slot + ".path";
   }
 }

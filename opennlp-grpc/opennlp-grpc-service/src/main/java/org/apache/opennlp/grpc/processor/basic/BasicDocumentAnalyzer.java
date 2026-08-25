@@ -29,6 +29,7 @@ import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.tokenize.WhitespaceTokenizer;
 import org.apache.opennlp.grpc.chunk.ChunkingStrategies;
 import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.model.ClassicLanguagePipeline;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
 import org.apache.opennlp.grpc.model.NameFinderRegistry;
 import org.apache.opennlp.grpc.processor.AnalysisException;
@@ -291,6 +292,11 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
       diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_NORMALIZE));
     }
 
+    // The classic pipeline is fixed once per document: an explicit pipeline_language
+    // wins, then a configured pipeline matching the detected language, then the default.
+    final ClassicLanguagePipeline classicPipeline =
+        resolveClassicPipeline(profile, document, diagnostics);
+
     if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_SENTENCE_DETECT)) {
       final var sentenceDetector = validator.resolveSentenceDetector(profile);
       runStep(
@@ -305,7 +311,7 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
                   "newline", diagnostics);
             } else {
               classicSteps.detectSentences(
-                  rawText, document, includeProbabilities, diagnostics);
+                  classicPipeline, rawText, document, includeProbabilities, diagnostics);
             }
           });
     } else {
@@ -337,7 +343,8 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
                 == StandardTokenizerEngine.STANDARD_TOKENIZER_ENGINE_LATTICE) {
               classicSteps.tokenizeLattice(rawText, document, latticeDictionaryId, diagnostics);
             } else {
-              classicSteps.tokenize(rawText, document, includeProbabilities, diagnostics);
+              classicSteps.tokenize(
+                  classicPipeline, rawText, document, includeProbabilities, diagnostics);
             }
             if (!profile.getTermDimensionsList().isEmpty()) {
               ClassicStepRunner.computeTermLayers(
@@ -408,7 +415,8 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
       runStep(
           PipelineStep.PIPELINE_STEP_POS_TAG,
           () -> classicSteps.tagPartsOfSpeech(
-              document, profile.getPosTagFormat(), includeProbabilities, diagnostics));
+              classicPipeline, document, profile.getPosTagFormat(), includeProbabilities,
+              diagnostics));
     } else {
       diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_POS_TAG));
     }
@@ -423,7 +431,8 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
       }
       runStep(
           PipelineStep.PIPELINE_STEP_LEMMATIZE,
-          () -> classicSteps.lemmatize(document, profile.getPosTagFormat(), diagnostics));
+          () -> classicSteps.lemmatize(
+              classicPipeline, document, profile.getPosTagFormat(), diagnostics));
     } else {
       diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_LEMMATIZE));
     }
@@ -547,6 +556,7 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
       runStep(
           PipelineStep.PIPELINE_STEP_CHUNK,
           () -> embedChunkSteps.runChunkEmbedConfigs(
+              classicPipeline, 
               rawText, document, request, profile, includeProbabilities, diagnostics));
     } else if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_CHUNK)) {
       runStep(
@@ -693,5 +703,44 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
   @FunctionalInterface
   private interface StepAction {
     void run();
+  }
+
+  /**
+   * Resolves the classic pipeline serving this document: the profile's explicit
+   * {@code pipeline_language} when set, otherwise the configured pipeline matching the
+   * detected language, otherwise the default models.
+   *
+   * @throws AnalysisException {@code NOT_FOUND} when an explicit language names no
+   *     configured pipeline.
+   */
+  private ClassicLanguagePipeline resolveClassicPipeline(
+      AnalysisProfile profile,
+      OpenNlpDocument.Builder document,
+      List<ProcessingDiagnostic> diagnostics) {
+    if (profile.hasPipelineLanguage()) {
+      final ClassicLanguagePipeline pipeline =
+          modelBundleCache.pipelineFor(profile.getPipelineLanguage());
+      if (pipeline == null) {
+        final List<String> configured = modelBundleCache.pipelineLanguages();
+        throw AnalysisException.notFound("pipeline_language '"
+            + profile.getPipelineLanguage() + "' has no configured classic pipeline; "
+            + (configured.isEmpty() ? "no model.pipeline.<lang> sets are configured"
+                : "configured: " + String.join(", ", configured)));
+      }
+      diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
+          "Classic pipeline '" + pipeline.language() + "' selected by pipeline_language"));
+      return pipeline;
+    }
+    if (document.hasDetectedLanguage()) {
+      final ClassicLanguagePipeline pipeline =
+          modelBundleCache.pipelineFor(document.getDetectedLanguage());
+      if (pipeline != null) {
+        diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
+            "Classic pipeline '" + pipeline.language() + "' routed by detected language '"
+                + document.getDetectedLanguage() + "'"));
+        return pipeline;
+      }
+    }
+    return modelBundleCache.defaultPipeline();
   }
 }
