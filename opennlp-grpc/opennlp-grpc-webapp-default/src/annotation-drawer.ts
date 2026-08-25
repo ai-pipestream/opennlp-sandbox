@@ -91,6 +91,10 @@ export class AnnotationDrawer {
     if (annotation.score !== undefined) {
       addFact(facts, "Score", annotation.score.toFixed(4));
     }
+    const engines = entityEngines(annotation.source);
+    if (engines.length > 0) {
+      addFact(facts, "Recognized by", engines.join(", "));
+    }
     if (layer.valueType === "Embedding") {
       const embedding = embeddingFromSource(annotation.source);
       const summary = embeddingSummary(embedding);
@@ -339,6 +343,29 @@ function vectorValue(value: unknown): number[] {
     vector.push(entry);
   }
   return vector;
+}
+
+/**
+ * Lists the engines that recognized an entity, from its provenance sources:
+ * one "recognizer (engine)" entry per contributing provider.
+ */
+function entityEngines(source: Record<string, unknown>): string[] {
+  const sources = Array.isArray(source.sources) ? source.sources : [];
+  const engines: string[] = [];
+  for (const value of sources) {
+    const record = typeof value === "object" && value !== null && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : undefined;
+    const engine = typeof record?.engine === "string" ? record.engine : undefined;
+    const recognizer =
+        typeof record?.recognizerId === "string" ? record.recognizerId : undefined;
+    if (engine || recognizer) {
+      engines.push(recognizer && engine
+        ? `${recognizer} (${engine})`
+        : recognizer ?? engine ?? "");
+    }
+  }
+  return engines;
 }
 
 function addFact(list: HTMLDListElement, term: string, value: string): void {

@@ -38,9 +38,12 @@ export interface AnalyzeRequest {
       mode: string;
       sourceLayer: { standard: string; qualifier?: string };
     };
+    posTagFormat?: string;
+    pipelineLanguage?: string;
   };
   options?: {
     includeProbabilities?: boolean;
+    rankedLanguageCount?: number;
     embeddingModelId?: string;
     includeDocumentCentroid?: boolean;
     parseFormats?: string[];

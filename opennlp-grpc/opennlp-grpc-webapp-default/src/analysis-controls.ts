@@ -33,6 +33,8 @@ import { requiredElement } from "./ui-utils";
 export class AnalysisControls {
   readonly #profile = requiredElement<HTMLSelectElement>("profile-select");
   readonly #embeddingModel = requiredElement<HTMLSelectElement>("embedding-model-select");
+  readonly #pipelineLanguage = requiredElement<HTMLSelectElement>("pipeline-language-select");
+  readonly #posTagFormat = requiredElement<HTMLSelectElement>("pos-tag-format-select");
   readonly #sentenceChunks = requiredElement<HTMLInputElement>("sentence-chunks");
   readonly #tokenChunks = requiredElement<HTMLInputElement>("token-chunks");
   readonly #tokenChunkSize = requiredElement<HTMLInputElement>("token-chunk-size");
@@ -53,6 +55,8 @@ export class AnalysisControls {
       this.#onChange();
     });
     this.#embeddingModel.addEventListener("change", () => this.renderFeatures());
+    this.#pipelineLanguage.addEventListener("change", () => this.#onChange());
+    this.#posTagFormat.addEventListener("change", () => this.#onChange());
     this.#sentenceChunks.addEventListener("change", () => this.changed());
     this.#tokenChunks.addEventListener("change", () => this.updateChunkControls());
     this.#tokenChunkSize.addEventListener("input", () => this.changed());
@@ -67,10 +71,25 @@ export class AnalysisControls {
     this.populateProfiles(this.#capabilities.profiles);
     this.populateEmbeddingModels(this.mergedEmbeddingModels());
     this.populateModelList(this.#capabilities.bundles);
+    this.populatePipelineLanguages(this.#capabilities.pipelineLanguages);
     this.#customSteps = new Set(this.#capabilities.maxSteps);
     this.renderFeatureOptions();
     this.renderFeatures();
     return this.#capabilities;
+  }
+
+  /** Offers the configured language pipelines beside automatic routing. */
+  private populatePipelineLanguages(pipelines: DiscoveryOption[]): void {
+    const selected = this.#pipelineLanguage.value;
+    this.#pipelineLanguage.replaceChildren();
+    this.#pipelineLanguage.add(new Option("Automatic (route by detected language)", ""));
+    for (const pipeline of pipelines) {
+      this.#pipelineLanguage.add(new Option(pipeline.label, pipeline.id));
+    }
+    this.#pipelineLanguage.disabled = pipelines.length === 0;
+    if (pipelines.some((pipeline) => pipeline.id === selected)) {
+      this.#pipelineLanguage.value = selected;
+    }
   }
 
   /**
@@ -124,6 +143,8 @@ export class AnalysisControls {
       tokenChunkSize: this.#tokenChunkSize.valueAsNumber,
       tokenChunkOverlap: this.#tokenChunkOverlap.valueAsNumber,
       embeddingModelId: this.#embeddingModel.value || undefined,
+      pipelineLanguage: this.#pipelineLanguage.value || undefined,
+      posTagFormat: this.#posTagFormat.value || undefined,
     }, this.#capabilities);
   }
 

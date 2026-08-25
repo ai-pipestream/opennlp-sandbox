@@ -27,6 +27,8 @@ function mountControlsDom(): void {
   document.body.innerHTML = `
     <select id="profile-select"></select>
     <select id="embedding-model-select"></select>
+    <select id="pipeline-language-select"></select>
+    <select id="pos-tag-format-select"><option value=""></option></select>
     <input id="sentence-chunks" type="checkbox" />
     <input id="token-chunks" type="checkbox" />
     <input id="token-chunk-size" type="number" value="96" />

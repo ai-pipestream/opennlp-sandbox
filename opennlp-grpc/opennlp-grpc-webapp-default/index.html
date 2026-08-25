@@ -72,6 +72,7 @@
             <div><dt>Service</dt><dd id="service-name">Discovering</dd></div>
             <div><dt>Profiles</dt><dd id="profile-count">...</dd></div>
             <div><dt>Bundles</dt><dd id="model-count">...</dd></div>
+            <div><dt>Languages</dt><dd id="pipeline-language-count">...</dd></div>
           </dl>
         </div>
 
@@ -134,6 +135,24 @@
                     <option value="">No embedding model configured</option>
                   </select>
                   <small class="field-help">When available, vectors are attached to document and chunk output.</small>
+                </div>
+                <div class="field">
+                  <label for="pipeline-language-select">Language pipeline</label>
+                  <select id="pipeline-language-select" disabled>
+                    <option value="">Automatic (route by detected language)</option>
+                  </select>
+                  <small class="field-help">Installed language model sets; automatic picks one when the
+                    detected language matches, and falls back to the default models.</small>
+                </div>
+                <div class="field">
+                  <label for="pos-tag-format-select">Part-of-speech tag set</label>
+                  <select id="pos-tag-format-select">
+                    <option value="">Model native</option>
+                    <option value="POS_TAG_FORMAT_UD">Universal Dependencies (UD)</option>
+                    <option value="POS_TAG_FORMAT_PENN">Penn Treebank</option>
+                  </select>
+                  <small class="field-help">Tags are converted from the model's native tag set when a
+                    different one is requested.</small>
                 </div>
               </div>
 
@@ -214,6 +233,11 @@
                 <input id="load-response-input" type="file" accept=".json,.pb,application/json" hidden />
 
               </div>
+            </div>
+            <div id="analysis-language-summary" class="language-summary" hidden>
+              <span id="routed-pipeline-badge" class="pipeline-badge"></span>
+              <span id="ranked-language-chips" class="language-chips"
+                aria-label="Ranked language predictions"></span>
             </div>
             <div class="result-tabs" role="tablist" aria-label="Analysis result views">
               <button id="document-tab" type="button" role="tab" aria-selected="true"

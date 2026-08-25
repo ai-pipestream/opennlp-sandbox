@@ -138,6 +138,10 @@ const serviceDescription = requiredElement<HTMLElement>("service-description");
 const serviceName = requiredElement<HTMLElement>("service-name");
 const profileCount = requiredElement<HTMLElement>("profile-count");
 const modelCount = requiredElement<HTMLElement>("model-count");
+const pipelineLanguageCount = requiredElement<HTMLElement>("pipeline-language-count");
+const languageSummary = requiredElement<HTMLElement>("analysis-language-summary");
+const routedPipelineBadge = requiredElement<HTMLElement>("routed-pipeline-badge");
+const rankedLanguageChips = requiredElement<HTMLElement>("ranked-language-chips");
 const characterCount = requiredElement<HTMLElement>("character-count");
 const layerList = requiredElement<HTMLElement>("layer-list");
 const layerSummary = requiredElement<HTMLElement>("layer-summary");
@@ -339,6 +343,9 @@ async function initialize(): Promise<void> {
   const bundles = capabilities.bundles;
   profileCount.textContent = String(profiles.length);
   modelCount.textContent = String(bundles.length);
+  const pipelineLanguages = capabilities.pipelineLanguages.map((pipeline) => pipeline.id);
+  pipelineLanguageCount.textContent =
+      [capabilities.language ?? "en", ...pipelineLanguages].join(", ");
   serviceName.textContent = discoverServiceName(serviceInfo);
 
   const discoveryErrors = [infoResult, bundlesResult].filter((result) => result.status === "rejected");
@@ -854,8 +861,65 @@ function presentLoadedResponse(response: unknown, name: string): void {
   setFormStatus(`Loaded ${name}.`);
 }
 
+/**
+ * Shows the detected-language chips (ranked, best first) and which classic pipeline
+ * served the request: the routing diagnostic when the server emitted one, otherwise
+ * the default models.
+ */
+function renderLanguageSummary(response: unknown): void {
+  const envelope = asRecordOrEmpty(response);
+  const document_ = asRecordOrEmpty(envelope.document);
+  rankedLanguageChips.replaceChildren();
+  const ranked = Array.isArray(document_.rankedLanguages) ? document_.rankedLanguages : [];
+  const detected = typeof document_.detectedLanguage === "string"
+    ? document_.detectedLanguage : undefined;
+  const predictions = ranked.length > 0
+    ? ranked
+    : detected
+      ? [{ language: detected, confidence: document_.languageConfidence }]
+      : [];
+  for (const value of predictions) {
+    const prediction = asRecordOrEmpty(value);
+    if (typeof prediction.language !== "string") {
+      continue;
+    }
+    const chip = window.document.createElement("span");
+    chip.className = "language-chip";
+    const confidence = typeof prediction.confidence === "number"
+      ? ` ${(prediction.confidence * 100).toFixed(1)}%` : "";
+    chip.textContent = `${prediction.language}${confidence}`;
+    rankedLanguageChips.append(chip);
+  }
+  const routing = routingDiagnostic(envelope);
+  routedPipelineBadge.textContent = routing
+    ?? (predictions.length > 0 ? "Default models" : "");
+  routedPipelineBadge.hidden = !routedPipelineBadge.textContent;
+  languageSummary.hidden =
+      predictions.length === 0 && routedPipelineBadge.hidden;
+}
+
+/** Returns the server's classic-pipeline routing diagnostic, when one was emitted. */
+function routingDiagnostic(envelope: Record<string, unknown>): string | undefined {
+  const diagnostics = Array.isArray(envelope.diagnostics) ? envelope.diagnostics : [];
+  for (const value of diagnostics) {
+    const message = asRecordOrEmpty(value).message;
+    if (typeof message === "string" && message.startsWith("Classic pipeline ")) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+/** Returns the value as a record, or an empty one. */
+function asRecordOrEmpty(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
 function storeResponse(response: unknown, shape: DocumentShapeView): void {
   currentResponse = response;
+  renderLanguageSummary(response);
   const summary = summarizeDocumentShape(shape);
   const presentation = jsonPresentation(response, shape.rawText.length, summary.annotationCount);
   currentJson = presentation.inline ? presentation.text : "";

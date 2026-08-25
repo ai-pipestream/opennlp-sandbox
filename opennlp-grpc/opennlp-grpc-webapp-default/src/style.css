@@ -1277,3 +1277,9 @@ mark.matched-span {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+
+.language-summary { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.55rem 1rem; border-bottom: 1px solid #253147; }
+.pipeline-badge { padding: 0.25rem 0.6rem; border: 1px solid rgb(53 188 232 / 45%); border-radius: 999px; color: #67d5f5; font-size: 0.68rem; font-weight: 750; }
+.language-chips { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
+.language-chip { padding: 0.22rem 0.55rem; border: 1px solid #2a374c; border-radius: 999px; background: #101a2a; color: #aebccf; font-size: 0.66rem; font-variant-numeric: tabular-nums; }
+.language-chip:first-child { border-color: rgb(34 160 107 / 55%); color: #7fd6ae; }

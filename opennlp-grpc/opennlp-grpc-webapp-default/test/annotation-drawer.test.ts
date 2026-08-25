@@ -127,6 +127,35 @@ describe("annotation drawer", () => {
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("[0.125,-0.5,0.75,0.25]"));
   });
 
+  it("lists the engines that recognized an entity", () => {
+    const shape = readDocumentShape({
+      document: {
+        rawText: "Kansas City",
+        offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+        layers: { layers: [{
+          id: "opennlp:entities",
+          entityValues: { annotations: [{
+            annotationSpan: { end: 11 },
+            entityType: "city",
+            sources: [
+              { recognizerId: "city", engine: "dictionary" },
+              { recognizerId: "city", engine: "onnx", probability: 0.91 },
+            ],
+          }] },
+        }] },
+      },
+    });
+    const layer = shape.layers[0]!;
+    const drawer = new AnnotationDrawer();
+
+    drawer.showAnnotation(layer, layer.annotations[0]!);
+
+    const content = document.getElementById("annotation-details-content")!;
+    expect(content.textContent).toContain("Recognized by");
+    expect(content.textContent).toContain("city (dictionary)");
+    expect(content.textContent).toContain("city (onnx)");
+  });
+
   it("summarizes a sentence embedding instead of dumping its raw vector", () => {
     const shape = readDocumentShape({
       document: {
