@@ -1283,3 +1283,9 @@ mark.matched-span {
 .language-chips { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
 .language-chip { padding: 0.22rem 0.55rem; border: 1px solid #2a374c; border-radius: 999px; background: #101a2a; color: #aebccf; font-size: 0.66rem; font-variant-numeric: tabular-nums; }
 .language-chip:first-child { border-color: rgb(34 160 107 / 55%); color: #7fd6ae; }
+
+.batch-panel { margin-top: 0.9rem; border: 1px solid #253147; border-radius: 0.6rem; padding: 0 0.9rem 0.8rem; }
+.batch-panel summary { padding: 0.55rem 0; color: #9fc3f0; font-size: 0.78rem; font-weight: 750; cursor: pointer; }
+.batch-panel textarea { width: 100%; margin-top: 0.4rem; }
+.batch-results { margin: 0.6rem 0 0; padding-left: 1.4rem; font-size: 0.78rem; color: #aebccf; }
+.batch-result.is-error { color: #ff91b5; }

@@ -361,6 +361,20 @@ class OpenNlpGrpcWebServerTest {
     public AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request) {
       return AnalyzeDocumentResponse.newBuilder().setDocument(request.getDocument()).build();
     }
+
+    @Override
+    public java.util.Iterator<org.apache.opennlp.grpc.v1.AnalyzeStreamResponse> analyzeStream(
+        java.util.List<org.apache.opennlp.grpc.v1.AnalyzeStreamRequest> frames) {
+      // Echo every document frame in order, as the real stream would for tiny inputs.
+      return frames.stream()
+          .filter(org.apache.opennlp.grpc.v1.AnalyzeStreamRequest::hasDocument)
+          .map(frame -> org.apache.opennlp.grpc.v1.AnalyzeStreamResponse.newBuilder()
+              .setSequence(frame.getDocument().getSequence())
+              .setOk(AnalyzeDocumentResponse.newBuilder()
+                  .setDocument(frame.getDocument().getDocument()))
+              .build())
+          .iterator();
+    }
   }
 
   private static final class TestSearchRpc implements SearchRpc {

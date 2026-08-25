@@ -212,5 +212,18 @@ class GrpcJsonApiTest {
           .setDocument(request.getDocument())
           .build();
     }
+
+    @Override
+    public java.util.Iterator<org.apache.opennlp.grpc.v1.AnalyzeStreamResponse> analyzeStream(
+        java.util.List<org.apache.opennlp.grpc.v1.AnalyzeStreamRequest> frames) {
+      return frames.stream()
+          .filter(org.apache.opennlp.grpc.v1.AnalyzeStreamRequest::hasDocument)
+          .map(frame -> org.apache.opennlp.grpc.v1.AnalyzeStreamResponse.newBuilder()
+              .setSequence(frame.getDocument().getSequence())
+              .setOk(AnalyzeDocumentResponse.newBuilder()
+                  .setDocument(frame.getDocument().getDocument()))
+              .build())
+          .iterator();
+    }
   }
 }

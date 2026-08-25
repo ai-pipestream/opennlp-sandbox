@@ -50,7 +50,7 @@ class GrpcAnalysisRpcTest {
         .start();
     ManagedChannel channel = InProcessChannelBuilder.forName(name).directExecutor().build();
     try {
-      GrpcAnalysisRpc rpc = new GrpcAnalysisRpc(channel, Duration.ofSeconds(2));
+      GrpcAnalysisRpc rpc = new GrpcAnalysisRpc(channel, Duration.ofSeconds(2), Duration.ofSeconds(30));
 
       assertEquals("v1", rpc.getServiceInfo().getApiVersion());
       assertEquals(0, rpc.listModelBundles().getBundlesCount());
@@ -81,7 +81,7 @@ class GrpcAnalysisRpcTest {
         "127.0.0.1:" + server.getPort(), true,
         OpenNlpGrpcWebApp.DEFAULT_GRPC_MAX_INBOUND_MESSAGE_BYTES);
     try {
-      GrpcAnalysisRpc rpc = new GrpcAnalysisRpc(channel, Duration.ofSeconds(30));
+      GrpcAnalysisRpc rpc = new GrpcAnalysisRpc(channel, Duration.ofSeconds(30), Duration.ofSeconds(60));
 
       AnalyzeDocumentResponse response = rpc.analyze(AnalyzeDocumentRequest.newBuilder()
           .setDocument(OpenNlpDocument.newBuilder()

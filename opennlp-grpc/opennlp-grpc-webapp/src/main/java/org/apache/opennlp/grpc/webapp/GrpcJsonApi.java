@@ -44,6 +44,8 @@ import org.apache.opennlp.grpc.v1.SetIndexAliasRequest;
 import org.apache.opennlp.grpc.v1.DeleteStaticModelRequest;
 import org.apache.opennlp.grpc.v1.DownloadVocabularyRequest;
 import org.apache.opennlp.grpc.v1.ImportDictionaryUpload;
+import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
 import org.apache.opennlp.grpc.v1.InstallModelRequest;
 import org.apache.opennlp.grpc.v1.InstallModelUpdate;
 import org.apache.opennlp.grpc.v1.IndexDocumentsRequest;
@@ -548,6 +550,77 @@ final class GrpcJsonApi {
       sink.update(errorJson(Status.Code.INTERNAL, message));
       return null;
     }
+  }
+
+  /**
+   * Analyzes a batch of documents over one AnalyzeStream call, streaming each
+   * completion-ordered response to the browser as an NDJSON line.
+   *
+   * @param body A JSON array of AnalyzeStreamRequest frames: one configuration frame
+   *     first, then one frame per document, exactly as on the gRPC stream.
+   * @param sink Receives one protobuf JSON line per response.
+   * @return A buffered failure, or {@code null} after streaming.
+   * @throws IOException If writing to the sink fails.
+   */
+  WebHttpResponse analyzeStream(byte[] body, JsonLineSink sink) throws IOException {
+    final java.util.List<AnalyzeStreamRequest> frames;
+    try {
+      frames = parseStreamFrames(body);
+    } catch (InvalidProtocolBufferException exception) {
+      return error(400, Status.Code.INVALID_ARGUMENT,
+          MALFORMED_PROTOBUF_JSON_PREFIX + exception.getMessage());
+    } catch (java.nio.charset.CharacterCodingException exception) {
+      return error(400, Status.Code.INVALID_ARGUMENT, INVALID_UTF8_MESSAGE);
+    }
+    if (frames.isEmpty()) {
+      return error(400, Status.Code.INVALID_ARGUMENT,
+          "analyze-stream requires a configuration frame and at least one document frame");
+    }
+    boolean streamed = false;
+    try {
+      final java.util.Iterator<AnalyzeStreamResponse> responses =
+          analysisRpc.analyzeStream(frames);
+      while (responses.hasNext()) {
+        sink.update(printer.print(responses.next()));
+        streamed = true;
+      }
+      return null;
+    } catch (StatusRuntimeException exception) {
+      final Status status = exception.getStatus();
+      String message = status.getDescription();
+      if (message == null || message.isBlank()) {
+        message = status.getCode().name();
+      }
+      if (!streamed) {
+        return error(GrpcHttpStatusMapper.toHttpStatus(status.getCode()),
+            status.getCode(), message);
+      }
+      sink.update(errorJson(status.getCode(), message));
+      return null;
+    } catch (InvalidProtocolBufferException exception) {
+      final String message = "Could not encode the service response";
+      if (!streamed) {
+        return error(500, Status.Code.INTERNAL, message);
+      }
+      sink.update(errorJson(Status.Code.INTERNAL, message));
+      return null;
+    }
+  }
+
+  /** Parses the request body's JSON array into AnalyzeStream frames. */
+  private java.util.List<AnalyzeStreamRequest> parseStreamFrames(byte[] body)
+      throws InvalidProtocolBufferException, java.nio.charset.CharacterCodingException {
+    final com.google.protobuf.ListValue.Builder list =
+        com.google.protobuf.ListValue.newBuilder();
+    parser.merge(decodeUtf8(body), list);
+    final java.util.List<AnalyzeStreamRequest> frames =
+        new java.util.ArrayList<>(list.getValuesCount());
+    for (com.google.protobuf.Value value : list.getValuesList()) {
+      final AnalyzeStreamRequest.Builder frame = AnalyzeStreamRequest.newBuilder();
+      parser.merge(printer.print(value), frame);
+      frames.add(frame.build());
+    }
+    return frames;
   }
 
   /**

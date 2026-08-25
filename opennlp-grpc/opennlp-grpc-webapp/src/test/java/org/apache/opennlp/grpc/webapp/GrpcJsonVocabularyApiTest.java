@@ -204,6 +204,12 @@ class GrpcJsonVocabularyApiTest {
   }
 
   private static final class EmptyAnalysisRpc implements AnalysisRpc {
+    @Override
+    public java.util.Iterator<org.apache.opennlp.grpc.v1.AnalyzeStreamResponse> analyzeStream(
+        java.util.List<org.apache.opennlp.grpc.v1.AnalyzeStreamRequest> frames) {
+      return java.util.Collections.emptyIterator();
+    }
+
 
     @Override
     public org.apache.opennlp.grpc.v1.GetServiceInfoResponse getServiceInfo() {

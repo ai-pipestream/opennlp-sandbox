@@ -286,6 +286,34 @@ export async function watchCollection(
   }
 }
 
+/**
+ * Streams a batch analysis: posts the AnalyzeStream frame sequence (one
+ * configuration frame, then one frame per document) and yields each
+ * completion-ordered response line to the callback.
+ */
+export async function analyzeStream(
+  frames: Record<string, unknown>[],
+  onResponse: (response: Record<string, unknown>) => void,
+  fetcher: Fetcher = fetch,
+): Promise<void> {
+  const response = await fetcher("/api/v1/analyze-stream", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(frames),
+  });
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  for await (const line of ndjsonLines(response)) {
+    const event = JSON.parse(line) as Record<string, unknown>;
+    if (typeof event.code === "string" && !event.sequence && !event.ok && !event.error) {
+      throw new Error(typeof event.message === "string" && event.message
+        ? event.message : event.code);
+    }
+    onResponse(event);
+  }
+}
+
 export function getDictionaryFormats(fetcher: Fetcher = fetch): Promise<unknown> {
   return requestJson("/api/v1/dictionary-formats", undefined, fetcher);
 }

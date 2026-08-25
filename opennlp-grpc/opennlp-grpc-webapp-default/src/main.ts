@@ -21,6 +21,7 @@ import "./style.css";
 
 import {
   analyze,
+  analyzeStream,
   decodeAnalyzeResponsePb,
   deleteCollection,
   deleteIndexAlias,
@@ -56,6 +57,11 @@ import {
   watchCollection,
   type AnalyzeRequest,
 } from "./api";
+import {
+  buildStreamFrames,
+  readStreamResponse,
+  splitBatchDocuments,
+} from "./batch-analysis";
 import { readCollectionEvent, readCollectionResponse, readCollections } from "./collection-adapter";
 import { LifecycleWorkbench } from "./lifecycle-workbench";
 import { withXrayNormalization } from "./analysis-config";
@@ -142,6 +148,10 @@ const pipelineLanguageCount = requiredElement<HTMLElement>("pipeline-language-co
 const languageSummary = requiredElement<HTMLElement>("analysis-language-summary");
 const routedPipelineBadge = requiredElement<HTMLElement>("routed-pipeline-badge");
 const rankedLanguageChips = requiredElement<HTMLElement>("ranked-language-chips");
+const batchText = requiredElement<HTMLTextAreaElement>("batch-text");
+const batchButton = requiredElement<HTMLButtonElement>("batch-analyze-button");
+const batchStatus = requiredElement<HTMLElement>("batch-status");
+const batchResults = requiredElement<HTMLOListElement>("batch-results");
 const characterCount = requiredElement<HTMLElement>("character-count");
 const layerList = requiredElement<HTMLElement>("layer-list");
 const layerSummary = requiredElement<HTMLElement>("layer-summary");
@@ -295,6 +305,11 @@ sampleButton.addEventListener("click", () => {
 });
 aliceSampleButton.addEventListener("click", () => void loadAliceSample());
 form.addEventListener("submit", submitAnalysis);
+batchText.addEventListener("input", () => {
+  batchButton.disabled = busy || !serviceAvailable
+      || splitBatchDocuments(batchText.value).length === 0;
+});
+batchButton.addEventListener("click", () => void submitBatch());
 copyButton.addEventListener("click", copyResponse);
 downloadButton.addEventListener("click", downloadResponse);
 downloadPbButton.addEventListener("click", () => void downloadResponsePb());
@@ -399,6 +414,39 @@ function renderToolNavigation(extensions: UiExtension[]): void {
     link.append(icon, label);
     return link;
   }));
+}
+
+/**
+ * Streams every pasted batch document through one AnalyzeStream call under the
+ * current configuration, rendering results in completion order as they arrive.
+ */
+async function submitBatch(): Promise<void> {
+  const documents = splitBatchDocuments(batchText.value);
+  if (documents.length === 0 || busy || !serviceAvailable) {
+    return;
+  }
+  batchResults.replaceChildren();
+  batchButton.disabled = true;
+  batchStatus.textContent = `Streaming ${documents.length} `
+      + `${documents.length === 1 ? "document" : "documents"}…`;
+  let arrivals = 0;
+  try {
+    const request = createAnalysisRequest("batch", false);
+    await analyzeStream(buildStreamFrames(documents, request), (response) => {
+      arrivals++;
+      const view = readStreamResponse(response, arrivals);
+      const item = document.createElement("li");
+      item.className = view.ok ? "batch-result" : "batch-result is-error";
+      item.textContent = `Document ${view.sequence}: ${view.summary}`;
+      batchResults.append(item);
+    });
+    batchStatus.textContent = `Analyzed ${arrivals} of ${documents.length} `
+        + `${documents.length === 1 ? "document" : "documents"} in completion order.`;
+  } catch (error) {
+    batchStatus.textContent = errorMessage(error, "The batch stream failed.");
+  } finally {
+    batchButton.disabled = splitBatchDocuments(batchText.value).length === 0;
+  }
 }
 
 async function submitAnalysis(event: SubmitEvent): Promise<void> {

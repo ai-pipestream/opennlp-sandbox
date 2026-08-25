@@ -218,6 +218,23 @@
             </div>
           </form>
 
+          <details class="batch-panel">
+            <summary>Batch analyze (streaming)</summary>
+            <p class="field-help">
+              Paste several documents separated by blank lines. They stream through one
+              AnalyzeStream call with the configuration above; results arrive in completion
+              order, and one bad document does not stop the rest.
+            </p>
+            <label for="batch-text" class="visually-hidden">Batch documents</label>
+            <textarea id="batch-text" rows="5"
+              placeholder="First document...&#10;&#10;Second document...&#10;&#10;Third document..."></textarea>
+            <div class="form-actions">
+              <button id="batch-analyze-button" type="button" disabled>Analyze batch</button>
+              <span id="batch-status" role="status" aria-live="polite"></span>
+            </div>
+            <ol id="batch-results" class="batch-results" aria-label="Batch results"></ol>
+          </details>
+
           <section class="response-panel" aria-labelledby="response-heading">
             <div class="response-header">
               <div>

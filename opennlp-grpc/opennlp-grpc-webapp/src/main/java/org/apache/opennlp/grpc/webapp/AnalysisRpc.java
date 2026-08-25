@@ -17,8 +17,13 @@
  */
 package org.apache.opennlp.grpc.webapp;
 
+import java.util.Iterator;
+import java.util.List;
+
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
+import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
 import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 
@@ -37,4 +42,14 @@ interface AnalysisRpc {
    * @return The analysis response.
    */
   AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request);
+
+  /**
+   * Analyzes a batch of documents over one AnalyzeStream call: every frame is sent,
+   * the client half closes, and the completion-ordered responses stream back.
+   *
+   * @param frames The complete frame sequence: one configuration frame first, then
+   *     one frame per document. Must not be {@code null} or empty.
+   * @return The completion-ordered responses; iteration blocks on the stream.
+   */
+  Iterator<AnalyzeStreamResponse> analyzeStream(List<AnalyzeStreamRequest> frames);
 }
