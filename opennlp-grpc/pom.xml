@@ -97,6 +97,9 @@
                         <exclude>examples/go-client/go.mod</exclude>
                         <exclude>examples/go-client/go.sum</exclude>
                         <exclude>examples/go-client/gen/**</exclude>
+                        <!-- GraalVM reachability metadata is JSON, which carries no comments. -->
+                        <exclude>docker/native/config/**</exclude>
+                        <exclude>docker/native/out/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>

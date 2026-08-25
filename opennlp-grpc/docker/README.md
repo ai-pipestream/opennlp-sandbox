@@ -121,6 +121,16 @@ image, map `/dev/dri` into the `ovms` service (with the render group in
 fused tokenizer's string operations only compile on CPU, while the
 transformer layers run on the GPU. There is no CUDA variant of OVMS.
 
+## Experimental native image
+
+`docker/native/` compiles the server and gateway into GraalVM native binaries
+and packages them on the CUDA base: about 2 seconds from `docker start` to a
+healthy hardened stack (versus about 35 for the JVM pair) at around 440 MiB
+total container memory, with CUDA embeddings working. See
+[docker/native/README.md](native/README.md) for the build, the curated
+reachability metadata, and the known constraints (build-time backend linking,
+explicit classic-model paths, slf4j-simple logging).
+
 ## Configuration and state
 
 `/srv/opennlp` is a volume for server-owned state (model catalog downloads,
