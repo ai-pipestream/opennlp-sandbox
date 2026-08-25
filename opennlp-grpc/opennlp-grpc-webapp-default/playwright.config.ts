@@ -17,26 +17,31 @@
  * under the License.
  */
 
-import { defineConfig } from "vitest/config";
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * End-to-end tests against a running gRPC server and gateway; they are not
+ * part of the Maven build. Point OPENNLP_E2E_BASE_URL at the gateway, for
+ * example http://127.0.0.1:7072 for the Docker demonstration image, then run
+ * `npx playwright install chromium` once and `npm run e2e`.
+ */
+const baseURL = process.env.OPENNLP_E2E_BASE_URL;
+if (!baseURL) {
+  throw new Error("Set OPENNLP_E2E_BASE_URL to the gateway address, for example http://127.0.0.1:7072.");
+}
 
 export default defineConfig({
-  base: "./",
-  test: {
-    // Unit tests only; e2e/ belongs to the Playwright runner (npm run e2e).
-    include: ["test/**/*.test.ts"],
-  },
-  build: {
-    outDir: "target/generated-resources/META-INF/opennlp-grpc-ui/default",
-    emptyOutDir: true,
-    sourcemap: false,
-    // The visualization adapter is intentionally a lazy chunk.
-    chunkSizeWarningLimit: 600,
-    rollupOptions: {
-      output: {
-        entryFileNames: "assets/app.js",
-        chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/[name][extname]",
-      },
-    },
+  testDir: "./e2e",
+  // The suite drives one shared server, so tests must not interleave writes.
+  fullyParallel: false,
+  workers: 1,
+  retries: 0,
+  timeout: 240_000,
+  expect: { timeout: 15_000 },
+  reporter: [["list"]],
+  use: {
+    baseURL,
+    trace: "retain-on-failure",
+    ...devices["Desktop Chrome"],
   },
 });
