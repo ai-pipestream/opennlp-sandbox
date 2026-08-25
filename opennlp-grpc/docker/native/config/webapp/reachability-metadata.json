@@ -8966,18 +8966,6 @@
    "glob": "META-INF/native/libio_grpc_netty_shaded_netty_transport_native_epoll_x86_64.so"
   },
   {
-   "glob": "META-INF/opennlp-grpc-ui/default/assets/app.js"
-  },
-  {
-   "glob": "META-INF/opennlp-grpc-ui/default/assets/index.css"
-  },
-  {
-   "glob": "META-INF/opennlp-grpc-ui/default/branding/opennlp-mark.png"
-  },
-  {
-   "glob": "META-INF/opennlp-grpc-ui/default/index.html"
-  },
-  {
    "glob": "META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat"
   },
   {
@@ -9103,6 +9091,9 @@
   {
    "module": "jdk.jfr",
    "glob": "jdk/jfr/internal/types/metadata.bin"
+  },
+  {
+   "glob": "META-INF/opennlp-grpc-ui/**"
   }
  ]
 }

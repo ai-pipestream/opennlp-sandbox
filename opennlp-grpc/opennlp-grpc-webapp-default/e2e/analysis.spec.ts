@@ -19,6 +19,14 @@
 
 import { expect, test } from "@playwright/test";
 
+test("loads the bundled Alice sample from the gateway's static assets", async ({ page }) => {
+  await page.goto("/");
+  await page.click("#alice-sample-button");
+  // The sample is fetched and decompressed from data/, so this also proves
+  // the gateway serves its bundled static assets.
+  await expect(page.locator("#analysis-text")).toHaveValue(/Alice/, { timeout: 30_000 });
+});
+
 test("analyzes text and opens on the calm Highlights overlay", async ({ page }) => {
   await page.goto("/");
   await page.fill("#analysis-text",
