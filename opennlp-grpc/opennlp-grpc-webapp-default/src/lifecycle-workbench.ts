@@ -182,7 +182,7 @@ export class LifecycleWorkbench {
       this.#providerList.append(emptyMessage("No provider instances reported."));
     }
     const keepSource = this.#reindexProvider.value;
-    this.#reindexProvider.replaceChildren(new Option("Keep the source provider", ""));
+    this.#reindexProvider.replaceChildren(new Option("Keep the current vector storage", ""));
     for (const provider of providers) {
       const row = document.createElement("div");
       row.className = "lifecycle-provider-row";
@@ -231,7 +231,7 @@ export class LifecycleWorkbench {
     const selectedReindex = this.#reindexModel.value;
     this.#reindexModel.replaceChildren();
     const selectedCollection = this.#collectionModel.value;
-    this.#collectionModel.replaceChildren(new Option("No model artifact", ""));
+    this.#collectionModel.replaceChildren(new Option("No model selected", ""));
     for (const model of models) {
       this.#reindexModel.add(new Option(`${model.displayName} (${model.artifactId})`,
         model.artifactId));
@@ -259,8 +259,9 @@ export class LifecycleWorkbench {
         ? await this.#api.seal(index.id)
         : await this.#api.persist(index.id);
       this.setStatus(seal
-        ? `Sealed '${index.label}'; it is now immutable and durable.`
-        : `Persisted '${index.label}' as a checkpoint (${formatInteger(updated?.size ?? 0)} chunks).`);
+        ? `Sealed '${index.label}': it is now read-only and saved to disk.`
+        : `Saved a checkpoint of '${index.label}' (${formatInteger(updated?.size ?? 0)} chunks); `
+          + "it now survives a server restart.");
       await this.refresh();
     });
   }
@@ -284,13 +285,14 @@ export class LifecycleWorkbench {
     const index = this.selectedIndex();
     const modelId = this.#reindexModel.value;
     if (!index || !modelId) {
-      this.setStatus("Select a workspace and a trained model to reindex into.", true);
+      this.setStatus("Select a workspace and a trained model to rebuild it with.", true);
       return;
     }
     const provider = this.#reindexProvider.value;
     const alias = this.#reindexAlias.value.trim();
     await this.run(async () => {
-      this.setStatus(`The server is replaying '${index.label}' through '${modelId}'.`);
+      this.setStatus(`The server is rebuilding '${index.label}' with '${modelId}'. `
+        + "The current index keeps serving searches until the new one is ready.");
       const built = await this.#api.reindex({
         indexId: index.id,
         embedding: { modelId },
@@ -298,8 +300,9 @@ export class LifecycleWorkbench {
         ...(alias ? { alias } : {}),
       });
       this.setStatus(built
-        ? `Built '${built.id}' beside the source${alias ? ` and swapped alias '${alias}'` : ""}.`
-        : "The reindex build completed.");
+        ? `Built '${built.id}' beside '${index.label}'`
+          + `${alias ? `, and alias '${alias}' now points at the new index` : ""}.`
+        : "The rebuild completed.");
       await this.refresh();
     });
   }

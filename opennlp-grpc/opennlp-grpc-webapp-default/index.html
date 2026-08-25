@@ -149,9 +149,9 @@
                   <span><strong>Token windows</strong><small>Overlapping windows across the document</small></span>
                 </label>
                 <div class="token-window-fields">
-                  <label for="token-chunk-size">Window <input id="token-chunk-size" type="number"
+                  <label for="token-chunk-size">Window (tokens) <input id="token-chunk-size" type="number"
                     min="1" max="4096" value="96" inputmode="numeric" /></label>
-                  <label for="token-chunk-overlap">Overlap <input id="token-chunk-overlap" type="number"
+                  <label for="token-chunk-overlap">Overlap (tokens) <input id="token-chunk-overlap" type="number"
                     min="0" max="4095" value="12" inputmode="numeric" /></label>
                 </div>
               </fieldset>
@@ -210,7 +210,7 @@
                 <button id="copy-button" type="button" class="copy-button" disabled>Copy JSON</button>
                 <button id="download-button" type="button" class="copy-button" disabled>Download JSON</button>
                 <button id="download-pb-button" type="button" class="copy-button" disabled>Download .pb</button>
-                <button id="load-response-button" type="button" class="copy-button">Load response</button>
+                <button id="load-response-button" type="button" class="copy-button">Open saved response</button>
                 <input id="load-response-input" type="file" accept=".json,.pb,application/json" hidden />
 
               </div>
@@ -267,7 +267,7 @@
             </div>
             <div id="heatmap-view" role="tabpanel" aria-labelledby="heatmap-tab" class="visualization-view" hidden>
               <div class="visualization-heading">
-                <div><span>Document heatmap</span><small>One projection, two typed score sources</small></div>
+                <div><span>Document heatmap</span><small>Shade the same document by query similarity or by sentiment</small></div>
                 <p>Query ranking runs in the gRPC server. Sentiment reads the current document shape.</p>
               </div>
               <div class="heatmap-controls">
@@ -493,7 +493,7 @@
                   </dl>
                 </div>
                 <div>
-                  <h5>Intersecting annotations</h5>
+                  <h5>Annotations covering this chunk</h5>
                   <div id="search-hit-annotations" class="search-hit-annotations" aria-live="polite">
                     <p class="empty-message">Select a hit to inspect typed layers.</p>
                   </div>
@@ -533,7 +533,7 @@
                   a new workspace index in server memory.</li>
                 <li>Describe what you want to find; the server embeds the query and returns
                   ranked chunks with their source spans.</li>
-                <li>To keep a workspace across restarts, or to seal, alias, or reindex it, use
+                <li>To keep a workspace across restarts, or to seal, alias, or rebuild it, use
                   the Lifecycle tab.</li>
               </ol>
               <p class="help-code">
@@ -551,7 +551,7 @@
                 placeholder="Add an embedding-enabled document, then describe what you want to find."></textarea>
               <div class="form-actions">
                 <button id="search-button" type="submit" disabled>Search workspace</button>
-                <button id="clear-index-button" type="button" class="secondary-button" disabled>Clear index</button>
+                <button id="clear-index-button" type="button" class="secondary-button" disabled>Clear workspace index</button>
               </div>
             </form>
             <p id="semantic-status" class="form-status" role="status" aria-live="polite">
@@ -739,23 +739,24 @@
           aria-labelledby="lifecycle-workbench-tab" hidden>
           <header class="model-data-heading">
             <div>
-              <p class="section-kicker">Persist, watch drift, retrain, reindex</p>
+              <p class="section-kicker">Save, watch drift, retrain, rebuild</p>
               <h3>Lifecycle</h3>
               <p>
                 Checkpoint and seal dynamic workspaces, point logical aliases at the current
-                index, rebuild blue/green into a newly trained vector space, and group
-                workspaces into collections whose vocabulary drift the server streams live.
+                index, rebuild an index with a newly trained model while the old one keeps
+                serving, and group workspaces into collections whose vocabulary drift the
+                server streams live.
               </p>
             </div>
           </header>
           <details class="help-callout">
             <summary>How to use lifecycle</summary>
             <ol>
-              <li>Persist a checkpoint to keep a dynamic workspace across server restarts, or seal
-                it to make it immutable.</li>
+              <li>Save a checkpoint to keep a dynamic workspace across server restarts, or seal
+                it to make it read-only.</li>
               <li>Point a logical alias at the current index so clients keep one stable name while
                 you swap the index behind it, blue/green style.</li>
-              <li>Reindex a workspace into a newly trained vector space without changing its
+              <li>Rebuild a workspace with a newly trained model, without changing its
                 documents.</li>
               <li>Group workspaces into a collection to watch its vocabulary drift live: the
                 stream reports new terms that fall outside the current vocabulary artifact.</li>
@@ -777,26 +778,30 @@
               <select id="lifecycle-index-select" disabled></select>
               <dl id="lifecycle-index-facts" class="search-hit-facts"></dl>
               <div class="form-actions">
-                <button id="lifecycle-persist-button" type="button" disabled>Persist checkpoint</button>
+                <button id="lifecycle-persist-button" type="button" disabled>Save checkpoint</button>
                 <button id="lifecycle-seal-button" type="button" class="secondary-button"
-                  disabled>Seal immutable</button>
+                  disabled>Seal as read-only</button>
                 <button id="lifecycle-refresh-button" type="button" class="secondary-button">Refresh</button>
               </div>
               <h5>Aliases</h5>
               <div class="lifecycle-inline">
                 <label for="lifecycle-alias-input" class="visually-hidden">Alias name</label>
                 <input id="lifecycle-alias-input" type="text" placeholder="legal-current" />
-                <button id="lifecycle-set-alias-button" type="button" disabled>Point at workspace</button>
+                <button id="lifecycle-set-alias-button" type="button" disabled>Point alias at workspace</button>
               </div>
               <div id="lifecycle-alias-list" class="lifecycle-alias-list"></div>
-              <h5>Blue/green reindex</h5>
+              <h5>Rebuild with a new model</h5>
+              <small class="field-help">The same documents are indexed again with the embedding model
+                you pick, while the old index keeps answering searches. Once the new index is built,
+                the alias below is pointed at it, so clients switch over without an outage (a
+                blue/green swap).</small>
               <label for="lifecycle-reindex-model">Embedding model for the new index</label>
               <select id="lifecycle-reindex-model"></select>
               <label for="lifecycle-reindex-provider">Vector storage</label>
               <select id="lifecycle-reindex-provider"></select>
-              <label for="lifecycle-reindex-alias">Alias to swap after a successful build</label>
+              <label for="lifecycle-reindex-alias">Alias to point at the new index (optional)</label>
               <input id="lifecycle-reindex-alias" type="text" placeholder="legal-current" />
-              <button id="lifecycle-reindex-button" type="button" disabled>Reindex blue/green</button>
+              <button id="lifecycle-reindex-button" type="button" disabled>Rebuild index</button>
               <h5>Provider instances</h5>
               <div id="lifecycle-provider-list" class="lifecycle-provider-list"></div>
             </section>
@@ -828,7 +833,7 @@
               </div>
               <label for="collection-model-id">Serving model artifact</label>
               <select id="collection-model-id"></select>
-              <label for="collection-threshold">Drift new-term threshold (0 disables the event)</label>
+              <label for="collection-threshold">Report vocabulary drift after this many new terms (0 never reports)</label>
               <input id="collection-threshold" type="number" min="0" value="0" inputmode="numeric" />
               <div class="form-actions">
                 <button id="collection-save-button" type="button">Save collection</button>
@@ -855,7 +860,7 @@
 
     <footer>
       <p>Apache OpenNLP</p>
-      <p>Open source natural language processing for the JVM and beyond.</p>
+      <p>Apache OpenNLP: open source natural language processing.</p>
     </footer>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -440,7 +440,8 @@ export class ServerSearchWorkbench {
     this.renderIndexedChunk(hit);
     this.#comparisonStatus.textContent = comparison.exact
       ? "The indexed chunk exactly matches the original source span."
-      : "The indexed chunk differs from the original span, typically because of configured transformation.";
+      : "The indexed chunk differs from the original span, usually because normalization was "
+        + "applied before indexing.";
     this.#comparisonStatus.classList.toggle("is-different", !comparison.exact);
 
     this.#facts.replaceChildren();
