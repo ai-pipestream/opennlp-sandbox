@@ -98,6 +98,9 @@ and search flow with identical output:
   paths, operator limits.
 - [Build and explore a bounded legal-passage index](README.md#build-and-explore-a-bounded-legal-passage-index):
   the full corpus-to-browser tutorial on real data.
+- [German end to end](docs/tutorials/german-end-to-end.md): install a language
+  pack from the catalog and search German with a multilingual embedding model,
+  with no configuration file edits.
 - [docker/README.md](docker/README.md): hardened deployment and image tests.
 - [opennlp-grpc-api/README.md](opennlp-grpc-api/README.md): the v1 protos and
   stub generation for any other language.

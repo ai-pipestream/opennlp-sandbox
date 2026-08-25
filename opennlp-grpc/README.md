@@ -233,6 +233,9 @@ The standard catalog currently distinguishes these roles:
 | `paraphrase-multilingual-minilm-l12-v2-teacher` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Multilingual ONNX teacher (50+ languages) selectable by the Model2Vec-style trainer |
 | `de-ud-gsd-*`, `fr-ud-gsd-*`, `es-ud-gsd-*` | Apache OpenNLP UD 1.3 releases | German, French, and Spanish sentence detector, tokenizer, POS tagger, and lemmatizer packs, verified against the published Apache checksums and activated on the next server start |
 
+The complete flow from a stock server to German analysis and German semantic search is
+walked through in [docs/tutorials/german-end-to-end.md](docs/tutorials/german-end-to-end.md).
+
 An installed UD pack model publishes into its language's pipeline slot
 (`model.pipeline.<lang>.sentence_detector.path` and the tokenizer, POS tagger, and lemmatizer
 equivalents) on the next start, so packs for different languages coexist beside the bundled
