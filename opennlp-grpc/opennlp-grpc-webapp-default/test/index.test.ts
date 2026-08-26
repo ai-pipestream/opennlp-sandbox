@@ -168,3 +168,32 @@ describe("large-document layout contract", () => {
     expect(css).toMatch(/@media \(max-width: 850px\)[\s\S]*?\.layer-list\s*\{[^}]*max-height:\s*9rem;[^}]*overflow-y:\s*auto;/);
   });
 });
+
+describe("theme contract", () => {
+  const css = readFileSync(fileURLToPath(new URL("../src/style.css", import.meta.url)), "utf8");
+
+  it("defines the complete dark-first token block on bare :root", () => {
+    expect(css).toMatch(/:root\s*\{[^}]*--ground:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--surface:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--line:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--text-strong:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--muted:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--accent-cyan:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--accent-rose:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*--warn:/s);
+    expect(css).toMatch(/:root\s*\{[^}]*color-scheme:\s*dark/s);
+  });
+
+  it("redefines the light palette only behind the system-preference guard", () => {
+    expect(css).toMatch(/@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{/);
+  });
+
+  it("lets an explicit data-theme choice win in both directions", () => {
+    expect(css).toContain(':root[data-theme="light"]');
+    expect(css).toContain(':root[data-theme="dark"]');
+  });
+
+  it("offers the theme toggle in the site header", () => {
+    expect(html).toContain('id="theme-toggle"');
+  });
+});

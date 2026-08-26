@@ -88,6 +88,7 @@ import {
 import { readNormalizationXray, renderNormalizationXray } from "./normalization-xray";
 import { isTermVectorLayer, renderTermVectorStack } from "./term-vector-stack";
 import { SemanticWorkbench, type ResultViewName } from "./semantic-workbench";
+import { initThemeToggle } from "./theme-toggle";
 import {
   ModelDataWorkbench,
   readInstalledModel,
@@ -175,6 +176,8 @@ const resultAnnotationCount = requiredElement<HTMLElement>("result-annotation-co
 const resultOffsetEncoding = requiredElement<HTMLElement>("result-offset-encoding");
 const toolNavigation = requiredElement<HTMLElement>("tool-navigation");
 const toolNavigationStatus = requiredElement<HTMLElement>("tool-navigation-status");
+
+initThemeToggle(requiredElement<HTMLButtonElement>("theme-toggle"));
 
 let serviceAvailable = false;
 let busy = false;
