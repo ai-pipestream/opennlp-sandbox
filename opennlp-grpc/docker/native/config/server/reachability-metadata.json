@@ -2288,7 +2288,7 @@
    "type": "org.apache.opennlp.grpc.search.TermsSearchIndexProviderFactory"
   },
   {
-   "type": "org.apache.opennlp.grpc.search.TurboQuantSearchIndexProviderFactory"
+   "type": "org.apache.opennlp.grpc.search.turboquant.TurboQuantSearchIndexProviderFactory"
   },
   {
    "type": "org.apache.opennlp.grpc.installer.OpenNlpGrpcResourceInstallerCommand",

@@ -39,7 +39,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import opennlp.embeddings.corpus.CasePassage;
 import opennlp.embeddings.index.TurboQuantIndex;
-import org.apache.opennlp.grpc.search.bundle.TurboQuantBundleDigest;
+import org.apache.opennlp.grpc.search.turboquant.TurboQuantBundleDigest;
 import org.apache.opennlp.grpc.v1.AnalysisOptions;
 import org.apache.opennlp.grpc.v1.AnalysisProfile;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;

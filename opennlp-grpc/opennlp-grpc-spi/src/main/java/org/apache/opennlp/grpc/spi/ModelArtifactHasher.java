@@ -37,6 +37,28 @@ public final class ModelArtifactHasher {
   }
 
   /**
+   * Validates a lowercase hexadecimal SHA-256 value.
+   *
+   * @param value The value to validate.
+   * @param name The value's name, for the error message.
+   *
+   * @throws IllegalArgumentException If {@code value} is not a 64-character lowercase
+   *     hexadecimal SHA-256 digest.
+   */
+  public static void requireSha256Hex(String value, String name) {
+    if (value == null || value.length() != 64) {
+      throw new IllegalArgumentException(name + " must be a 64-character lowercase SHA-256");
+    }
+    for (int i = 0; i < value.length(); i++) {
+      final char character = value.charAt(i);
+      if (!((character >= '0' && character <= '9')
+          || (character >= 'a' && character <= 'f'))) {
+        throw new IllegalArgumentException(name + " must be a 64-character lowercase SHA-256");
+      }
+    }
+  }
+
+  /**
    * Returns the lowercase hex SHA-256 digest of {@code bytes}.
    *
    * @param bytes The artifact bytes. Must not be {@code null}.

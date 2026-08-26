@@ -44,6 +44,13 @@ import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
  */
 public final class SearchProviderCatalog {
 
+  /**
+   * Provider id of the TurboQuant factory, which ships in the
+   * {@code opennlp-grpc-search-turboquant} add-on; mirrored here so the catalog can map the
+   * id to its standard shorthand without a compile-time dependency on the add-on.
+   */
+  static final String TURBO_QUANT_PROVIDER_ID = "turbo_quant";
+
   private static final String PREFIX = "search.provider.";
   private static final String TYPE_SUFFIX = ".type";
   private static final String OPTION_SEGMENT = ".option.";
@@ -340,7 +347,7 @@ public final class SearchProviderCatalog {
     return switch (providerId) {
       case FlatFloatSearchIndexProviderFactory.PROVIDER_ID ->
           StandardSearchProvider.STANDARD_SEARCH_PROVIDER_FLAT_FLOAT;
-      case TurboQuantSearchIndexProviderFactory.PROVIDER_ID ->
+      case TURBO_QUANT_PROVIDER_ID ->
           StandardSearchProvider.STANDARD_SEARCH_PROVIDER_TURBO_QUANT;
       default -> null;
     };

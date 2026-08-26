@@ -31,6 +31,7 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.opennlp.grpc.spi.AnalysisException;
+import org.apache.opennlp.grpc.spi.ModelArtifactHasher;
 import org.apache.opennlp.grpc.v1.SearchIndexBuildDescriptor;
 import org.apache.opennlp.grpc.v1.SearchIndexDescriptor;
 import org.apache.opennlp.grpc.v1.SearchMetric;
@@ -353,16 +354,7 @@ public final class SearchIndexRegistry implements AutoCloseable {
   }
 
   static void requireSha256(String value, String name) {
-    if (value == null || value.length() != 64) {
-      throw new IllegalArgumentException(name + " must be a 64-character lowercase SHA-256");
-    }
-    for (int i = 0; i < value.length(); i++) {
-      final char character = value.charAt(i);
-      if (!((character >= '0' && character <= '9')
-          || (character >= 'a' && character <= 'f'))) {
-        throw new IllegalArgumentException(name + " must be a 64-character lowercase SHA-256");
-      }
-    }
+    ModelArtifactHasher.requireSha256Hex(value, name);
   }
 
   private static String require(Map<String, String> configuration, String key) {

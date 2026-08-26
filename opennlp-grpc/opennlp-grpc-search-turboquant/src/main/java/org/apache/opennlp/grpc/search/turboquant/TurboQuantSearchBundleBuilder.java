@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.search.bundle;
+package org.apache.opennlp.grpc.search.turboquant;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -38,9 +38,9 @@ import java.util.TreeMap;
 
 import opennlp.embeddings.corpus.CasePassage;
 import opennlp.embeddings.index.TurboQuantIndex;
+import org.apache.opennlp.grpc.spi.ModelArtifactHasher;
 import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
 import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
-import org.apache.opennlp.grpc.search.TurboQuantSearchBundleLoader;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
 
 /** Builds a bounded, immutable TurboQuant search bundle from normalized CasePassage JSONL. */
@@ -679,15 +679,10 @@ public final class TurboQuantSearchBundleBuilder {
    * @throws IOException If the value is not a lowercase SHA-256 hash.
    */
   private void requireSha256(String value, String name) throws IOException {
-    if (value.length() != 64) {
-      throw new IOException(name + " must be a 64-character lowercase SHA-256");
-    }
-    for (int i = 0; i < value.length(); i++) {
-      final char character = value.charAt(i);
-      if (!((character >= '0' && character <= '9')
-          || (character >= 'a' && character <= 'f'))) {
-        throw new IOException(name + " must be a 64-character lowercase SHA-256");
-      }
+    try {
+      ModelArtifactHasher.requireSha256Hex(value, name);
+    } catch (IllegalArgumentException e) {
+      throw new IOException(e.getMessage(), e);
     }
   }
 

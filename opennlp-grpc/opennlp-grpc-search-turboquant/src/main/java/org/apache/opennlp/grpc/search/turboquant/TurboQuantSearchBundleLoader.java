@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.search;
+package org.apache.opennlp.grpc.search.turboquant;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -38,7 +38,6 @@ import com.google.protobuf.Value;
 import opennlp.embeddings.corpus.CasePassage;
 import opennlp.embeddings.index.TurboQuantIndex;
 import opennlp.embeddings.index.VectorIndex.Hit;
-import org.apache.opennlp.grpc.search.bundle.TurboQuantBundleDigest;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.CoordinateSpace;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
@@ -50,6 +49,7 @@ import org.apache.opennlp.grpc.v1.SearchIndexDescriptor;
 import org.apache.opennlp.grpc.v1.SearchMetric;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
 import org.apache.opennlp.grpc.v1.StandardSearchProvider;
+import org.apache.opennlp.grpc.spi.ModelArtifactHasher;
 import org.apache.opennlp.grpc.spi.search.SearchResult;
 import org.apache.opennlp.grpc.spi.search.SearchRecord;
 import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
@@ -371,7 +371,7 @@ public final class TurboQuantSearchBundleLoader {
 
   private static void requireSha256(String value, String key) throws IOException {
     try {
-      SearchIndexRegistry.requireSha256(value, key);
+      ModelArtifactHasher.requireSha256Hex(value, key);
     } catch (IllegalArgumentException e) {
       throw new IOException(e.getMessage(), e);
     }

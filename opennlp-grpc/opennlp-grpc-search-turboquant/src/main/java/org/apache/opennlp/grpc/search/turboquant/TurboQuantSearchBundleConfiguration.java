@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.search.bundle;
+package org.apache.opennlp.grpc.search.turboquant;
 
 import java.net.URI;
 import java.nio.file.Path;

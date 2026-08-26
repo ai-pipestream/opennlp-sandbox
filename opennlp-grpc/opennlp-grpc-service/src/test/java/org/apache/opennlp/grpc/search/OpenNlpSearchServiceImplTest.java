@@ -120,7 +120,9 @@ class OpenNlpSearchServiceImplTest {
 
     assertNull(observer.error);
     assertTrue(observer.completed);
-    assertEquals(List.of("flat_float", "terms", "turbo_quant"),
+    // The TurboQuant provider ships in the opennlp-grpc-search-turboquant add-on, absent
+    // from this module's classpath; the add-on module asserts the full provider set.
+    assertEquals(List.of("flat_float", "terms"),
         observer.value.getProvidersList().stream()
             .map(SearchProviderInstance::getInstanceId).toList());
     assertTrue(observer.value.getProviders(0).getCapabilitiesList().contains(
@@ -159,47 +161,6 @@ class OpenNlpSearchServiceImplTest {
     assertTrue(dynamicRegistry.descriptors().isEmpty());
   }
 
-  @Test
-  void persistsAndSealsAWorkspaceThroughGrpcMethods(@TempDir Path root) {
-    final DynamicSearchIndexRegistry dynamicRegistry = new DynamicSearchIndexRegistry(
-        SearchProviderCatalog.discover(), new WorkspaceCheckpointStore(root));
-    final EmbeddingRoute workspaceRoute = EmbeddingRoute.newBuilder()
-        .setModelId("demo")
-        .setBackendId("static")
-        .setVectorSpaceId("demo-space")
-        .build();
-    final OpenNlpSearchServiceImpl service = new OpenNlpSearchServiceImpl(
-        new SearchIndexRegistry(List.of()),
-        dynamicRegistry,
-        new StubEmbeddingProvider(workspaceRoute, 2, List.of(workspaceRoute),
-            new float[] {1, 0}));
-    final CapturingObserver<IndexDocumentsResponse> indexed = new CapturingObserver<>();
-    service.indexDocuments(
-        DynamicSearchIndexRegistryTest.request(null, "doc-1", "alpha", 1, 0).toBuilder()
-            .setProvider(SearchProviderSelector.newBuilder()
-                .setStandard(StandardSearchProvider.STANDARD_SEARCH_PROVIDER_TURBO_QUANT))
-            .build(),
-        indexed);
-    final String indexId = indexed.value.getIndex().getIndexId();
-
-    final CapturingObserver<PersistIndexResponse> persisted = new CapturingObserver<>();
-    service.persistIndex(PersistIndexRequest.newBuilder().setIndexId(indexId).build(),
-        persisted);
-    assertNull(persisted.error);
-    assertTrue(persisted.value.getIndex().getPersisted());
-    assertFalse(persisted.value.getIndex().getImmutable());
-
-    final CapturingObserver<SealIndexResponse> sealed = new CapturingObserver<>();
-    service.sealIndex(SealIndexRequest.newBuilder().setIndexId(indexId).build(), sealed);
-    assertNull(sealed.error);
-    assertTrue(sealed.value.getIndex().getImmutable());
-
-    final CapturingObserver<IndexDocumentsResponse> mutation = new CapturingObserver<>();
-    service.indexDocuments(
-        DynamicSearchIndexRegistryTest.request(indexId, "doc-2", "beta", 0, 1), mutation);
-    assertEquals(Status.Code.FAILED_PRECONDITION,
-        Status.fromThrowable(mutation.error).getCode());
-  }
 
   @Test
   void persistingAFlatWorkspaceReportsTheMissingCapability(@TempDir Path root) {
@@ -924,77 +885,6 @@ class OpenNlpSearchServiceImplTest {
         Status.fromThrowable(rejected.error).getCode());
   }
 
-  @Test
-  void watchStreamsASnapshotFirstAndLifecycleEventsAfterwards(@TempDir Path root) {
-    final DynamicSearchIndexRegistry dynamicRegistry = new DynamicSearchIndexRegistry(
-        SearchProviderCatalog.discover(), new WorkspaceCheckpointStore(root));
-    final EmbeddingRoute workspaceRoute = EmbeddingRoute.newBuilder()
-        .setModelId("demo")
-        .setBackendId("static")
-        .setVectorSpaceId("demo-space")
-        .build();
-    final OpenNlpSearchServiceImpl service = new OpenNlpSearchServiceImpl(
-        new SearchIndexRegistry(List.of()),
-        dynamicRegistry,
-        new StubEmbeddingProvider(workspaceRoute, 2, List.of(workspaceRoute),
-            new float[] {1, 0}),
-        IndexAliasRegistry.inMemory(),
-        SearchCollectionRegistry.inMemory(dynamicRegistry,
-            artifactId -> List.of("alpha")));
-    final CapturingObserver<IndexDocumentsResponse> indexed = new CapturingObserver<>();
-    service.indexDocuments(
-        DynamicSearchIndexRegistryTest.request(null, "doc-1", "alpha", 1, 0).toBuilder()
-            .setProvider(SearchProviderSelector.newBuilder()
-                .setStandard(StandardSearchProvider.STANDARD_SEARCH_PROVIDER_TURBO_QUANT))
-            .build(),
-        indexed);
-    final String indexId = indexed.value.getIndex().getIndexId();
-    final CapturingObserver<SetCollectionResponse> set = new CapturingObserver<>();
-    service.setCollection(SetCollectionRequest.newBuilder()
-        .setCollectionId("legal")
-        .setDisplayName("Legal corpus")
-        .addMemberIndexIds(indexId)
-        .setVocabularyArtifactId("vocabulary-1")
-        .setDriftNewTermThreshold(1)
-        .build(), set);
-    assertNull(set.error);
-
-    final CollectingObserver<CollectionEvent> events = new CollectingObserver<>();
-    service.watchCollection(WatchCollectionRequest.newBuilder()
-        .setCollectionId("legal").build(), events);
-    assertEquals(1, events.values.size());
-    assertEquals(CollectionEventKind.COLLECTION_EVENT_KIND_SNAPSHOT,
-        events.values.get(0).getKind());
-
-    final CapturingObserver<PersistIndexResponse> persisted = new CapturingObserver<>();
-    service.persistIndex(PersistIndexRequest.newBuilder().setIndexId(indexId).build(),
-        persisted);
-    assertNull(persisted.error);
-    assertEquals(2, events.values.size());
-    assertEquals(CollectionEventKind.COLLECTION_EVENT_KIND_INDEX_PERSISTED,
-        events.values.get(1).getKind());
-    assertEquals(indexId, events.values.get(1).getIndexId());
-
-    final CapturingObserver<IndexDocumentsResponse> extended = new CapturingObserver<>();
-    service.indexDocuments(
-        DynamicSearchIndexRegistryTest.request(indexId, "doc-2", "beta", 0, 1), extended);
-    assertNull(extended.error);
-    assertEquals(3, events.values.size());
-    assertEquals(CollectionEventKind.COLLECTION_EVENT_KIND_DRIFT_THRESHOLD_CROSSED,
-        events.values.get(2).getKind());
-    assertEquals(1, events.values.get(2).getCollection().getDrift().getNewTerms());
-
-    final CapturingObserver<DeleteCollectionResponse> deleted = new CapturingObserver<>();
-    service.deleteCollection(DeleteCollectionRequest.newBuilder()
-        .setCollectionId("legal").build(), deleted);
-    assertNull(deleted.error);
-    assertTrue(events.completed);
-
-    final CollectingObserver<CollectionEvent> unknown = new CollectingObserver<>();
-    service.watchCollection(WatchCollectionRequest.newBuilder()
-        .setCollectionId("legal").build(), unknown);
-    assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(unknown.error).getCode());
-  }
 
   @Test
   void watchDoesNotRegisterAfterImmediateTransportCancellation() {
@@ -1097,24 +987,24 @@ class OpenNlpSearchServiceImplTest {
     assertEquals(expected, Status.fromThrowable(observer.error).getCode());
   }
 
-  private static final class StubEmbeddingProvider implements EmbeddingProvider {
+  static final class StubEmbeddingProvider implements EmbeddingProvider {
 
-    private final EmbeddingRoute resultRoute;
-    private final int dimension;
-    private final List<EmbeddingRoute> routes;
-    private final float[] resultVector;
-    private final AtomicReference<String> requestedBackend = new AtomicReference<>();
+    final EmbeddingRoute resultRoute;
+    final int dimension;
+    final List<EmbeddingRoute> routes;
+    final float[] resultVector;
+    final AtomicReference<String> requestedBackend = new AtomicReference<>();
 
-    private StubEmbeddingProvider(EmbeddingRoute resultRoute, int dimension) {
+    StubEmbeddingProvider(EmbeddingRoute resultRoute, int dimension) {
       this(resultRoute, dimension, List.of(route()));
     }
 
-    private StubEmbeddingProvider(
+    StubEmbeddingProvider(
         EmbeddingRoute resultRoute, int dimension, List<EmbeddingRoute> routes) {
       this(resultRoute, dimension, routes, unitVector(dimension));
     }
 
-    private StubEmbeddingProvider(
+    StubEmbeddingProvider(
         EmbeddingRoute resultRoute,
         int dimension,
         List<EmbeddingRoute> routes,
@@ -1176,7 +1066,7 @@ class OpenNlpSearchServiceImplTest {
       return "a".repeat(64);
     }
 
-    private static float[] unitVector(int dimension) {
+    static float[] unitVector(int dimension) {
       final float[] vector = new float[dimension];
       if (dimension > 0) {
         vector[0] = 1;
@@ -1243,11 +1133,11 @@ class OpenNlpSearchServiceImplTest {
     }
   }
 
-  private static final class CollectingObserver<T> implements StreamObserver<T> {
+  static final class CollectingObserver<T> implements StreamObserver<T> {
 
-    private final List<T> values = new ArrayList<>();
-    private Throwable error;
-    private boolean completed;
+    final List<T> values = new ArrayList<>();
+    Throwable error;
+    boolean completed;
 
     @Override
     public void onNext(T value) {
@@ -1265,11 +1155,11 @@ class OpenNlpSearchServiceImplTest {
     }
   }
 
-  private static final class CapturingObserver<T> implements StreamObserver<T> {
+  static final class CapturingObserver<T> implements StreamObserver<T> {
 
-    private T value;
-    private Throwable error;
-    private boolean completed;
+    T value;
+    Throwable error;
+    boolean completed;
 
     @Override
     public void onNext(T value) {

@@ -187,6 +187,19 @@
 
     <build>
         <plugins>
+            <!-- Test jar so add-on modules can run the search registry and service tests
+                 that need their provider on the classpath, reusing these fixtures. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

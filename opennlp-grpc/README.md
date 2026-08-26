@@ -94,8 +94,8 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
 - **opennlp-grpc-spi** - the ServiceLoader contracts (`org.apache.opennlp.grpc.spi.*`) and
   carrier types that add-on backends compile against; deliberately small
 - **opennlp-grpc-service** - `OpenNlpGrpcServer`, analysis, search, and vocabulary services,
-  the registries that discover SPI backends, and the bounded TurboQuant bundle builder;
-  its slim `opennlp-grpc-server` jar carries no native inference runtime
+  and the registries that discover SPI backends; its slim `opennlp-grpc-server` jar carries
+  no native inference runtime and no quantized search provider
 - **opennlp-grpc-backend-tei** - optional remote embedding backend for HuggingFace Text
   Embeddings Inference (TEI) gRPC endpoints
 - **opennlp-grpc-backend-openvino** - optional remote embedding backend for OpenVINO
@@ -109,6 +109,10 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
   model catalog (metadata only) contributed through the catalog SPI, and the standalone
   `install-resource` CLI; without it the server serves an empty catalog and refuses
   installs honestly
+- **opennlp-grpc-search-turboquant** - optional quantized vector search add-on: the
+  TurboQuant provider (live workspaces, persistence, exhaustive immutable bundles) and
+  the offline bundle builder CLI; without it the flat-float and terms providers still
+  serve dynamic search
 - **opennlp-grpc-webapp-api** - typed ServiceLoader API for static browser interface extensions
 - **opennlp-grpc-webapp-default** - default TypeScript analysis and semantic-search workbench
 - **opennlp-grpc-webapp** - optional standalone HTTP host and protobuf JSON gateway
@@ -582,7 +586,7 @@ files before embedding, and enforces record, input, query, batch, and output lim
 
 ```bash
 java -cp opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar \
-  org.apache.opennlp.grpc.search.bundle.TurboQuantSearchBundleCommand \
+  org.apache.opennlp.grpc.search.turboquant.TurboQuantSearchBundleCommand \
   --server-config /srv/opennlp/legal/server.properties \
   --passages /srv/opennlp/legal/passages.jsonl \
   --preparation-config /srv/opennlp/legal/preparation.properties \
@@ -742,7 +746,9 @@ a fresh snapshot.
 `IndexDocuments` also accepts analyzed `OpenNlpDocument` values whose chunk groups already carry
 embeddings. It creates or atomically extends a bounded index in server memory, so the browser
 never stores vectors or computes similarity. The optional `provider` selector fixes the vector
-storage at creation: the exact flat float provider (the default), TurboQuant, which quantizes
+storage at creation: the exact flat float provider (the default), TurboQuant (from the
+`opennlp-grpc-search-turboquant` add-on, bundled in `opennlp-grpc-server-all` and the
+docker images), which quantizes
 each published snapshot with a fixed bit width and seed, or any configured instance of a
 live vector provider; extending an index requires the same instance or an unset selector. `DeleteSearchIndex` releases that process-local
 workspace. Dynamic indexing is enabled by default for the workbench and can be disabled with

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.search.bundle;
+package org.apache.opennlp.grpc.search.turboquant;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,7 +35,6 @@ import opennlp.embeddings.index.TurboQuantIndex;
 import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
 import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
-import org.apache.opennlp.grpc.search.TurboQuantSearchBundleLoader;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
