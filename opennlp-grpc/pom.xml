@@ -42,6 +42,8 @@
         <module>opennlp-grpc-dl</module>
         <module>opennlp-grpc-installer</module>
         <module>opennlp-grpc-search-turboquant</module>
+        <module>opennlp-grpc-store-s3</module>
+        <module>opennlp-grpc-search-lucene</module>
         <module>opennlp-grpc-webapp-api</module>
         <module>opennlp-grpc-webapp-default</module>
         <module>opennlp-grpc-webapp</module>

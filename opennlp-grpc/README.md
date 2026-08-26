@@ -113,6 +113,13 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
   TurboQuant provider (live workspaces, persistence, exhaustive immutable bundles) and
   the offline bundle builder CLI; without it the flat-float and terms providers still
   serve dynamic search
+- **opennlp-grpc-store-s3** - optional S3 vocabulary artifact store, discovered by the
+  `s3` scheme of `vocabulary.artifact_root`; its `-all` jar bundles the AWS SDK for
+  single-file classpath drop-in (not part of `opennlp-grpc-server-all`)
+- **opennlp-grpc-search-lucene** - optional Lucene keyword component (`lucene`
+  provider): BM25-scored term and phrase execution for compound queries; its `-all`
+  jar bundles Lucene for single-file classpath drop-in (not part of
+  `opennlp-grpc-server-all`)
 - **opennlp-grpc-webapp-api** - typed ServiceLoader API for static browser interface extensions
 - **opennlp-grpc-webapp-default** - default TypeScript analysis and semantic-search workbench
 - **opennlp-grpc-webapp** - optional standalone HTTP host and protobuf JSON gateway
@@ -451,6 +458,10 @@ resolve through the `VocabularyStoreProvider` ServiceLoader interface in
 `org.apache.opennlp.grpc.spi.vocabulary`, so a remote tier such as S3 plugs in by
 adding the JAR that provides its scheme to the classpath; the service itself carries
 no cloud dependency. A scheme with no provider on the classpath fails loud at startup.
+The `opennlp-grpc-store-s3` add-on provides the `s3` scheme: set
+`vocabulary.artifact_root=s3://bucket/prefix` and drop its self-contained
+`opennlp-grpc-store-s3-<version>-all.jar` (AWS SDK bundled) on the server classpath;
+region and credentials resolve through the standard AWS chain.
 
 The defaults shown above are conservative per-operation caps. `max_concurrent_writes` is shared by
 dictionary imports and vocabulary builds, so multiple client streams cannot multiply their bounded
