@@ -50,8 +50,12 @@ public record SearchIndexBundleConfiguration(
     int maxBundleBytes,
     Map<String, String> providerOptions) {
 
-  /** Conservative default result limit. */
-  public static final int DEFAULT_MAX_TOP_K = 50;
+  /**
+   * Default result limit when {@code max_top_k} is not configured, matching the dynamic
+   * workspace default. The response byte budget still bounds what one reply carries;
+   * operators raise the limit per index up to {@link #MAX_TOP_K_LIMIT}.
+   */
+  public static final int DEFAULT_MAX_TOP_K = 1_000;
   /** Absolute safety ceiling for one remotely requested result count. */
   public static final int MAX_TOP_K_LIMIT = 10_000;
   /** Absolute safety ceiling for one exhaustive result. */

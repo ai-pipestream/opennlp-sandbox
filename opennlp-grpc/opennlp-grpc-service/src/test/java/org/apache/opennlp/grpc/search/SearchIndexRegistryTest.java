@@ -53,6 +53,13 @@ class SearchIndexRegistryTest {
       SearchProviderCapability.SEARCH_PROVIDER_CAPABILITY_BUNDLE);
 
   @Test
+  void bundleDefaultTopKMatchesTheDynamicWorkspaceDefault() {
+    // Startup bundles and dynamic workspaces must not disagree on the default result
+    // depth; the per-index max_top_k setting raises it up to the fixed ceiling.
+    assertEquals(1_000, SearchIndexBundleConfiguration.DEFAULT_MAX_TOP_K);
+  }
+
+  @Test
   void closesProvidersInReverseLoadOrder() {
     final List<String> closed = new ArrayList<>();
     final SearchIndexProvider first = closeableProvider(descriptor("first"), closed);
