@@ -74,6 +74,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-grpc-sink-grpc</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
             <artifactId>opennlp-grpc-backend-static</artifactId>
             <version>${project.version}</version>
         </dependency>

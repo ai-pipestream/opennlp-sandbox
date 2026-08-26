@@ -45,6 +45,7 @@
         <module>opennlp-grpc-store-s3</module>
         <module>opennlp-grpc-search-lucene</module>
         <module>opennlp-grpc-formats</module>
+        <module>opennlp-grpc-sink-grpc</module>
         <module>opennlp-grpc-webapp-api</module>
         <module>opennlp-grpc-webapp-default</module>
         <module>opennlp-grpc-webapp</module>

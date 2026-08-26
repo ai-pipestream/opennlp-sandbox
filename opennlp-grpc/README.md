@@ -123,6 +123,10 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
 - **opennlp-grpc-formats** - optional hand-written document output formats (CoNLL-U,
   RFC 4180 CSV, Markdown report, WARC) contributed through the format SPI; no
   third-party dependency, bundled in `opennlp-grpc-server-all`
+- **opennlp-grpc-sink-grpc** - optional gRPC document sink: streams every analyzed
+  document (optionally with a rendering) to a downstream receiver implementing the
+  `OpenNlpDocumentSinkService` contract in any protobuf language; bundled in
+  `opennlp-grpc-server-all`
 - **opennlp-grpc-webapp-api** - typed ServiceLoader API for static browser interface extensions
 - **opennlp-grpc-webapp-default** - default TypeScript analysis and semantic-search workbench
 - **opennlp-grpc-webapp** - optional standalone HTTP host and protobuf JSON gateway
@@ -390,6 +394,30 @@ formats are one `OutputFormatter` implementation plus a ServiceLoader registrati
 in a jar on the server classpath. The SPI is generic over the reply type, so future
 reply families (search results, catalogs) can grow their own formatter sets without
 new plumbing.
+
+## Stream analyzed documents to a sink
+
+Sinks are the push counterpart of output formats: the server tees every document the
+analysis service produces (unary and streaming) into destinations contributed through
+the `org.apache.opennlp.grpc.spi.sink.DocumentSinkProvider` SPI. A sink failure is
+logged and isolated, never failing the analysis that produced the document.
+
+The `opennlp-grpc-sink-grpc` add-on (bundled in `opennlp-grpc-server-all` and the
+docker images) streams to a downstream receiver over one client-streaming call:
+
+```ini
+sink.archive.provider=grpc
+sink.archive.target=localhost:9091
+# Optional: attach a deployed output format's rendering to every item.
+sink.archive.format=conllu
+```
+
+The receiver implements the one-RPC `OpenNlpDocumentSinkService` contract
+(`opennlp_sink.proto`) in any protobuf language: generate a Python, Go, or Java
+server stub, accept the `StreamDocuments` stream, and reply with a summary when the
+sender half-closes at shutdown. Like the JSON gateway, the sink channel carries no
+credentials, so targets belong on loopback or a trusted network. An instance naming
+an unknown provider fails startup listing the available sink ids.
 
 ## Run the optional web application
 

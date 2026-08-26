@@ -38,6 +38,9 @@ import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.protobuf.services.HealthStatusManager;
 import io.grpc.protobuf.services.ProtoReflectionServiceV1;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
+import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
+import org.apache.opennlp.grpc.sink.DocumentSinkRegistry;
+import org.apache.opennlp.grpc.sink.SinkTeeingDocumentAnalyzer;
 import org.apache.opennlp.grpc.processor.basic.BasicDocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.search.DynamicSearchIndexRegistry;
@@ -105,6 +108,7 @@ public class OpenNlpGrpcServer implements Callable<Integer> {
   private SearchIndexRegistry searchIndexRegistry;
   private DynamicSearchIndexRegistry dynamicSearchIndexRegistry;
   private int shutdownGraceSeconds = DEFAULT_SHUTDOWN_GRACE_SECONDS;
+  private DocumentSinkRegistry documentSinks;
   private final AtomicBoolean stopping = new AtomicBoolean();
 
   /** Creates an unstarted server; picocli populates the options before {@link #call()} runs. */
@@ -247,6 +251,10 @@ public class OpenNlpGrpcServer implements Callable<Integer> {
     final ProfileRegistry profileRegistry = modelBundleCache.createProfileRegistry();
     final BasicDocumentAnalyzer documentAnalyzer =
         new BasicDocumentAnalyzer(profileRegistry, modelBundleCache);
+    this.documentSinks = DocumentSinkRegistry.fromConfiguration(configuration);
+    // Only the analysis service tees into sinks; training-time analyses stay internal.
+    final DocumentAnalyzer sinkedAnalyzer = documentSinks.isEmpty()
+        ? documentAnalyzer : new SinkTeeingDocumentAnalyzer(documentAnalyzer, documentSinks);
     final DefaultStreamingTrainingPipeline streamingTraining =
         new DefaultStreamingTrainingPipeline(
             documentAnalyzer,
@@ -269,7 +277,7 @@ public class OpenNlpGrpcServer implements Callable<Integer> {
         .executor(handlerExecutor)
         .addService(ServerInterceptors.intercept(
             new OpenNlpAnalysisServiceImpl(
-                documentAnalyzer,
+                sinkedAnalyzer,
                 profileRegistry,
                 modelBundleCache,
                 SERVER_VERSION,
@@ -471,8 +479,15 @@ public class OpenNlpGrpcServer implements Callable<Integer> {
         }
       }
     } finally {
-      if (modelBundleCache != null) {
-        modelBundleCache.close();
+      try {
+        if (modelBundleCache != null) {
+          modelBundleCache.close();
+        }
+      } finally {
+        // Sinks close last so every drained analysis was already teed.
+        if (documentSinks != null) {
+          documentSinks.close();
+        }
       }
     }
     if (interrupted) {
