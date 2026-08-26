@@ -45,6 +45,21 @@ class GrpcJsonApiTest {
   }
 
   @Test
+  void servesOutputFormatsAndFormatDocumentRoutes() {
+    GrpcJsonApi api = new GrpcJsonApi(new StubAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(), new EmptyTrainingRpc());
+
+    WebHttpResponse listed = api.handle("GET", "/api/v1/output-formats", new byte[0]);
+    assertEquals(200, listed.status());
+
+    byte[] request = """
+        {"document":{"docId":"one","rawText":"Hello."},"formatId":"tsv"}
+        """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    WebHttpResponse formatted = api.handle("POST", "/api/v1/format-document", request);
+    assertEquals(200, formatted.status());
+    assertTrue(formatted.bodyUtf8().contains("\"fileExtension\":\"tsv\""));
+  }
+
+  @Test
   void parsesAnalyzeRequestAndRendersDocumentShape() {
     GrpcJsonApi api = new GrpcJsonApi(new StubAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(), new EmptyTrainingRpc());
     byte[] request = """
@@ -192,6 +207,20 @@ class GrpcJsonApiTest {
   }
 
   private static class StubAnalysisRpc implements AnalysisRpc {
+
+    @Override
+    public org.apache.opennlp.grpc.v1.ListOutputFormatsResponse listOutputFormats() {
+      return org.apache.opennlp.grpc.v1.ListOutputFormatsResponse.getDefaultInstance();
+    }
+
+    @Override
+    public org.apache.opennlp.grpc.v1.FormatDocumentResponse formatDocument(
+        org.apache.opennlp.grpc.v1.FormatDocumentRequest request) {
+      return org.apache.opennlp.grpc.v1.FormatDocumentResponse.newBuilder()
+          .setMediaType("text/plain")
+          .setFileExtension(request.getFormatId())
+          .build();
+    }
 
     @Override
     public GetServiceInfoResponse getServiceInfo() {

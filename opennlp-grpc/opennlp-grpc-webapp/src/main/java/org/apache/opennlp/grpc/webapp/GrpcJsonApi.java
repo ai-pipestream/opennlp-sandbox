@@ -29,6 +29,7 @@ import com.google.protobuf.util.JsonFormat;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.CollectionEvent;
 import org.apache.opennlp.grpc.v1.DeleteCollectionRequest;
@@ -130,6 +131,10 @@ final class GrpcJsonApi {
             ? protobufJson(analysisRpc.listModelBundles()) : methodNotAllowed();
         case "/api/v1/analyze" -> method.equals("POST")
             ? analyze(body) : methodNotAllowed();
+        case "/api/v1/output-formats" -> method.equals("GET")
+            ? protobufJson(analysisRpc.listOutputFormats()) : methodNotAllowed();
+        case "/api/v1/format-document" -> method.equals("POST")
+            ? formatDocument(body) : methodNotAllowed();
         case "/api/v1/response/encode" -> method.equals("POST")
             ? encodeResponse(body) : methodNotAllowed();
         case "/api/v1/response/decode" -> method.equals("POST")
@@ -201,6 +206,24 @@ final class GrpcJsonApi {
    * @param body The protobuf JSON request body.
    * @return The encoded analysis response.
    */
+  /** Renders one analyzed document into a deployed output format. */
+  private WebHttpResponse formatDocument(byte[] body) {
+    final FormatDocumentRequest.Builder request = FormatDocumentRequest.newBuilder();
+    final String json;
+    try {
+      json = decodeUtf8(body);
+    } catch (CharacterCodingException exception) {
+      return error(400, Status.Code.INVALID_ARGUMENT, INVALID_UTF8_MESSAGE);
+    }
+    try {
+      parser.merge(json, request);
+    } catch (InvalidProtocolBufferException exception) {
+      return error(400, Status.Code.INVALID_ARGUMENT,
+          MALFORMED_PROTOBUF_JSON_PREFIX + exception.getMessage());
+    }
+    return protobufJson(analysisRpc.formatDocument(request.build()));
+  }
+
   private WebHttpResponse analyze(byte[] body) {
     AnalyzeDocumentRequest.Builder request = AnalyzeDocumentRequest.newBuilder();
     final String json;

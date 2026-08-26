@@ -348,6 +348,17 @@ class OpenNlpGrpcWebServerTest {
   private static class TestAnalysisRpc implements AnalysisRpc {
 
     @Override
+    public org.apache.opennlp.grpc.v1.ListOutputFormatsResponse listOutputFormats() {
+      return org.apache.opennlp.grpc.v1.ListOutputFormatsResponse.getDefaultInstance();
+    }
+
+    @Override
+    public org.apache.opennlp.grpc.v1.FormatDocumentResponse formatDocument(
+        org.apache.opennlp.grpc.v1.FormatDocumentRequest request) {
+      return org.apache.opennlp.grpc.v1.FormatDocumentResponse.getDefaultInstance();
+    }
+
+    @Override
     public GetServiceInfoResponse getServiceInfo() {
       return GetServiceInfoResponse.newBuilder().setApiVersion("v1").build();
     }

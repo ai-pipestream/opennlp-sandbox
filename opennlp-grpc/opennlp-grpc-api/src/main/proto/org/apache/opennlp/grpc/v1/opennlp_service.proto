@@ -65,6 +65,16 @@ service OpenNlpAnalysisService {
   // stream with a status: INVALID_ARGUMENT (blank text, model switch), NOT_FOUND (unknown
   // model id, or no model id when several models are configured and none is the default).
   rpc EmbedText(stream EmbedTextRequest) returns (stream EmbedTextResponse);
+  // Lists the document output formats served by this instance. Formats are
+  // contributed by DocumentOutputFormatter providers discovered from the
+  // classpath; the list is empty when no formatter jar is deployed.
+  rpc ListOutputFormats(ListOutputFormatsRequest) returns (ListOutputFormatsResponse);
+  // Renders one analyzed document into a contributed output format. The document
+  // is one previously returned by AnalyzeDocument (or assembled by the caller in
+  // the same shape); no analysis runs here. Errors: NOT_FOUND (the format id names
+  // no deployed formatter; the message lists the available ids), INVALID_ARGUMENT
+  // (blank format id or missing document), INTERNAL (the formatter failed).
+  rpc FormatDocument(FormatDocumentRequest) returns (FormatDocumentResponse);
 }
 
 // Input to AnalyzeDocument. Supplies the document, selects which analysis to run
@@ -381,4 +391,44 @@ message EmbedTextResponse {
   repeated float vector = 2;
   // The actual backend route that produced this vector, including after fallback.
   EmbeddingRoute route = 3;
+}
+
+// Input to ListOutputFormats. Empty; reserved for future filters.
+message ListOutputFormatsRequest {
+}
+
+// The document output formats served by this instance, in stable format-id order.
+message ListOutputFormatsResponse {
+  // One entry per deployed formatter.
+  repeated OutputFormatDescriptor formats = 1;
+}
+
+// Identity and rendering metadata of one deployed document output format.
+message OutputFormatDescriptor {
+  // Stable lowercase format id used in FormatDocumentRequest, e.g. "tsv".
+  string format_id = 1;
+  // Human-readable format name, e.g. "Token TSV".
+  string display_name = 2;
+  // IANA media type of the rendered content, e.g. "text/tab-separated-values".
+  string media_type = 3;
+  // Conventional file extension without the dot, e.g. "tsv".
+  string file_extension = 4;
+}
+
+// Input to FormatDocument: one analyzed document and the format to render it in.
+message FormatDocumentRequest {
+  // The analyzed document to render, as returned by AnalyzeDocument.
+  OpenNlpDocument document = 1;
+  // The format id of a deployed formatter (see ListOutputFormats).
+  string format_id = 2;
+}
+
+// One rendered document.
+message FormatDocumentResponse {
+  // The rendered content. Text formats are UTF-8 encoded.
+  bytes content = 1;
+  // IANA media type of the content.
+  string media_type = 2;
+  // Conventional file extension without the dot.
+  string file_extension = 3;
 }

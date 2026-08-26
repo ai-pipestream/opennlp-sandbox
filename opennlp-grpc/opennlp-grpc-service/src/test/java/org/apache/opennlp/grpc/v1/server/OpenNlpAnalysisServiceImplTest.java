@@ -35,6 +35,10 @@ import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.testing.StubSentenceDetectorBackendFactory;
 import org.apache.opennlp.grpc.testing.StubTokenizerBackendFactory;
+import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
+import org.apache.opennlp.grpc.v1.FormatDocumentResponse;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsRequest;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.ComponentType;
@@ -72,6 +76,67 @@ class OpenNlpAnalysisServiceImplTest {
       DocumentAnalyzer analyzer, ModelBundleCache modelBundleCache) {
     return new OpenNlpAnalysisServiceImpl(
         analyzer, ProfileRegistry.createDefault(), modelBundleCache, "test");
+  }
+
+  @Test
+  void listsTheBuiltInOutputFormats() {
+    final OpenNlpAnalysisServiceImpl service = serviceWith(request -> {
+      throw new IllegalStateException("analysis must not run");
+    });
+    final CapturingObserver<ListOutputFormatsResponse> observer = new CapturingObserver<>();
+
+    service.listOutputFormats(ListOutputFormatsRequest.getDefaultInstance(), observer);
+
+    assertNull(observer.error);
+    assertEquals(List.of("proto", "protojson", "tsv"),
+        observer.value.getFormatsList().stream()
+            .map(format -> format.getFormatId()).toList());
+  }
+
+  @Test
+  void formatsADocumentThroughADeployedFormatter() {
+    final OpenNlpAnalysisServiceImpl service = serviceWith(request -> {
+      throw new IllegalStateException("analysis must not run");
+    });
+    final OpenNlpDocument document =
+        OpenNlpDocument.newBuilder().setDocId("doc-1").setRawText("Alpha.").build();
+    final CapturingObserver<FormatDocumentResponse> observer = new CapturingObserver<>();
+
+    service.formatDocument(FormatDocumentRequest.newBuilder()
+        .setDocument(document).setFormatId("proto").build(), observer);
+
+    assertNull(observer.error);
+    assertEquals("application/x-protobuf", observer.value.getMediaType());
+    assertEquals(document.toByteString(), observer.value.getContent());
+  }
+
+  @Test
+  void unknownOutputFormatMapsToNotFound() {
+    final OpenNlpAnalysisServiceImpl service = serviceWith(request -> {
+      throw new IllegalStateException("analysis must not run");
+    });
+    final CapturingObserver<FormatDocumentResponse> observer = new CapturingObserver<>();
+
+    service.formatDocument(FormatDocumentRequest.newBuilder()
+        .setDocument(OpenNlpDocument.getDefaultInstance())
+        .setFormatId("warc-missing").build(), observer);
+
+    assertEquals(Status.Code.NOT_FOUND,
+        Status.fromThrowable(observer.error).getCode());
+  }
+
+  @Test
+  void formatWithoutADocumentMapsToInvalidArgument() {
+    final OpenNlpAnalysisServiceImpl service = serviceWith(request -> {
+      throw new IllegalStateException("analysis must not run");
+    });
+    final CapturingObserver<FormatDocumentResponse> observer = new CapturingObserver<>();
+
+    service.formatDocument(FormatDocumentRequest.newBuilder()
+        .setFormatId("tsv").build(), observer);
+
+    assertEquals(Status.Code.INVALID_ARGUMENT,
+        Status.fromThrowable(observer.error).getCode());
   }
 
   private static String resourcePath(String name) {

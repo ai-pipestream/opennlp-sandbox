@@ -34,6 +34,10 @@ import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
 import org.apache.opennlp.grpc.v1.GetServiceInfoRequest;
 import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
+import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
+import org.apache.opennlp.grpc.v1.FormatDocumentResponse;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsRequest;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesRequest;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpAnalysisServiceGrpc;
@@ -88,6 +92,18 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
   @Override
   public ListModelBundlesResponse listModelBundles() {
     return deadlineStub().listModelBundles(ListModelBundlesRequest.getDefaultInstance());
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public ListOutputFormatsResponse listOutputFormats() {
+    return deadlineStub().listOutputFormats(ListOutputFormatsRequest.getDefaultInstance());
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public FormatDocumentResponse formatDocument(FormatDocumentRequest request) {
+    return deadlineStub().formatDocument(request);
   }
 
   /** {@inheritDoc} */

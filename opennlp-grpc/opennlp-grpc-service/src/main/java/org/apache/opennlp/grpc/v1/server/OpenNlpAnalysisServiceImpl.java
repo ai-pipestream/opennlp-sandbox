@@ -17,6 +17,16 @@
  */
 package org.apache.opennlp.grpc.v1.server;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import com.google.protobuf.ByteString;
+import org.apache.opennlp.grpc.format.OutputFormatterRegistry;
+import org.apache.opennlp.grpc.spi.format.OutputFormatter;
+import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
+import org.apache.opennlp.grpc.v1.FormatDocumentResponse;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsRequest;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
+import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -58,6 +68,14 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
   public static final int DEFAULT_MAX_TEXT_BYTES = 1_048_576;
 
   private static final Logger logger = LoggerFactory.getLogger(OpenNlpAnalysisServiceImpl.class);
+
+  /**
+   * Deployed document output formatters, discovered once. The built-in binary
+   * protobuf, protobuf JSON, and TSV formatters ship with the server; add-on jars
+   * contribute further formats through the format SPI.
+   */
+  private static final OutputFormatterRegistry<OpenNlpDocument> outputFormatters =
+      OutputFormatterRegistry.discover(OpenNlpDocument.class);
 
   private static final String API_VERSION = "v1";
   private static final String SERVICE_VERSION = serviceVersion();
@@ -486,6 +504,54 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
         .addAllBundles(modelBundleCache.listBundles())
         .build());
     responseObserver.onCompleted();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void listOutputFormats(
+      ListOutputFormatsRequest request,
+      StreamObserver<ListOutputFormatsResponse> responseObserver) {
+    responseObserver.onNext(ListOutputFormatsResponse.newBuilder()
+        .addAllFormats(outputFormatters.descriptors())
+        .build());
+    responseObserver.onCompleted();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void formatDocument(
+      FormatDocumentRequest request,
+      StreamObserver<FormatDocumentResponse> responseObserver) {
+    try {
+      if (!request.hasDocument()) {
+        throw AnalysisException.invalidArgument("FormatDocumentRequest.document is required");
+      }
+      final OutputFormatter<OpenNlpDocument> formatter =
+          outputFormatters.require(request.getFormatId());
+      final ByteArrayOutputStream rendered = new ByteArrayOutputStream();
+      try {
+        formatter.format(request.getDocument(), rendered);
+      } catch (IOException | RuntimeException e) {
+        // The formatter is add-on code; its failure detail stays server-side.
+        logger.error("Output formatter '{}' failed", formatter.formatId(), e);
+        responseObserver.onError(Status.INTERNAL
+            .withDescription("Output formatting failed").withCause(e).asRuntimeException());
+        return;
+      }
+      responseObserver.onNext(FormatDocumentResponse.newBuilder()
+          .setContent(ByteString.copyFrom(rendered.toByteArray()))
+          .setMediaType(formatter.mediaType())
+          .setFileExtension(formatter.fileExtension())
+          .build());
+      responseObserver.onCompleted();
+    } catch (AnalysisException e) {
+      responseObserver.onError(GrpcStatusMapper.toStatus(e)
+          .withDescription(e.getMessage()).withCause(e.getCause()).asRuntimeException());
+    } catch (RuntimeException e) {
+      logger.error("Unexpected error handling FormatDocument", e);
+      responseObserver.onError(Status.INTERNAL
+          .withDescription("Internal server error").withCause(e).asRuntimeException());
+    }
   }
 
   /** Returns the packaged service version or a development fallback. */

@@ -120,6 +120,9 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
   provider): BM25-scored term and phrase execution for compound queries; its `-all`
   jar bundles Lucene for single-file classpath drop-in (not part of
   `opennlp-grpc-server-all`)
+- **opennlp-grpc-formats** - optional hand-written document output formats (CoNLL-U,
+  RFC 4180 CSV, Markdown report, WARC) contributed through the format SPI; no
+  third-party dependency, bundled in `opennlp-grpc-server-all`
 - **opennlp-grpc-webapp-api** - typed ServiceLoader API for static browser interface extensions
 - **opennlp-grpc-webapp-default** - default TypeScript analysis and semantic-search workbench
 - **opennlp-grpc-webapp** - optional standalone HTTP host and protobuf JSON gateway
@@ -369,6 +372,24 @@ model id and exact vector-space id to make compatible engines participate in pri
 routing, or use distinct logical ids when clients should select them explicitly. Run
 `./demo-model-download.sh --help` for deadline, priority, TEI normalization/truncation, and OpenVINO
 tensor-name options. Remote providers are contacted and validated when the gRPC server starts.
+
+## Export analyzed documents
+
+The reply of `AnalyzeDocument` is itself the first output format: `FormatDocument`
+renders one analyzed document into any format contributed through the
+`org.apache.opennlp.grpc.spi.format.OutputFormatter` SPI, and `ListOutputFormats`
+lists what the running server can render. The server ships `proto` (the reply's
+binary protobuf bytes), `protojson` (canonical protobuf JSON), and `tsv` (one token
+per row); the `opennlp-grpc-formats` add-on (bundled in `opennlp-grpc-server-all`
+and the docker images) adds `conllu`, `csv`, `markdown`, and `warc`, all written by
+hand with no third-party dependency. The gateway exposes the same pair as
+`GET /api/v1/output-formats` and `POST /api/v1/format-document`.
+
+An unknown format id fails with `NOT_FOUND` naming the available ids; further
+formats are one `OutputFormatter` implementation plus a ServiceLoader registration
+in a jar on the server classpath. The SPI is generic over the reply type, so future
+reply families (search results, catalogs) can grow their own formatter sets without
+new plumbing.
 
 ## Run the optional web application
 

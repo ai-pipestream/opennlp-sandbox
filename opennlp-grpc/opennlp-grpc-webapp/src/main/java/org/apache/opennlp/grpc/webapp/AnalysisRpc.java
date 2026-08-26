@@ -24,6 +24,9 @@ import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
+import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
+import org.apache.opennlp.grpc.v1.FormatDocumentResponse;
+import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
 import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 
@@ -34,6 +37,17 @@ interface AnalysisRpc {
 
   /** @return Configured model bundles. */
   ListModelBundlesResponse listModelBundles();
+
+  /** @return The document output formats deployed on the server. */
+  ListOutputFormatsResponse listOutputFormats();
+
+  /**
+   * Renders one analyzed document into a deployed output format.
+   *
+   * @param request The document and format id.
+   * @return The rendered content and its media type.
+   */
+  FormatDocumentResponse formatDocument(FormatDocumentRequest request);
 
   /**
    * Analyzes one document.
