@@ -16,22 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.training;
+package org.apache.opennlp.grpc.spi.catalog;
 
 import java.util.List;
 
 import org.apache.opennlp.grpc.v1.ModelArtifactRole;
 import org.apache.opennlp.grpc.v1.ModelCatalogDescriptor;
 
-/** Internal download information paired with the public immutable descriptor. */
-record CatalogModel(ModelCatalogDescriptor descriptor, List<CatalogFile> files) {
+/**
+ * One catalog entry: the public immutable descriptor paired with its download files.
+ *
+ * @param descriptor The public catalog descriptor. Must not be {@code null}.
+ * @param files The immutable, checksum-pinned files of the entry. Must not be empty.
+ */
+public record CatalogModel(ModelCatalogDescriptor descriptor, List<CatalogFile> files) {
 
   /**
    * Validates the public descriptor against its immutable file list.
    *
    * @throws IllegalArgumentException If the descriptor or file list is invalid.
    */
-  CatalogModel {
+  public CatalogModel {
     if (descriptor == null) {
       throw new IllegalArgumentException("descriptor must not be null");
     }

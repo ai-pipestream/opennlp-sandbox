@@ -2291,7 +2291,7 @@
    "type": "org.apache.opennlp.grpc.search.TurboQuantSearchIndexProviderFactory"
   },
   {
-   "type": "org.apache.opennlp.grpc.server.OpenNlpGrpcResourceInstallerCommand",
+   "type": "org.apache.opennlp.grpc.installer.OpenNlpGrpcResourceInstallerCommand",
    "fields": [
     {
      "name": "spec"

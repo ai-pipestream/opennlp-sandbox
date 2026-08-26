@@ -105,6 +105,10 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
 - **opennlp-grpc-dl** - optional ONNX Runtime inference add-on: transformer sentence
   embeddings (CPU and CUDA engines), the ONNX name finder, and the ONNX document
   categorizer; built in the cpu (default) or gpu (`-Dgpu`) flavor
+- **opennlp-grpc-installer** - optional model download add-on: the built-in installable
+  model catalog (metadata only) contributed through the catalog SPI, and the standalone
+  `install-resource` CLI; without it the server serves an empty catalog and refuses
+  installs honestly
 - **opennlp-grpc-webapp-api** - typed ServiceLoader API for static browser interface extensions
 - **opennlp-grpc-webapp-default** - default TypeScript analysis and semantic-search workbench
 - **opennlp-grpc-webapp** - optional standalone HTTP host and protobuf JSON gateway
@@ -214,10 +218,13 @@ executable jar, the models merged into the jar by the build are used directly; w
 running from a regular classpath (e.g. via Maven), they are discovered from the
 `opennlp-models-*` runtime dependencies.
 
-Install additional operator-approved models or data with the same executable before startup:
+Install additional operator-approved models or data before startup with the installer
+add-on's standalone CLI (bundled in `opennlp-grpc-server-all`; also usable from the
+plain `opennlp-grpc-installer` jar plus its dependencies):
 
 ```bash
-java -jar opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar \
+java -cp opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar \
+  org.apache.opennlp.grpc.installer.OpenNlpGrpcInstaller \
   install-resource \
   --source https://example.invalid/en-ner-person.bin \
   --checksum <sha256-or-sha512> \
@@ -233,7 +240,11 @@ which still need an operator-provided model or data resource.
 
 ### Browse and install the standard model catalog
 
-When `model.catalog_root` is configured, the model training service exposes a small immutable
+The catalog itself ships in the `opennlp-grpc-installer` add-on (bundled in
+`opennlp-grpc-server-all` and the docker images) and is discovered through the
+`org.apache.opennlp.grpc.spi.catalog.ModelCatalogProvider` SPI; without the add-on the
+server serves an empty catalog and an install attempt fails naming the missing jar.
+When `model.catalog_root` is configured, the model training service exposes the discovered
 catalog through `ListModelCatalog`, reports this node's verified downloads through
 `ListInstalledModels`, and streams file-level progress from `InstallModel`. The web workbench
 requires the user to review and acknowledge the catalog entry's license before it submits an

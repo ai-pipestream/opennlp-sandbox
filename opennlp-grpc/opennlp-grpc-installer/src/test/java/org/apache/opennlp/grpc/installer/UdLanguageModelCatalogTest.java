@@ -15,8 +15,9 @@
  * KIND, either express or implied.  See the License for the specific
  * language governing permissions and limitations under the License.
  */
-package org.apache.opennlp.grpc.training;
+package org.apache.opennlp.grpc.installer;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
 import java.util.List;
 
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -46,7 +47,7 @@ class UdLanguageModelCatalogTest {
 
   @Test
   void catalogsCompleteUdPipelinesForGermanFrenchAndSpanish() {
-    final List<CatalogModel> models = StandardModelCatalog.models();
+    final List<CatalogModel> models = new StandardModelCatalog().models();
     for (String modelId : List.of("de-ud-gsd", "fr-ud-gsd", "es-ud-gsd")) {
       final List<CatalogModel> pack = models.stream()
           .filter(model -> modelId.equals(model.descriptor().getModelId()))

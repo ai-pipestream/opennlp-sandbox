@@ -18,6 +18,8 @@
  */
 package org.apache.opennlp.grpc.training;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogFile;
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -358,6 +360,24 @@ class CatalogModelStoreTest {
             Map.of("vocabulary.artifact_root",
                 temporaryDirectory.resolve("artifacts").toString()), formats),
         new TrainingTestSupport.RecordingTrainer(), registry);
+  }
+
+  @Test
+  void servesAnEmptyCatalogWithoutTheInstallerAddOn() throws Exception {
+    // No ModelCatalogProvider is on this module's classpath: the built-in catalog ships in
+    // the opennlp-grpc-installer add-on, so discovery yields an empty, honest catalog.
+    final TrainedModelEmbeddingProvider registry = registry();
+    final CatalogModelStore store = CatalogModelStore.fromConfiguration(
+        Map.of(CatalogModelStore.CATALOG_ROOT_KEY,
+            temporaryDirectory.resolve("empty-catalog").toString()),
+        trainingStore(registry), registry);
+
+    assertTrue(store.catalogModels().isEmpty());
+    assertTrue(store.installsEnabled());
+    final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+        () -> store.install(InstallModelRequest.newBuilder().setCatalogId("gum-parser").build(),
+            ignored -> { }, () -> false));
+    assertTrue(failure.getMessage().contains("opennlp-grpc-installer"));
   }
 
   private static TrainedModelEmbeddingProvider registry() {

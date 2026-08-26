@@ -32,7 +32,8 @@
     <description>
         Everything-in-one server jar for the docker images and the one-jar demo:
         the slim gRPC server plus every in-tree add-on (ONNX Runtime inference,
-        static embedding tables, TEI and OpenVINO remote backends) shaded into
+        the model installer catalog, static embedding tables, TEI and OpenVINO
+        remote backends) shaded into
         opennlp-grpc-server-all. Deployments that want a smaller footprint use
         the slim opennlp-grpc-server jar and drop add-on jars on the classpath
         instead.
@@ -54,6 +55,11 @@
         <dependency>
             <groupId>org.apache.opennlp</groupId>
             <artifactId>opennlp-grpc-dl</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-grpc-installer</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

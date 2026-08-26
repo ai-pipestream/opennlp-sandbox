@@ -15,7 +15,7 @@
  * KIND, either express or implied.  See the License for the specific
  * language governing permissions and limitations under the License.
  */
-package org.apache.opennlp.grpc.server;
+package org.apache.opennlp.grpc.installer;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -35,12 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OpenNlpGrpcResourceInstallerCommandTest {
 
   @Test
-  void installsAPinnedModelThroughTheServerCli(@TempDir Path directory) throws Exception {
+  void installsAPinnedModelThroughTheInstallerCli(@TempDir Path directory) throws Exception {
     final byte[] model = "model bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     final Path source = Files.write(directory.resolve("en-ner-person.bin"), model);
     final Path target = directory.resolve("installed");
     final StringWriter output = new StringWriter();
-    final CommandLine command = new CommandLine(new OpenNlpGrpcServer());
+    final CommandLine command = new CommandLine(new OpenNlpGrpcInstaller());
     command.setOut(new PrintWriter(output));
 
     final int exitCode = command.execute("install-resource",
@@ -56,7 +56,7 @@ class OpenNlpGrpcResourceInstallerCommandTest {
   @Test
   void refusesAnUnpinnedResourceBeforeCreatingTheTarget(@TempDir Path directory) {
     final Path target = directory.resolve("installed");
-    final CommandLine command = new CommandLine(new OpenNlpGrpcServer());
+    final CommandLine command = new CommandLine(new OpenNlpGrpcInstaller());
 
     final int exitCode = command.execute("install-resource",
         "--source", directory.resolve("model.bin").toUri().toString(),

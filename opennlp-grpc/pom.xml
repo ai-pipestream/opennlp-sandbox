@@ -40,6 +40,7 @@
         <module>opennlp-grpc-backend-openvino</module>
         <module>opennlp-grpc-backend-static</module>
         <module>opennlp-grpc-dl</module>
+        <module>opennlp-grpc-installer</module>
         <module>opennlp-grpc-webapp-api</module>
         <module>opennlp-grpc-webapp-default</module>
         <module>opennlp-grpc-webapp</module>

@@ -16,8 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.training;
+package org.apache.opennlp.grpc.installer;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogFile;
+import java.util.ServiceLoader;
+
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
+import org.apache.opennlp.grpc.spi.catalog.ModelCatalogProvider;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,7 +37,7 @@ class StandardModelCatalogTest {
 
   @Test
   void catalogsPinnedEmbeddingParserAndChunkerModels() {
-    final List<CatalogModel> models = StandardModelCatalog.models();
+    final List<CatalogModel> models = new StandardModelCatalog().models();
 
     assertEquals(List.of(
         "all-minilm-l6-v2-teacher",
@@ -93,7 +98,7 @@ class StandardModelCatalogTest {
 
   @Test
   void everyCatalogFileHasAnExactSizeAndSha256() {
-    for (CatalogModel model : StandardModelCatalog.models()) {
+    for (CatalogModel model : new StandardModelCatalog().models()) {
       long total = 0;
       for (CatalogFile file : model.files()) {
         assertTrue(file.relativePath().getNameCount() <= 2);
@@ -103,5 +108,12 @@ class StandardModelCatalogTest {
       }
       assertEquals(total, model.descriptor().getByteSize());
     }
+  }
+
+  @Test
+  void registersThroughTheCatalogSpi() {
+    // The server discovers this catalog via ServiceLoader when the jar is on the classpath.
+    assertTrue(ServiceLoader.load(ModelCatalogProvider.class).stream()
+        .anyMatch(provider -> provider.type() == StandardModelCatalog.class));
   }
 }

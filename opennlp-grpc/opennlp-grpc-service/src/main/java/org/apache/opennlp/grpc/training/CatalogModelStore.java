@@ -18,6 +18,8 @@
  */
 package org.apache.opennlp.grpc.training;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogFile;
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -57,7 +59,8 @@ import org.apache.opennlp.grpc.v1.ModelCatalogDescriptor;
 import org.apache.opennlp.grpc.vocabulary.store.ArtifactDigests;
 
 /**
- * Node-local store for immutable models selected from {@link StandardModelCatalog}. It
+ * Node-local store for immutable models selected from the discovered model catalog
+ * (see {@link ModelCatalogs}). It
  * downloads only catalog-owned URIs, verifies exact sizes and SHA-256 values, publishes
  * atomically, and registers the model with training or embedding services.
  */
@@ -98,7 +101,7 @@ public final class CatalogModelStore {
       throw new IllegalArgumentException("configuration must not be null");
     }
     final Path root = configuredRoot(configuration);
-    return new CatalogModelStore(root, StandardModelCatalog.models(), trainingStore,
+    return new CatalogModelStore(root, ModelCatalogs.discover(), trainingStore,
         embeddingRegistry, CatalogModelStore::installFile);
   }
 
@@ -142,8 +145,10 @@ public final class CatalogModelStore {
       TrainedModelEmbeddingProvider embeddingRegistry,
       CatalogFileInstaller fileInstaller,
       CatalogTreeDeleter treeDeleter) throws IOException {
-    if (models == null || models.isEmpty() || models.size() > MAX_CATALOG_MODELS) {
-      throw new IllegalArgumentException("models must contain between 1 and "
+    // An empty catalog is legal: without the opennlp-grpc-installer add-on no provider
+    // contributes entries, and the store then lists nothing and refuses installs honestly.
+    if (models == null || models.size() > MAX_CATALOG_MODELS) {
+      throw new IllegalArgumentException("models must contain at most "
           + MAX_CATALOG_MODELS + " entries");
     }
     if (trainingStore == null) {
@@ -326,7 +331,10 @@ public final class CatalogModelStore {
   private CatalogModel validateRequest(InstallModelRequest request) {
     final CatalogModel model = catalog.get(request.getCatalogId());
     if (model == null) {
-      throw new IllegalArgumentException("Unknown catalog_id '" + request.getCatalogId() + "'");
+      throw new IllegalArgumentException(catalog.isEmpty()
+          ? "Unknown catalog_id '" + request.getCatalogId() + "'; the model catalog is empty "
+              + "because no catalog provider (opennlp-grpc-installer) is on the classpath"
+          : "Unknown catalog_id '" + request.getCatalogId() + "'");
     }
     if (!request.getLicenseAcknowledged()) {
       throw new IllegalArgumentException("license_acknowledged must be true");

@@ -16,20 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.training;
+package org.apache.opennlp.grpc.spi.catalog;
 
 import java.net.URI;
 import java.nio.file.Path;
 
-/** One immutable, checksum-pinned file of a catalog model. */
-record CatalogFile(Path relativePath, URI source, long byteSize, String sha256) {
+/**
+ * One immutable, checksum-pinned file of a catalog model.
+ *
+ * @param relativePath The safe relative installation path of the file.
+ * @param source The https download source.
+ * @param byteSize The exact expected file size in bytes.
+ * @param sha256 The lowercase hexadecimal SHA-256 digest of the file.
+ */
+public record CatalogFile(Path relativePath, URI source, long byteSize, String sha256) {
 
   /**
    * Validates one immutable file entry.
    *
    * @throws IllegalArgumentException If the path, source, size, or digest is invalid.
    */
-  CatalogFile {
+  public CatalogFile {
     if (relativePath == null || relativePath.isAbsolute() || relativePath.getNameCount() < 1
         || relativePath.normalize().startsWith("..")) {
       throw new IllegalArgumentException("relativePath must be a safe relative path");

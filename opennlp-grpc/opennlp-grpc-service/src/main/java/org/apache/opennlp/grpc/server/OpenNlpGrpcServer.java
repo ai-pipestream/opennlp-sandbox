@@ -72,8 +72,7 @@ import picocli.CommandLine.Option;
 @Command(
     name = "OpenNLP gRPC Server",
     mixinStandardHelpOptions = true,
-    version = OpenNlpGrpcServer.SERVER_VERSION,
-    subcommands = OpenNlpGrpcResourceInstallerCommand.class)
+    version = OpenNlpGrpcServer.SERVER_VERSION)
 public class OpenNlpGrpcServer implements Callable<Integer> {
 
   /** Server build version, also reported as {@code GetServiceInfoResponse.opennlp_version}. */

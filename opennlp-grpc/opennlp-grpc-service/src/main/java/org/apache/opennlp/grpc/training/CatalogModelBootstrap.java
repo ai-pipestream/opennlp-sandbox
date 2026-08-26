@@ -18,6 +18,7 @@
  */
 package org.apache.opennlp.grpc.training;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -52,7 +53,7 @@ public final class CatalogModelBootstrap {
    */
   public static Map<String, String> prepare(Map<String, String> configuration)
       throws IOException {
-    return prepare(configuration, StandardModelCatalog.models());
+    return prepare(configuration, ModelCatalogs.discover());
   }
 
   /**
@@ -69,8 +70,10 @@ public final class CatalogModelBootstrap {
     if (configuration == null) {
       throw new IllegalArgumentException("configuration must not be null");
     }
-    if (models == null || models.isEmpty()) {
-      throw new IllegalArgumentException("models must not be null or empty");
+    // An empty catalog is legal: without the opennlp-grpc-installer add-on no provider
+    // contributes entries and there is nothing to verify or publish.
+    if (models == null) {
+      throw new IllegalArgumentException("models must not be null");
     }
     final Map<String, String> prepared = new TreeMap<>(configuration);
     final Path root = CatalogModelStore.configuredRoot(configuration);

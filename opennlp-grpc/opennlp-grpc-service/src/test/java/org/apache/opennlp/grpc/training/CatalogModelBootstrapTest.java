@@ -18,6 +18,8 @@
  */
 package org.apache.opennlp.grpc.training;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogFile;
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -43,6 +45,16 @@ class CatalogModelBootstrapTest {
 
   @TempDir
   Path temporaryDirectory;
+
+  @Test
+  void emptyCatalogPreparesConfigurationUnchanged() throws Exception {
+    // Without the opennlp-grpc-installer add-on no provider contributes entries; startup
+    // proceeds with the operator configuration untouched.
+    final Map<String, String> configuration = Map.of(CatalogModelStore.CATALOG_ROOT_KEY,
+        temporaryDirectory.resolve("empty-catalog").toString());
+
+    assertEquals(configuration, CatalogModelBootstrap.prepare(configuration, List.of()));
+  }
 
   @Test
   void addsVerifiedParserAndChunkerPathsBeforeRegistryConstruction() throws Exception {

@@ -16,8 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.opennlp.grpc.training;
+package org.apache.opennlp.grpc.installer;
 
+import org.apache.opennlp.grpc.spi.catalog.CatalogFile;
+import org.apache.opennlp.grpc.spi.catalog.CatalogModel;
+import org.apache.opennlp.grpc.spi.catalog.ModelCatalogProvider;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -28,8 +31,12 @@ import java.util.Locale;
 import org.apache.opennlp.grpc.v1.ModelArtifactRole;
 import org.apache.opennlp.grpc.v1.ModelCatalogDescriptor;
 
-/** The immutable model catalog shipped as metadata, never as model bytes. */
-final class StandardModelCatalog {
+/**
+ * The built-in immutable model catalog, shipped as metadata, never as model bytes.
+ * Registered via ServiceLoader so the server discovers it when this add-on jar is on
+ * the classpath.
+ */
+public final class StandardModelCatalog implements ModelCatalogProvider {
 
   private static final String APACHE_2 = "Apache-2.0";
   private static final String APACHE_2_URI =
@@ -50,7 +57,8 @@ final class StandardModelCatalog {
   private static final String UD_MODELS_SOURCE = "https://opennlp.apache.org/models.html";
   private static final String UD_MODELS_REVISION = "ud-models-1.3-2.5.4";
 
-  private StandardModelCatalog() {
+  /** Public no-arg constructor required by {@link java.util.ServiceLoader}. */
+  public StandardModelCatalog() {
   }
 
   /**
@@ -58,8 +66,9 @@ final class StandardModelCatalog {
    *
    * @return All entries in stable catalog-id order.
    */
-  static List<CatalogModel> models() {
-    final StandardModelCatalog catalog = new StandardModelCatalog();
+  @Override
+  public List<CatalogModel> models() {
+    final StandardModelCatalog catalog = this;
     final List<CatalogModel> models = new ArrayList<>();
     models.add(catalog.teacher());
     models.add(catalog.multilingualTeacher());
