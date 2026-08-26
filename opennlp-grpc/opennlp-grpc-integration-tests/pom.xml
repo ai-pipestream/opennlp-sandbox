@@ -120,6 +120,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <opennlp.grpc.server.jar>${project.basedir}/../opennlp-grpc-service/target/opennlp-grpc-server-${project.version}.jar</opennlp.grpc.server.jar>
+                        <opennlp.grpc.server.all.jar>${project.basedir}/../opennlp-grpc-distr/target/opennlp-grpc-server-all-${project.version}.jar</opennlp.grpc.server.all.jar>
                         <opennlp.grpc.webapp.jar>${project.basedir}/../opennlp-grpc-webapp/target/opennlp-grpc-webapp-${project.version}.jar</opennlp.grpc.webapp.jar>
                         <opennlp.grpc.tei.backend.jar>${project.basedir}/../opennlp-grpc-backend-tei/target/opennlp-grpc-backend-tei-${project.version}.jar</opennlp.grpc.tei.backend.jar>
                         <opennlp.grpc.openvino.backend.jar>${project.basedir}/../opennlp-grpc-backend-openvino/target/opennlp-grpc-backend-openvino-${project.version}.jar</opennlp.grpc.openvino.backend.jar>

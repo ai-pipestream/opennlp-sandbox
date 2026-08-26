@@ -40,7 +40,7 @@ if [ ! -f "${slf4j_jar}" ]; then
   curl -fsSL -o "${slf4j_jar}" "https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/${SLF4J_SIMPLE_VERSION}/slf4j-simple-${SLF4J_SIMPLE_VERSION}.jar"
 fi
 
-cp opennlp-grpc-service/target/opennlp-grpc-server-*.jar "${OUT}/server.jar"
+cp opennlp-grpc-distr/target/opennlp-grpc-server-all-*.jar "${OUT}/server.jar"
 cp opennlp-grpc-webapp/target/opennlp-grpc-webapp-*.jar "${OUT}/webapp.jar"
 
 # Shared flags. The SimulateClassInitializer limits matter: without them the

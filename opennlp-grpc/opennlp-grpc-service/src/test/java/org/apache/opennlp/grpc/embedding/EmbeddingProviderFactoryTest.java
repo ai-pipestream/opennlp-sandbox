@@ -40,6 +40,28 @@ import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 class EmbeddingProviderFactoryTest {
 
   @Test
+  void onnxPathWithoutTheAddOnFailsLoud() {
+    // The onnx/cuda engines ship in the opennlp-grpc-dl add-on, absent from this module's
+    // classpath; configured ONNX-family models must fail startup, never silently vanish.
+    final AnalysisException error = assertThrows(AnalysisException.class, () ->
+        EmbeddingProviderFactory.create(Map.of(
+            "model.embedder.m1.onnx.path", "/tmp/model.onnx",
+            "model.embedder.m1.vocab.path", "/tmp/vocab.txt")));
+    assertEquals(AnalysisException.FailureType.FAILED_PRECONDITION, error.getFailureType());
+    assertTrue(error.getMessage().contains("opennlp-grpc-dl"));
+  }
+
+  @Test
+  void cudaPathWithoutTheAddOnFailsLoud() {
+    final AnalysisException error = assertThrows(AnalysisException.class, () ->
+        EmbeddingProviderFactory.create(Map.of(
+            "model.embedder.m1.cuda.path", "/tmp/model.onnx",
+            "model.embedder.m1.vocab.path", "/tmp/vocab.txt")));
+    assertEquals(AnalysisException.FailureType.FAILED_PRECONDITION, error.getFailureType());
+    assertTrue(error.getMessage().contains("opennlp-grpc-dl"));
+  }
+
+  @Test
   void aggregatesBackendsIntoComposite() {
     final EmbeddingProvider provider = EmbeddingProviderFactory.create(Map.of());
     assertInstanceOf(CompositeEmbeddingProvider.class, provider);

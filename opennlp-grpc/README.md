@@ -91,17 +91,25 @@ Natural Earth gazetteer (`PIPELINE_STEP_GEOCODE`, no configuration required, fil
 
 - **opennlp-grpc-api** - v1 analysis, document-shape, and immutable-search protos
   (`org.apache.opennlp.grpc.v1`) plus generated stubs
-- **opennlp-grpc-service** - `OpenNlpGrpcServer`, analysis, search, and vocabulary services, the
-  search and dictionary-format SPIs, and the bounded TurboQuant bundle builder
+- **opennlp-grpc-spi** - the ServiceLoader contracts (`org.apache.opennlp.grpc.spi.*`) and
+  carrier types that add-on backends compile against; deliberately small
+- **opennlp-grpc-service** - `OpenNlpGrpcServer`, analysis, search, and vocabulary services,
+  the registries that discover SPI backends, and the bounded TurboQuant bundle builder;
+  its slim `opennlp-grpc-server` jar carries no native inference runtime
 - **opennlp-grpc-backend-tei** - optional remote embedding backend for HuggingFace Text
   Embeddings Inference (TEI) gRPC endpoints
 - **opennlp-grpc-backend-openvino** - optional remote embedding backend for OpenVINO
   Model Server and other KServe v2 compatible inference servers
 - **opennlp-grpc-backend-static** - optional in-process embedding backend serving static
   (non-contextual) embedding tables through the `opennlp-embeddings` extension module
+- **opennlp-grpc-dl** - optional ONNX Runtime inference add-on: transformer sentence
+  embeddings (CPU and CUDA engines), the ONNX name finder, and the ONNX document
+  categorizer; built in the cpu (default) or gpu (`-Dgpu`) flavor
 - **opennlp-grpc-webapp-api** - typed ServiceLoader API for static browser interface extensions
 - **opennlp-grpc-webapp-default** - default TypeScript analysis and semantic-search workbench
 - **opennlp-grpc-webapp** - optional standalone HTTP host and protobuf JSON gateway
+- **opennlp-grpc-distr** - everything-in-one `opennlp-grpc-server-all` jar (the slim server
+  plus every in-tree add-on) used by the docker images and the demos
 - **opennlp-grpc-integration-tests** - black-box integration tests that launch the
   shaded server and web application as separate processes and exercise analysis, search,
   and a remote TEI embedding backend over real network listeners
@@ -135,8 +143,20 @@ Once the depended-on PRs merge to apache main, the pin reverts to plain
 ## Run the server
 
 ```bash
-java -jar opennlp-grpc-service/target/opennlp-grpc-server-3.0.0-SNAPSHOT.jar
+java -jar opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar
 ```
+
+`opennlp-grpc-server-all` bundles every in-tree add-on. The slim
+`opennlp-grpc-service/target/opennlp-grpc-server-3.0.0-SNAPSHOT.jar` serves the same APIs
+without any native inference runtime; add-on jars are dropped on the classpath instead:
+
+```bash
+java -cp "opennlp-grpc-server-3.0.0-SNAPSHOT.jar:backends/*" \
+  org.apache.opennlp.grpc.server.OpenNlpGrpcServer
+```
+
+Configuring an add-on's models without its jar on the classpath fails startup with
+`FAILED_PRECONDITION` naming the missing add-on, never a silently missing model.
 
 Options:
 
@@ -197,7 +217,7 @@ running from a regular classpath (e.g. via Maven), they are discovered from the
 Install additional operator-approved models or data with the same executable before startup:
 
 ```bash
-java -jar opennlp-grpc-service/target/opennlp-grpc-server-3.0.0-SNAPSHOT.jar \
+java -jar opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar \
   install-resource \
   --source https://example.invalid/en-ner-person.bin \
   --checksum <sha256-or-sha512> \
@@ -550,7 +570,7 @@ Build a new bundle. The command refuses to replace an existing output path, snap
 files before embedding, and enforces record, input, query, batch, and output limits:
 
 ```bash
-java -cp opennlp-grpc-service/target/opennlp-grpc-server-3.0.0-SNAPSHOT.jar \
+java -cp opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar \
   org.apache.opennlp.grpc.search.bundle.TurboQuantSearchBundleCommand \
   --server-config /srv/opennlp/legal/server.properties \
   --passages /srv/opennlp/legal/passages.jsonl \
@@ -596,7 +616,7 @@ Start the gRPC server with that file, then start the web application on its sepa
 port:
 
 ```bash
-java -jar opennlp-grpc-service/target/opennlp-grpc-server-3.0.0-SNAPSHOT.jar \
+java -jar opennlp-grpc-distr/target/opennlp-grpc-server-all-3.0.0-SNAPSHOT.jar \
   --config /srv/opennlp/legal/server.properties
 
 java -jar opennlp-grpc-webapp/target/opennlp-grpc-webapp-3.0.0-SNAPSHOT.jar \
@@ -877,6 +897,9 @@ in submission order, and it is released when the stream ends.
 
 #### ONNX name finder models (optional)
 
+Served by the `opennlp-grpc-dl` add-on (bundled in `opennlp-grpc-server-all` and the docker
+images); without it, these keys fail startup with `FAILED_PRECONDITION`.
+
 Transformer NER models exported to ONNX are registered under a separate namespace.
 Each model needs the ONNX file, its wordpiece vocabulary, and a labels file (one BIO
 label per line, line number = output index):
@@ -906,7 +929,7 @@ profile downloads the ONNX export of `dslim/bert-base-NER` (MIT) from HuggingFac
 `target/` at build time and runs `BasicDocumentAnalyzerDlNerTest`:
 
 ```bash
-mvn -pl opennlp-grpc/opennlp-grpc-service -Pdl-ner test -Dtest=BasicDocumentAnalyzerDlNerTest
+mvn -pl opennlp-grpc/opennlp-grpc-dl -Pdl-ner test -Dtest=BasicDocumentAnalyzerDlNerTest
 ```
 
 The model is fetched at build time only. It is never bundled into a built artifact and is
@@ -944,6 +967,10 @@ more than one is registered. Categorization is document-level, so it runs the se
 once over the document's tokens and stores one `DocumentClassification`.
 
 #### ONNX document categorizer models (optional)
+
+Served by the `opennlp-grpc-dl` add-on (bundled in `opennlp-grpc-server-all` and the docker
+images); without it, these keys (and the aliased `model.sentiment_dl.*`) fail startup with
+`FAILED_PRECONDITION`.
 
 Transformer classifiers exported to ONNX are registered under a separate namespace. Each model
 needs the ONNX file, its wordpiece vocabulary, and a categories file (one category per line,
@@ -1067,7 +1094,9 @@ Each chunk carries its document span and the chunker's phrase tag (`chunk_tag`).
 
 ### Embedding models (optional)
 
-Register ONNX sentence-transformer models in the server config:
+Register ONNX sentence-transformer models in the server config (the `onnx` and `cuda`
+engines ship in the `opennlp-grpc-dl` add-on, bundled in `opennlp-grpc-server-all` and the
+docker images; configuring them without it fails startup with `FAILED_PRECONDITION`):
 
 ```ini
 model.embedder.default_id=sentence-transformers
@@ -1140,8 +1169,12 @@ Build with the GPU flavor, which replaces the `onnxruntime` jar with
 the server at CUDA:
 
 ```bash
-mvn -pl opennlp-grpc/opennlp-grpc-service -Dgpu package
+mvn -pl opennlp-grpc/opennlp-grpc-distr -am -Dgpu package
 ```
+
+The `-Dgpu` switch selects the flavor of the `opennlp-grpc-dl` add-on (and of the
+`opennlp-grpc-server-all` assembly built from it); build only the add-on jar with
+`mvn -pl opennlp-grpc/opennlp-grpc-dl -Dgpu package`.
 
 ```ini
 model.embedder.gpu_device_id=0

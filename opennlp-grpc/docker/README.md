@@ -147,10 +147,12 @@ docker run --rm \
   opennlp-grpc-demo
 ```
 
-The image also carries the optional embedding backends (static tables, TEI,
-OpenVINO) on the server classpath, so a `model.embedder.<id>.static.dir` or a
-remote TEI/OpenVINO target is configuration alone; unconfigured providers
-register nothing.
+The image runs the `opennlp-grpc-server-all` assembly, which bundles every
+in-tree add-on (ONNX Runtime inference, static tables, TEI, OpenVINO), so a
+`model.embedder.<id>.static.dir` or a remote TEI/OpenVINO target is
+configuration alone; unconfigured providers register nothing. Third-party
+add-on jars dropped into `/opt/opennlp/backends/` join the classpath the same
+way.
 
 Environment variables:
 

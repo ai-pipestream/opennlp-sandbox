@@ -24,7 +24,7 @@
 # English models must be configured through explicit model.*.path keys because
 # a native binary has no jar for the classpath model scan (see the README).
 FROM eclipse-temurin:21-jre-noble AS extractor
-COPY opennlp-grpc-service/target/opennlp-grpc-server-*.jar /tmp/server.jar
+COPY opennlp-grpc-distr/target/opennlp-grpc-server-all-*.jar /tmp/server.jar
 RUN apt-get update && apt-get install -y --no-install-recommends unzip \
   && mkdir -p /opt/onnxruntime \
   && unzip -j -q /tmp/server.jar 'ai/onnxruntime/native/linux-x64/*' -d /opt/onnxruntime

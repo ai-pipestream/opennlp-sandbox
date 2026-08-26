@@ -48,10 +48,10 @@ and were then edited by hand:
 ## Known constraints
 
 - **Backends are linked at build time.** A native image is a closed world:
-  the ServiceLoader backends (static tables, TEI, OpenVINO) cannot be dropped
-  onto a classpath at run time. The server binary contains the built-in
-  engines including the `cuda`/`onnx` embedders; add backend jars to the
-  `-cp` in `build-native.sh` to link others in.
+  the ServiceLoader backends cannot be dropped onto a classpath at run time.
+  The server binary is built from the `opennlp-grpc-server-all` assembly, so
+  it contains every in-tree add-on including the `cuda`/`onnx` engines; add
+  further backend jars to the `-cp` in `build-native.sh` to link others in.
 - **Classpath model discovery does not work.** `ModelBundleCache` resolves
   bundled models by scanning the code-source jar, and a native binary has
   none, so the classic English pipeline and the language detector must be

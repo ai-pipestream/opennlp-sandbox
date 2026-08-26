@@ -69,7 +69,7 @@ public final class ClassicNerBackendFactory implements NerBackendFactory {
   public List<NerModel> create(Map<String, String> configuration, NerBackendContext context) {
     // The ONNX namespace is handled by its own backend; never read it here.
     final Map<String, NerPathConfig.Entry> entries = NerPathConfig.parse(configuration,
-        KEY_PREFIX, "Name finder", List.of(OnnxNerBackendFactory.KEY_DL_PREFIX));
+        KEY_PREFIX, "Name finder", List.of(NameFinderRegistry.KEY_DL_PREFIX));
     final List<NerModel> models = new ArrayList<>(entries.size());
     for (Map.Entry<String, NerPathConfig.Entry> entry : entries.entrySet()) {
       final LoadedClassicNer loaded = loadNameFinder(entry.getKey(), entry.getValue().path());

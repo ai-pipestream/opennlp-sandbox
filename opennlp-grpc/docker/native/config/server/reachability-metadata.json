@@ -2252,10 +2252,10 @@
    "type": "org.apache.logging.slf4j.SLF4JServiceProvider"
   },
   {
-   "type": "org.apache.opennlp.grpc.embedding.cuda.CudaEmbeddingBackendFactory"
+   "type": "org.apache.opennlp.grpc.dl.embedding.cuda.CudaEmbeddingBackendFactory"
   },
   {
-   "type": "org.apache.opennlp.grpc.embedding.onnx.OnnxEmbeddingBackendFactory"
+   "type": "org.apache.opennlp.grpc.dl.embedding.onnx.OnnxEmbeddingBackendFactory"
   },
   {
    "type": "org.apache.opennlp.grpc.model.ClassicChunkerBackendFactory"
@@ -2273,10 +2273,10 @@
    "type": "org.apache.opennlp.grpc.model.DictionaryNerBackendFactory"
   },
   {
-   "type": "org.apache.opennlp.grpc.model.OnnxDocCategorizerBackendFactory"
+   "type": "org.apache.opennlp.grpc.dl.model.OnnxDocCategorizerBackendFactory"
   },
   {
-   "type": "org.apache.opennlp.grpc.model.OnnxNerBackendFactory"
+   "type": "org.apache.opennlp.grpc.dl.model.OnnxNerBackendFactory"
   },
   {
    "type": "org.apache.opennlp.grpc.model.RegexNerBackendFactory"

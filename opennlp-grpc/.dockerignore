@@ -18,11 +18,8 @@
 # The image only needs the two shaded jars and the entrypoint; keep the rest
 # of the repository out of the build context.
 *
-!opennlp-grpc-service/target/opennlp-grpc-server-*.jar
+!opennlp-grpc-distr/target/opennlp-grpc-server-all-*.jar
 !opennlp-grpc-webapp/target/opennlp-grpc-webapp-*.jar
-!opennlp-grpc-backend-static/target/opennlp-grpc-backend-static-*.jar
-!opennlp-grpc-backend-tei/target/opennlp-grpc-backend-tei-*.jar
-!opennlp-grpc-backend-openvino/target/opennlp-grpc-backend-openvino-*.jar
 !docker/start-demo.sh
 **/*-javadoc.jar
 **/*-sources.jar
