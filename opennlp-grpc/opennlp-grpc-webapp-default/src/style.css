@@ -147,11 +147,11 @@ body {
     var(--page-bg);
 }
 
-button, textarea, select { font: inherit; }
+button, input, textarea, select { font: inherit; }
 
 button, select { cursor: pointer; }
 
-button:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
   outline: 3px solid rgb(23 105 224 / 35%);
   outline-offset: 3px;
 }

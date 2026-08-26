@@ -130,6 +130,13 @@ describe("analysis playground markup", () => {
     expect(html).toContain('id="search-original-panel"');
   });
 
+  it("holds analysis summary placeholders until an analysis runs", () => {
+    // The summary shows ellipses before the first analysis, so zero counts are
+    // never mistaken for the result of an analysis that has not happened.
+    expect(html).toContain('<div><dt>Layers</dt><dd id="result-layer-count">…</dd></div>');
+    expect(html).toContain('<div><dt>Annotations</dt><dd id="result-annotation-count">…</dd></div>');
+  });
+
   it("scopes the hero to the Analyze panel and bridges the two search tabs", () => {
     // The hero and the analyzer callout live inside the Analyze tab panel, so
     // other tabs render under their own headings.
@@ -157,6 +164,11 @@ describe("large-document layout contract", () => {
     expect(css).toMatch(/\.search-source-text\s*\{[^}]*overflow-x:\s*hidden;/s);
     expect(css).toMatch(/\.chunk-comparison pre\s*\{[^}]*overflow-x:\s*hidden;/s);
     expect(css).toMatch(/\.drawer-chunk-text\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
+  });
+
+  it("gives text inputs the app font and the shared focus ring", () => {
+    expect(css).toContain("button, input, textarea, select { font: inherit; }");
+    expect(css).toMatch(/input:focus-visible[^{]*\{[^}]*outline:/s);
   });
 
   it("uses a full-width four-choice navigation row on narrow screens", () => {

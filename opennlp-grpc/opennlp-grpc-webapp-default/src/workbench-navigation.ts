@@ -61,18 +61,42 @@ export class WorkbenchNavigation {
   }
 
   private navigate(event: KeyboardEvent): void {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+    const currentIndex = this.#tabs.indexOf(event.currentTarget as HTMLButtonElement);
+    const targetIndex = tabTargetIndex(event.key, currentIndex, this.#tabs.length);
+    if (targetIndex === undefined) {
       return;
     }
     event.preventDefault();
-    const currentIndex = this.#tabs.indexOf(event.currentTarget as HTMLButtonElement);
-    const direction = event.key === "ArrowRight" ? 1 : -1;
-    const next = this.#tabs[(currentIndex + direction + this.#tabs.length) % this.#tabs.length];
+    const next = this.#tabs[targetIndex];
     if (next) {
       this.select(workbenchName(next.dataset.workbenchTab));
       next.focus();
     }
   }
+}
+
+/**
+ * Resolves the tab a navigation key targets, following the ARIA tabs pattern:
+ * arrow keys step with wraparound, Home and End jump to the ends of the list.
+ * Returns undefined for keys that do not navigate.
+ */
+export function tabTargetIndex(key: string, currentIndex: number, count: number): number | undefined {
+  if (count <= 0) {
+    return undefined;
+  }
+  if (key === "Home") {
+    return 0;
+  }
+  if (key === "End") {
+    return count - 1;
+  }
+  if (key === "ArrowLeft") {
+    return (currentIndex - 1 + count) % count;
+  }
+  if (key === "ArrowRight") {
+    return (currentIndex + 1) % count;
+  }
+  return undefined;
 }
 
 function workbenchName(value: string | undefined): WorkbenchName {

@@ -34,6 +34,33 @@ export function emptyMessage(value: string): HTMLParagraphElement {
   return paragraph;
 }
 
+// Pending label restores per button, so repeated feedback never stacks timers.
+const labelRestores = new WeakMap<HTMLButtonElement, number>();
+
+/**
+ * Shows a transient outcome label (such as "Copied") on a button and restores
+ * the button's own label after the delay, so feedback never sticks. Repeated
+ * calls restart the delay and still restore the original label.
+ */
+export function flashButtonLabel(
+  button: HTMLButtonElement,
+  label: string,
+  restoreMillis = 1500,
+): void {
+  const pending = labelRestores.get(button);
+  if (pending !== undefined) {
+    window.clearTimeout(pending);
+  } else {
+    button.dataset.restoreLabel = button.textContent ?? "";
+  }
+  button.textContent = label;
+  labelRestores.set(button, window.setTimeout(() => {
+    button.textContent = button.dataset.restoreLabel ?? "";
+    delete button.dataset.restoreLabel;
+    labelRestores.delete(button);
+  }, restoreMillis));
+}
+
 /** Returns an Error message or the caller-supplied fallback. */
 export function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;

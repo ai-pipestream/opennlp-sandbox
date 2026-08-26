@@ -173,6 +173,20 @@ describe("server search workbench compound queries", () => {
     expect(query.required).toBe(true);
   });
 
+  it("adds the drafted clause when Enter is pressed in the clause input", async () => {
+    await mountWorkbench();
+    const text = document.getElementById("builder-text") as HTMLInputElement;
+    text.value = "habeas corpus";
+
+    text.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+
+    expect(document.querySelector("#builder-clauses .builder-clause")?.textContent)
+      .toContain("habeas corpus");
+    expect(text.value).toBe("");
+    const query = document.getElementById("server-search-query") as HTMLInputElement;
+    expect(query.required).toBe(false);
+  });
+
   it("uses the explicit exhaustive contract for a TurboQuant heatmap", async () => {
     document.body.innerHTML = html.replace(/^[\s\S]*<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "");
     const index = {

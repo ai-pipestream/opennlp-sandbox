@@ -115,6 +115,14 @@ export class ServerSearchWorkbench {
     });
     this.#builderKind.addEventListener("change", () => this.updateBuilderControls());
     this.#builderAdd.addEventListener("click", () => this.addClause());
+    // The clause input sits outside the search form, so Enter would otherwise
+    // be dropped; it adds the drafted clause exactly as the button does.
+    this.#builderText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.addClause();
+      }
+    });
     this.#builderClear.addEventListener("click", () => {
       this.#clauses = [];
       this.renderClauses();

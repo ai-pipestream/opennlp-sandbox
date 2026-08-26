@@ -28,7 +28,7 @@ import {
   splitBlankLineDocuments,
   timestampLabel,
 } from "./text-utils";
-import { requiredElement } from "./ui-utils";
+import { flashButtonLabel, requiredElement } from "./ui-utils";
 
 const CARRIAGE_RETURN = "\r";
 const LINE_FEED = "\n";
@@ -565,13 +565,13 @@ function addOption(select: HTMLSelectElement, value: string, label: string): voi
   select.disabled = false;
 }
 
-/** Copies text to the clipboard, reporting the outcome on the pressed button. */
+/** Copies text to the clipboard, reporting the outcome transiently on the pressed button. */
 async function copyText(button: HTMLButtonElement, text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    button.textContent = "Copied";
+    flashButtonLabel(button, "Copied");
   } catch {
-    button.textContent = "Copy failed";
+    flashButtonLabel(button, "Copy failed");
   }
 }
 

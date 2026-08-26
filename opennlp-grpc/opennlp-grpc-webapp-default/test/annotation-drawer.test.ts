@@ -127,6 +127,48 @@ describe("annotation drawer", () => {
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("[0.125,-0.5,0.75,0.25]"));
   });
 
+  it("restores the copy button label after the copied confirmation", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    vi.useFakeTimers();
+    try {
+      const drawer = new AnnotationDrawer();
+      drawer.showChunk({
+        id: "sentence-chunks",
+        title: "Sentence chunks",
+        strategy: "Sentence",
+        embeddingModelIds: ["legal-mini"],
+        chunks: [],
+      }, {
+        index: 1,
+        start: 0,
+        end: 14,
+        text: "We the People.",
+        embeddingCount: 1,
+        embeddings: [{
+          modelId: "legal-mini",
+          granularity: "EMBEDDING_GRANULARITY_CHUNK_LEVEL",
+          vector: [0.125, -0.5],
+        }],
+      }, document.createElement("button"));
+      const copy = Array.from(document.querySelectorAll("button"))
+        .find((button) => button.textContent === "Copy vector")!;
+
+      copy.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(copy.textContent).toBe("Copied");
+      vi.advanceTimersByTime(1500);
+      expect(copy.textContent).toBe("Copy vector");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("lists the engines that recognized an entity", () => {
     const shape = readDocumentShape({
       document: {

@@ -111,7 +111,7 @@ import {
   readUiExtensions,
   type UiExtension,
 } from "./ui-extensions";
-import { errorMessage, requiredElement } from "./ui-utils";
+import { errorMessage, flashButtonLabel, requiredElement } from "./ui-utils";
 import {
   readDictionaryFormats,
   readImportedDictionary,
@@ -121,7 +121,7 @@ import {
   readTrainedModel,
   VocabularyTrainerWorkbench,
 } from "./vocabulary-trainer";
-import { WorkbenchNavigation } from "./workbench-navigation";
+import { tabTargetIndex, WorkbenchNavigation } from "./workbench-navigation";
 import { loadAliceDemo } from "./demo-data";
 import { jsonPresentation } from "./json-response";
 
@@ -893,13 +893,13 @@ function selectResultTab(tabName: ResultViewName): void {
 }
 
 function navigateResultTabs(event: KeyboardEvent): void {
-  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+  const currentIndex = resultTabs.indexOf(event.currentTarget as HTMLButtonElement);
+  const targetIndex = tabTargetIndex(event.key, currentIndex, resultTabs.length);
+  if (targetIndex === undefined) {
     return;
   }
   event.preventDefault();
-  const currentIndex = resultTabs.indexOf(event.currentTarget as HTMLButtonElement);
-  const direction = event.key === "ArrowRight" ? 1 : -1;
-  const next = resultTabs[(currentIndex + direction + resultTabs.length) % resultTabs.length];
+  const next = resultTabs[targetIndex];
   if (next) {
     selectResultTab(resultViewName(next.dataset.resultTab));
     next.focus();
@@ -934,10 +934,7 @@ async function copyResponse(): Promise<void> {
   }
   try {
     await navigator.clipboard.writeText(storedJson());
-    copyButton.textContent = "Copied";
-    window.setTimeout(() => {
-      copyButton.textContent = "Copy JSON";
-    }, 1500);
+    flashButtonLabel(copyButton, "Copied");
   } catch {
     setFormStatus("Copy failed. Select the response text and copy it manually.", true);
     responseOutput.focus();

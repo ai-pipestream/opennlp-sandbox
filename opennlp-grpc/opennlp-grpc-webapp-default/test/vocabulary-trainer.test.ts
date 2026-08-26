@@ -261,6 +261,33 @@ describe("trainer workbench", () => {
     expect(onModelsChanged).toHaveBeenLastCalledWith([MODEL]);
   });
 
+  it("restores the Copy id label after confirming the copy", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const trainer = new VocabularyTrainerWorkbench(stubApi(), {
+      onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn(),
+    });
+    await trainer.initialize();
+    const copy = [...document.querySelectorAll(".trainer-model-row button")]
+      .find((button) => button.textContent === "Copy id") as HTMLButtonElement;
+    vi.useFakeTimers();
+    try {
+      copy.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(writeText).toHaveBeenCalledWith("static-model-1");
+      expect(copy.textContent).toBe("Copied");
+      vi.advanceTimersByTime(1500);
+      expect(copy.textContent).toBe("Copy id");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("disables the TSV export with a reason until a vocabulary is selected", async () => {
     const trainer = new VocabularyTrainerWorkbench(stubApi(), {
       onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn(),

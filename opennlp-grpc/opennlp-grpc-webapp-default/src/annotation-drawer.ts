@@ -33,7 +33,7 @@ import type { SearchHit } from "./search-adapter";
 import { annotationsIntersecting, hitAnnotations, sourceHighlight } from "./search-view-model";
 import { buildTermVectorStack, rankedTermVectors, summaryText } from "./term-vector-stack";
 import { asciiLowerCase } from "./text-utils";
-import { emptyMessage, requiredElement } from "./ui-utils";
+import { emptyMessage, flashButtonLabel, requiredElement } from "./ui-utils";
 
 export class AnnotationDrawer {
   readonly #drawer = requiredElement<HTMLElement>("annotation-details");
@@ -337,9 +337,9 @@ function embeddingSummary(embedding: ChunkProjectionEmbedding): HTMLElement {
 async function copyVector(button: HTMLButtonElement, vector: number[]): Promise<void> {
   try {
     await navigator.clipboard.writeText(JSON.stringify(vector));
-    button.textContent = "Copied";
+    flashButtonLabel(button, "Copied");
   } catch {
-    button.textContent = "Copy failed";
+    flashButtonLabel(button, "Copy failed");
   }
 }
 
