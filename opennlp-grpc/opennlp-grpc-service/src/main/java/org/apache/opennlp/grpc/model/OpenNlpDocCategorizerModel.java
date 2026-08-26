@@ -21,8 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import opennlp.tools.doccat.DocumentCategorizer;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.DocumentClassification;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
 
 /**
  * {@link DocCategorizerModel} backed by an OpenNLP {@link DocumentCategorizer}, used for both

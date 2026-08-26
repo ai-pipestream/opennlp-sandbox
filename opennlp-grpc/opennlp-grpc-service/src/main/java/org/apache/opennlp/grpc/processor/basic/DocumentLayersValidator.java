@@ -20,8 +20,8 @@ package org.apache.opennlp.grpc.processor.basic;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.AnnotationLayer;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.Chunk;

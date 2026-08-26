@@ -29,9 +29,9 @@ import java.util.Set;
 
 import ai.onnxruntime.OrtException;
 import opennlp.tools.util.StringUtil;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
-import org.apache.opennlp.grpc.model.ModelArtifactHasher;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.ModelArtifactHasher;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

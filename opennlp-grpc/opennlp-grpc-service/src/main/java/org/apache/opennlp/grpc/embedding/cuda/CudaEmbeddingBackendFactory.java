@@ -19,8 +19,8 @@ package org.apache.opennlp.grpc.embedding.cuda;
 
 import java.util.Map;
 
-import org.apache.opennlp.grpc.embedding.EmbeddingBackendFactory;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBackendFactory;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 
 /**
  * {@link EmbeddingBackendFactory} for the {@code cuda} backend (ONNX Runtime with the

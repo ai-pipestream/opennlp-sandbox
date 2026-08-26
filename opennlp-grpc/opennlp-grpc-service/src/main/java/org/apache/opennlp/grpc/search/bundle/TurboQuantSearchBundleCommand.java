@@ -30,7 +30,7 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.embedding.EmbeddingProviderFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;

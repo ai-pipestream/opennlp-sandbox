@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import opennlp.embeddings.corpus.CasePassage;
-import org.apache.opennlp.grpc.embedding.EmbeddingBatchResult;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.testing.TinySentimentModel;
 import org.apache.opennlp.grpc.v1.DocumentClassification;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
 
 /**
  * Unit tests for {@link SentimentRegistry}. The polarity model is trained in-memory from a

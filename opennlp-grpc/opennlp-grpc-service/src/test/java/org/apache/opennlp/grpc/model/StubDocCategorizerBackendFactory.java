@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.opennlp.grpc.v1.DocumentClassification;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerBackendFactory;
 
 /**
  * Test-only {@link DocCategorizerBackendFactory} registered via {@code META-INF/services},

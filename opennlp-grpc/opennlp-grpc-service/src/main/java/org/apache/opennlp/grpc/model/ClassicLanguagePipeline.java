@@ -25,7 +25,7 @@ import opennlp.tools.postag.POSTagFormatMapper;
 import opennlp.tools.postag.POSTaggerME;
 import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.tokenize.TokenizerME;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 
 /**
  * One language's classic pipeline models: sentence detector, tokenizer, POS tagger, and

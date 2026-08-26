@@ -47,8 +47,9 @@ import org.apache.opennlp.grpc.v1.LearnVocabularyStart;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.VocabularyArtifactDescriptor;
 import org.apache.opennlp.grpc.vocabulary.store.ArtifactDigests;
-import org.apache.opennlp.grpc.vocabulary.store.VocabularyStore;
+import org.apache.opennlp.grpc.spi.vocabulary.VocabularyStore;
 import org.apache.opennlp.grpc.vocabulary.store.VocabularyStores;
+import org.apache.opennlp.grpc.spi.vocabulary.DictionaryFormatProvider;
 
 /**
  * Bounded, atomic store for imported dictionaries and learned vocabulary tables.

@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.SearchProviderCapability;
 import org.apache.opennlp.grpc.v1.SearchProviderInstance;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
 
 class SearchProviderCatalogTest {
 

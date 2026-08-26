@@ -28,9 +28,11 @@ import java.util.Map;
 
 import opennlp.tools.doccat.DoccatModel;
 import opennlp.tools.doccat.DocumentCategorizerME;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerBackendFactory;
 
 /**
  * Built-in document categorization backend for classic OpenNLP maxent categorizers. Reads

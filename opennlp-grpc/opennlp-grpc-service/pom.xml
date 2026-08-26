@@ -39,6 +39,11 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-grpc-spi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
             <artifactId>opennlp-grpc-api</artifactId>
             <version>${project.version}</version>
         </dependency>

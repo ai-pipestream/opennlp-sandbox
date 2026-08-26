@@ -29,9 +29,12 @@ import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.util.StringUtil;
 import org.apache.opennlp.grpc.backend.RankedBackends;
 import org.apache.opennlp.grpc.backend.RankedBackends.Registration;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.model.NerModel;
+import org.apache.opennlp.grpc.spi.model.NerBackendFactory;
+import org.apache.opennlp.grpc.spi.model.NerBackendContext;
 
 /**
  * Catalog of {@link NerModel} recognizers. A recognizer is identified by a logical

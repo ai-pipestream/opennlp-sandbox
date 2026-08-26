@@ -28,6 +28,9 @@ import java.util.Set;
 import opennlp.embeddings.index.TurboQuantIndex;
 import opennlp.embeddings.index.VectorIndex;
 import org.apache.opennlp.grpc.v1.SearchProviderCapability;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
 
 /** ServiceLoader factory for TurboQuant bundles and live vector components. */
 public final class TurboQuantSearchIndexProviderFactory implements SearchIndexProviderFactory {

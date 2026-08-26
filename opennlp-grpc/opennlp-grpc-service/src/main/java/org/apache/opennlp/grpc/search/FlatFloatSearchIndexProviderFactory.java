@@ -23,6 +23,7 @@ import java.util.Set;
 import opennlp.embeddings.index.FlatFloatIndex;
 import opennlp.embeddings.index.VectorIndex;
 import org.apache.opennlp.grpc.v1.SearchProviderCapability;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
 
 /** ServiceLoader factory for exact in-memory flat float vector components. */
 public final class FlatFloatSearchIndexProviderFactory implements SearchIndexProviderFactory {

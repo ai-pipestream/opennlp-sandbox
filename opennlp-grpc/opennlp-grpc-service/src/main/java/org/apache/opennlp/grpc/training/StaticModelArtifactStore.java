@@ -50,7 +50,7 @@ import org.apache.opennlp.grpc.v1.TeacherDescriptor;
 import org.apache.opennlp.grpc.v1.TrainStaticModelRequest;
 import org.apache.opennlp.grpc.vocabulary.VocabularyArtifactStore;
 import org.apache.opennlp.grpc.vocabulary.store.ArtifactDigests;
-import org.apache.opennlp.grpc.vocabulary.store.VocabularyStore;
+import org.apache.opennlp.grpc.spi.vocabulary.VocabularyStore;
 import org.apache.opennlp.grpc.vocabulary.store.VocabularyStores;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

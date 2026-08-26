@@ -47,7 +47,7 @@ import org.apache.opennlp.grpc.v1.SearchComponentKind;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
 import org.apache.opennlp.grpc.v1.StandardSearchProvider;
 import org.apache.opennlp.grpc.v1.StandardEmbeddingBackend;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -57,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
 
 class DynamicSearchIndexRegistryTest {
 

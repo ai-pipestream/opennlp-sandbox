@@ -28,6 +28,7 @@ import org.apache.opennlp.grpc.v1.AnnotatedSentence;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.CoordinateSpace;
 import org.apache.opennlp.grpc.v1.NamedEntity;
+import org.apache.opennlp.grpc.spi.model.NerModel;
 
 /**
  * {@link NerModel} backed by an ONNX {@link NameFinderDL}. The transformer model is

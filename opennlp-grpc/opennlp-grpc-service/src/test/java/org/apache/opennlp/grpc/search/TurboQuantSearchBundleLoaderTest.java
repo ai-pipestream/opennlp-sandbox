@@ -39,6 +39,10 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
+import org.apache.opennlp.grpc.spi.search.SearchRecord;
 
 class TurboQuantSearchBundleLoaderTest {
 

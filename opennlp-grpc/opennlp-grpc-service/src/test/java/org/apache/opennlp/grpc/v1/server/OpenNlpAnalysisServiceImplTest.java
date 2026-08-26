@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.testing.StubSentenceDetectorBackendFactory;

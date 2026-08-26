@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.testing.TinyNerModel;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,6 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.model.NerModel;
+import org.apache.opennlp.grpc.spi.model.NerBackendFactory;
+import org.apache.opennlp.grpc.spi.model.NerBackendContext;
 
 /**
  * Unit tests for {@link NameFinderRegistry}. The person model is trained in-memory from a

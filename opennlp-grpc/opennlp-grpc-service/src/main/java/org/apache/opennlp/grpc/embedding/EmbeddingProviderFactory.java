@@ -25,9 +25,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import opennlp.tools.util.StringUtil;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBackendFactory;
 
 /**
  * Creates the aggregate {@link EmbeddingProvider} for the gRPC server.

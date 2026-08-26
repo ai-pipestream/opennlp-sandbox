@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
 import org.apache.opennlp.grpc.v1.SearchCorpusDescriptor;
 import org.apache.opennlp.grpc.v1.SearchIndexDescriptor;
@@ -41,6 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
 
 class SearchIndexRegistryTest {
 

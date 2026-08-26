@@ -23,7 +23,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -30,9 +30,14 @@ import java.util.Map;
 
 import opennlp.tools.dictionary.Dictionary;
 import opennlp.tools.namefind.DictionaryNameFinder;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.model.NerModel;
+import org.apache.opennlp.grpc.spi.model.NerBackendFactory;
+import org.apache.opennlp.grpc.spi.model.NerBackendContext;
+import org.apache.opennlp.grpc.spi.model.StatelessNerModel;
+import org.apache.opennlp.grpc.spi.ModelArtifactHasher;
 
 /**
  * Built-in model-free NER backend for OpenNLP dictionary name finders. Reads

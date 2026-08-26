@@ -32,13 +32,13 @@ import com.google.protobuf.CodedOutputStream;
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
-import org.apache.opennlp.grpc.embedding.EmbeddingBatchResult;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.search.query.CelQueryEvaluator;
 import org.apache.opennlp.grpc.search.query.CompoundQueryExecutor;
 import org.apache.opennlp.grpc.search.query.CompoundQueryValidator;
-import org.apache.opennlp.grpc.search.query.QueryCandidate;
+import org.apache.opennlp.grpc.spi.search.QueryCandidate;
 import org.apache.opennlp.grpc.v1.CollectionDescriptor;
 import org.apache.opennlp.grpc.v1.CollectionEvent;
 import org.apache.opennlp.grpc.v1.DeleteCollectionRequest;
@@ -83,6 +83,11 @@ import org.apache.opennlp.grpc.v1.server.GrpcStatusMapper;
 import org.apache.opennlp.grpc.vocabulary.UnknownVocabularyArtifactException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchRecord;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
+import org.apache.opennlp.grpc.spi.search.KeywordQueryIndex;
 
 /** gRPC adapter for bounded search over static and process-local dynamic indexes. */
 public final class OpenNlpSearchServiceImpl
@@ -712,7 +717,7 @@ public final class OpenNlpSearchServiceImpl
       throw AnalysisException.unimplemented("Search index '" + descriptor.getIndexId()
           + "' does not execute compound queries");
     }
-    final org.apache.opennlp.grpc.search.query.KeywordQueryIndex keywordIndex =
+    final org.apache.opennlp.grpc.spi.search.KeywordQueryIndex keywordIndex =
         provider.keywordQueryIndex();
     if (keywordIndex == null
         && org.apache.opennlp.grpc.search.query.CompoundQueryValidator

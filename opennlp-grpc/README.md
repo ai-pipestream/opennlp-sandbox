@@ -413,7 +413,7 @@ vocabulary.max_concurrent_writes=1
 durable store. A plain path or a `file` URI uses the built-in filesystem store, which
 stages each artifact and publishes it with one atomic directory move. Other schemes
 resolve through the `VocabularyStoreProvider` ServiceLoader interface in
-`org.apache.opennlp.grpc.vocabulary.store`, so a remote tier such as S3 plugs in by
+`org.apache.opennlp.grpc.spi.vocabulary`, so a remote tier such as S3 plugs in by
 adding the JAR that provides its scheme to the classpath; the service itself carries
 no cloud dependency. A scheme with no provider on the classpath fails loud at startup.
 
@@ -440,11 +440,11 @@ which keeps teacher identity, licensing, resource use, and output location under
 control through an explicit teacher allowlist.
 
 Dictionary encodings are extensible without changing the wire contract. A provider implements
-`org.apache.opennlp.grpc.vocabulary.DictionaryFormatProvider`, returns a stable custom selector,
+`org.apache.opennlp.grpc.spi.vocabulary.DictionaryFormatProvider`, returns a stable custom selector,
 and registers its class in:
 
 ```text
-META-INF/services/org.apache.opennlp.grpc.vocabulary.DictionaryFormatProvider
+META-INF/services/org.apache.opennlp.grpc.spi.vocabulary.DictionaryFormatProvider
 ```
 
 Provider jars go on the server classpath. Duplicate selectors, malformed descriptors, unspecified
@@ -802,7 +802,7 @@ document shape.
 The `TokenizerSelector.custom` and `SentenceDetectorSelector.custom` cases select open
 provider ids. Extension jars implement `TokenizerBackendFactory` or
 `SentenceDetectorBackendFactory` and register the implementation under the matching
-`META-INF/services/org.apache.opennlp.grpc.model.*BackendFactory` file. Each factory
+`META-INF/services/org.apache.opennlp.grpc.spi.model.*BackendFactory` file. Each factory
 receives the complete server configuration and may return an empty result when it is not
 configured. Returned engines must be safe for concurrent calls. Stateful OpenNLP
 implementations can meet that requirement with a thread-local delegate.
@@ -918,8 +918,8 @@ Name finder backends are discovered through `java.util.ServiceLoader`, mirroring
 embedding SPI: the built-in classic (`opennlp-me`) and ONNX (`onnx`/`cuda`) backends are
 themselves regular consumers of it. To add another backend (a remote NER service, a custom
 model format, any inference runtime in any language), ship a jar that implements
-`org.apache.opennlp.grpc.model.NerBackendFactory`, registers it in
-`META-INF/services/org.apache.opennlp.grpc.model.NerBackendFactory`, and put that jar on the
+`org.apache.opennlp.grpc.spi.model.NerBackendFactory`, registers it in
+`META-INF/services/org.apache.opennlp.grpc.spi.model.NerBackendFactory`, and put that jar on the
 server classpath. Each factory parses its own configuration namespace and returns
 `NerModel` recognizers; the `NameFinderRegistry` aggregates the models from every backend, so
 several backends are active at once. A backend that needs the server's sentence detector
@@ -1249,8 +1249,8 @@ Embedding backends are discovered through `java.util.ServiceLoader`; the TEI and
 OpenVINO modules above are regular consumers of this SPI. To add another backend
 (DJL, a custom native runtime, or any other remote inference service in any language),
 ship a jar that implements
-`org.apache.opennlp.grpc.embedding.EmbeddingBackendFactory`, registers it in
-`META-INF/services/org.apache.opennlp.grpc.embedding.EmbeddingBackendFactory`, and put
+`org.apache.opennlp.grpc.spi.embedding.EmbeddingBackendFactory`, registers it in
+`META-INF/services/org.apache.opennlp.grpc.spi.embedding.EmbeddingBackendFactory`, and put
 that jar on the server classpath. Its configured models join the aggregate provider
 without any server change. Clients can leave route choice to priority/fallback or pin
 the backend's open id through `EmbeddingSelector.backend.custom`. The shaded server merges

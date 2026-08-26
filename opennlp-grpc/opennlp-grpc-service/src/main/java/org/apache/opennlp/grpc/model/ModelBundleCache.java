@@ -55,11 +55,11 @@ import opennlp.tools.tokenize.TokenizerME;
 import opennlp.tools.tokenize.TokenizerModel;
 import opennlp.tools.util.StringUtil;
 import opennlp.tools.util.model.BaseModel;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.embedding.EmbeddingProviderFactory;
 import org.apache.opennlp.grpc.training.TrainedModelEmbeddingProvider;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.ComponentType;
 import org.apache.opennlp.grpc.v1.ConfiguredResource;
 import org.apache.opennlp.grpc.v1.ModelBundleInfo;
@@ -69,6 +69,9 @@ import org.apache.opennlp.grpc.v1.ResourceIdentity;
 import org.apache.opennlp.grpc.v1.StandardResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.model.NerModel;
+import org.apache.opennlp.grpc.spi.ModelArtifactHasher;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
 
 /**
  * Loads shared thread-safe {@code *ME} singletons once at startup.

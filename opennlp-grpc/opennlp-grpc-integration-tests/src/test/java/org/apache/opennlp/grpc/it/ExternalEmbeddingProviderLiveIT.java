@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExternalEmbeddingProviderLiveIT {
 
   private static final String SERVICE =
-      "META-INF/services/org.apache.opennlp.grpc.embedding.EmbeddingBackendFactory";
+      "META-INF/services/org.apache.opennlp.grpc.spi.embedding.EmbeddingBackendFactory";
 
   @Test
   void shadedServerPreservesServicesAndLoadsExternalProviderJar() throws Exception {
@@ -148,8 +148,8 @@ class ExternalEmbeddingProviderLiveIT {
 
         import java.util.Map;
         import java.util.Set;
-        import org.apache.opennlp.grpc.embedding.EmbeddingBackendFactory;
-        import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+        import org.apache.opennlp.grpc.spi.embedding.EmbeddingBackendFactory;
+        import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 
         public final class ExternalFactory implements EmbeddingBackendFactory {
           public ExternalFactory() {

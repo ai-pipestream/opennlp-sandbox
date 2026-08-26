@@ -26,7 +26,7 @@ import java.util.Map;
 
 import opennlp.tools.dictionary.Dictionary;
 import opennlp.tools.util.StringList;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
 import org.apache.opennlp.grpc.v1.NamedEntity;
 import org.junit.jupiter.api.Test;
@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.model.NerModel;
 
 /**
  * Unit tests for the model-free dictionary NER backend configured through

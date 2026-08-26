@@ -32,9 +32,9 @@ import java.util.Set;
 
 import opennlp.embeddings.corpus.CasePassage;
 import opennlp.embeddings.index.TurboQuantIndex;
-import org.apache.opennlp.grpc.embedding.EmbeddingBatchResult;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
-import org.apache.opennlp.grpc.search.SearchIndexBundleConfiguration;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
 import org.apache.opennlp.grpc.search.TurboQuantSearchBundleLoader;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
 import org.junit.jupiter.api.Test;

@@ -439,15 +439,15 @@ class SearchCollectionRegistryTest {
     final SearchCollectionRegistry registry =
         SearchCollectionRegistry.inMemory(indexes, NO_VOCABULARIES, 2);
 
-    final org.apache.opennlp.grpc.processor.AnalysisException failure = assertThrows(
-        org.apache.opennlp.grpc.processor.AnalysisException.class,
+    final org.apache.opennlp.grpc.spi.AnalysisException failure = assertThrows(
+        org.apache.opennlp.grpc.spi.AnalysisException.class,
         () -> registry.set(SetCollectionRequest.newBuilder()
             .setCollectionId("legal")
             .setDisplayName("Legal corpus")
             .addMemberIndexIds(indexId)
             .build()));
 
-    assertEquals(org.apache.opennlp.grpc.processor.AnalysisException.FailureType
+    assertEquals(org.apache.opennlp.grpc.spi.AnalysisException.FailureType
         .RESOURCE_EXHAUSTED, failure.getFailureType());
   }
 

@@ -20,7 +20,7 @@ package org.apache.opennlp.grpc.processor.basic;
 import java.util.Map;
 
 import org.apache.opennlp.grpc.embedding.StubEmbeddingProvider;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.AnnotationLayer;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.CategoryAnnotation;

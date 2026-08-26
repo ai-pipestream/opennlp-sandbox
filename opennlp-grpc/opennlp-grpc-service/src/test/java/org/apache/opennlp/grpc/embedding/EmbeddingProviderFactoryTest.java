@@ -20,7 +20,7 @@ package org.apache.opennlp.grpc.embedding;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 
 /**
  * Tests {@link EmbeddingProviderFactory}: it discovers every embedding backend via

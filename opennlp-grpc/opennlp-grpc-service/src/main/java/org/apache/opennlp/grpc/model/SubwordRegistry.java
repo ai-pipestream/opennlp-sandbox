@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import opennlp.subword.sentencepiece.SentencePieceTokenizer;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 
 /**
  * Catalog of subword tokenizers, keyed by model id.

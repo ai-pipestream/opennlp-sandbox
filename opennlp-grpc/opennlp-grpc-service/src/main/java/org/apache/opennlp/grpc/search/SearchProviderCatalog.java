@@ -26,11 +26,12 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.SearchProviderCapability;
 import org.apache.opennlp.grpc.v1.SearchProviderInstance;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
 import org.apache.opennlp.grpc.v1.StandardSearchProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
 
 /**
  * Immutable catalog of configured search provider instances.

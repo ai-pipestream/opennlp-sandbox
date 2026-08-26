@@ -19,7 +19,7 @@ package org.apache.opennlp.grpc.embedding.onnx;
 
 import java.util.Map;
 
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;

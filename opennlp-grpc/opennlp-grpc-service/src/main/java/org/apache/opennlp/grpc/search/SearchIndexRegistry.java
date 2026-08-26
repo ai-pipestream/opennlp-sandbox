@@ -30,13 +30,16 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.SearchIndexBuildDescriptor;
 import org.apache.opennlp.grpc.v1.SearchIndexDescriptor;
 import org.apache.opennlp.grpc.v1.SearchMetric;
 import org.apache.opennlp.grpc.v1.SearchProviderCapability;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
 import org.apache.opennlp.grpc.v1.StandardSearchProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
 
 /** Immutable registry of every bounded search index loaded before server startup. */
 public final class SearchIndexRegistry implements AutoCloseable {

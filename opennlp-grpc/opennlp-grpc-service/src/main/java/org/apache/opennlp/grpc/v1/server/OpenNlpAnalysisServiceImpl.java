@@ -25,11 +25,11 @@ import java.util.concurrent.ForkJoinPool;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.opennlp.grpc.embedding.EmbeddingBatchResult;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
 import org.apache.opennlp.grpc.embedding.EmbeddingBackendSelections;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.processor.DocumentAnalysisSession;
 import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
 import org.apache.opennlp.grpc.processor.PipelineStepPolicy;

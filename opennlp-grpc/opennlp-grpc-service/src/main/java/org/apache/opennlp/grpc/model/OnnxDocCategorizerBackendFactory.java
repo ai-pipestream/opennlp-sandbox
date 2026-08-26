@@ -32,9 +32,11 @@ import opennlp.dl.InferenceOptions;
 import opennlp.dl.doccat.DocumentCategorizerDL;
 import opennlp.dl.doccat.scoring.AverageClassificationScoringStrategy;
 import opennlp.tools.util.StringUtil;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerBackendFactory;
 
 /**
  * Built-in document categorization backend for ONNX transformer categorizers ({@code opennlp-dl}'s

@@ -26,7 +26,7 @@ import java.util.Map;
 
 import opennlp.wordnet.LexicalExpander;
 import opennlp.wordnet.WnLmfReader;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 
 /**
  * Catalog of lexical expanders over WordNet-style knowledge bases, keyed by lexicon id.

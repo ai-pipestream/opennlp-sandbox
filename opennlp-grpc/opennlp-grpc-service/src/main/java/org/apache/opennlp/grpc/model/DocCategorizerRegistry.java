@@ -24,9 +24,11 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 import opennlp.tools.util.StringUtil;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerBackendFactory;
 
 /**
  * Catalog of {@link DocCategorizerModel} document classifiers, keyed by model id.

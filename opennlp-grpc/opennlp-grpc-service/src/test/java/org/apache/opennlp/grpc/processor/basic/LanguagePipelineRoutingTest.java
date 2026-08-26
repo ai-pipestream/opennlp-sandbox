@@ -24,7 +24,7 @@ import java.util.Map;
 
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.testing.TinyPosLemmaModels;
 import org.apache.opennlp.grpc.v1.AnalysisProfile;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;

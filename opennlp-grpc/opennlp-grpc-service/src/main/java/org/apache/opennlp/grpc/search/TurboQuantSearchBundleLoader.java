@@ -50,6 +50,10 @@ import org.apache.opennlp.grpc.v1.SearchIndexDescriptor;
 import org.apache.opennlp.grpc.v1.SearchMetric;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
 import org.apache.opennlp.grpc.v1.StandardSearchProvider;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
+import org.apache.opennlp.grpc.spi.search.SearchRecord;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
 
 /** Loads a persisted TurboQuant index and its authoritative {@link CasePassage} records. */
 public final class TurboQuantSearchBundleLoader {

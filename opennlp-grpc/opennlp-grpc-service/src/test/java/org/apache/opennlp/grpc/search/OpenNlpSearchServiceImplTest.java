@@ -28,9 +28,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
-import org.apache.opennlp.grpc.embedding.EmbeddingBatchResult;
-import org.apache.opennlp.grpc.embedding.EmbeddingProvider;
-import org.apache.opennlp.grpc.search.query.QueryCandidate;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
+import org.apache.opennlp.grpc.spi.search.QueryCandidate;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.CoordinateSpace;
 import org.apache.opennlp.grpc.v1.DeleteSearchIndexRequest;
@@ -89,6 +89,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchRecord;
+import org.apache.opennlp.grpc.spi.search.SearchIndexBundleConfiguration;
 
 class OpenNlpSearchServiceImplTest {
 

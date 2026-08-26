@@ -33,7 +33,7 @@ import java.util.UUID;
 
 import com.google.protobuf.ByteString;
 import opennlp.embeddings.index.VectorIndex;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.ChunkEmbeddingGroup;
 import org.apache.opennlp.grpc.v1.EmbeddingResult;
 import org.apache.opennlp.grpc.v1.EmbeddingRoute;
@@ -52,7 +52,12 @@ import org.apache.opennlp.grpc.v1.SearchProviderCapability;
 import org.apache.opennlp.grpc.v1.SearchProviderSelector;
 import org.apache.opennlp.grpc.v1.StandardEmbeddingBackend;
 import org.apache.opennlp.grpc.v1.StandardSearchProvider;
-import org.apache.opennlp.grpc.search.query.KeywordQueryIndex;
+import org.apache.opennlp.grpc.spi.search.KeywordQueryIndex;
+import org.apache.opennlp.grpc.spi.search.SearchResult;
+import org.apache.opennlp.grpc.spi.search.SearchRecord;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProvider;
+import org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory;
+import org.apache.opennlp.grpc.spi.search.QueryCandidate;
 
 /** Bounded registry of server-owned indexes created from analyzed document shapes. */
 public final class DynamicSearchIndexRegistry implements AutoCloseable {
@@ -1268,8 +1273,8 @@ public final class DynamicSearchIndexRegistry implements AutoCloseable {
       if (keywordInstance == null) {
         return null;
       }
-      final List<org.apache.opennlp.grpc.search.query.QueryCandidate> candidates = chunks.stream()
-          .map(chunk -> new org.apache.opennlp.grpc.search.query.QueryCandidate(
+      final List<org.apache.opennlp.grpc.spi.search.QueryCandidate> candidates = chunks.stream()
+          .map(chunk -> new org.apache.opennlp.grpc.spi.search.QueryCandidate(
               chunk.record(), chunk.rawVector()))
           .toList();
       return keywordInstance.configured().createKeywordQueryIndex(candidates);
@@ -1376,9 +1381,9 @@ public final class DynamicSearchIndexRegistry implements AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public List<org.apache.opennlp.grpc.search.query.QueryCandidate> queryCandidates() {
+    public List<org.apache.opennlp.grpc.spi.search.QueryCandidate> queryCandidates() {
       return snapshot.chunks().stream()
-          .map(chunk -> new org.apache.opennlp.grpc.search.query.QueryCandidate(
+          .map(chunk -> new org.apache.opennlp.grpc.spi.search.QueryCandidate(
               chunk.record(), chunk.rawVector()))
           .toList();
     }

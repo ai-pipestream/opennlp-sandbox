@@ -28,7 +28,7 @@ import opennlp.tools.document.Document;
 import opennlp.tools.document.LayerKey;
 import opennlp.tools.document.Layers;
 import opennlp.tools.util.Span;
-import org.apache.opennlp.grpc.processor.AnalysisException;
+import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
 import org.apache.opennlp.grpc.v1.AnalyticsAnnotationList;
 import org.apache.opennlp.grpc.v1.AnnotationLayer;
