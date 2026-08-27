@@ -39,6 +39,12 @@ export interface DictionaryFormatOption {
   custom: boolean;
 }
 
+export interface DictionaryArtifactSummary {
+  artifactId: string;
+  displayName: string;
+  entryCount: number;
+}
+
 export interface TeacherOption {
   id: string;
   label: string;
@@ -158,8 +164,10 @@ export class VocabularyTrainerWorkbench {
       } else if (teachers.teachers.length === 0) {
         this.setStatus("No teachers are configured; add training.teacher entries.", true);
       } else {
-        this.setStatus("Import a dictionary to start the vocabulary-to-model flow.");
+        this.setStatus("Paste corpus text to learn a vocabulary. A dictionary is optional.");
       }
+      this.#dictionarySelect.replaceChildren(new Option("Corpus terms only", ""));
+      this.#dictionarySelect.disabled = false;
       this.updateControls();
     } catch (error) {
       this.setStatus(message(error, "Could not load the trainer catalog."), true);
@@ -191,10 +199,6 @@ export class VocabularyTrainerWorkbench {
 
   private async learnVocabulary(): Promise<void> {
     const dictionaryArtifactId = this.#dictionarySelect.value;
-    if (!dictionaryArtifactId) {
-      this.setStatus("Import and select a dictionary first.", true);
-      return;
-    }
     const documents = corpusDocuments(this.#corpus.value);
     if (documents.length === 0) {
       this.setStatus("Paste at least one corpus document (blank lines separate documents).", true);
@@ -204,7 +208,7 @@ export class VocabularyTrainerWorkbench {
     await this.run("The server is learning the vocabulary.", async () => {
       const vocabulary = await this.#api.learnVocabulary({
         start: {
-          dictionaryArtifactId,
+          ...(dictionaryArtifactId ? { dictionaryArtifactId } : {}),
           displayName,
           minFrequency: boundedInt(this.#minFrequency.value, 1),
           maxTerms: boundedInt(this.#maxTerms.value, 10_000),
@@ -388,6 +392,22 @@ export function readDictionaryFormats(
     }
   }
   return { formats, writesEnabled: body.writesEnabled === true };
+}
+
+/** Reads imported dictionary artifacts available for paired vocabulary learning. */
+export function readDictionaries(value: unknown): DictionaryArtifactSummary[] {
+  return asArray(asRecord(value).dictionaries).flatMap((entry) => {
+    const dictionary = asRecord(entry);
+    if (typeof dictionary.artifactId !== "string" || !dictionary.artifactId) {
+      return [];
+    }
+    return [{
+      artifactId: dictionary.artifactId,
+      displayName: typeof dictionary.displayName === "string" && dictionary.displayName
+        ? dictionary.displayName : dictionary.artifactId,
+      entryCount: asCount(dictionary.entryCount),
+    }];
+  });
 }
 
 /** Reads the gateway's teachers JSON defensively. */

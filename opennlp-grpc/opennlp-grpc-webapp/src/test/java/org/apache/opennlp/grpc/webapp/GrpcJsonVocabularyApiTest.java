@@ -33,6 +33,7 @@ import org.apache.opennlp.grpc.v1.InstallModelRequest;
 import org.apache.opennlp.grpc.v1.InstallModelUpdate;
 import org.apache.opennlp.grpc.v1.LearnVocabularyUpload;
 import org.apache.opennlp.grpc.v1.ListDictionaryFormatsResponse;
+import org.apache.opennlp.grpc.v1.ListDictionariesResponse;
 import org.apache.opennlp.grpc.v1.ListInstalledModelsResponse;
 import org.apache.opennlp.grpc.v1.ListModelCatalogResponse;
 import org.apache.opennlp.grpc.v1.ListStaticModelsResponse;
@@ -107,6 +108,8 @@ class GrpcJsonVocabularyApiTest {
 
     assertTrue(api.handle("GET", "/api/v1/dictionary-formats", new byte[0])
         .bodyUtf8().contains("\"writesEnabled\":true"));
+    assertTrue(api.handle("GET", "/api/v1/dictionaries", new byte[0])
+        .bodyUtf8().contains("\"artifactId\":\"dictionary-large\""));
     assertTrue(api.handle("GET", "/api/v1/teachers", new byte[0])
         .bodyUtf8().contains("\"teacherId\":\"mini\""));
     assertTrue(api.handle("GET", "/api/v1/static-models", new byte[0])
@@ -247,6 +250,16 @@ class GrpcJsonVocabularyApiTest {
     @Override
     public ListDictionaryFormatsResponse listDictionaryFormats() {
       return ListDictionaryFormatsResponse.newBuilder().setWritesEnabled(true).build();
+    }
+
+    @Override
+    public ListDictionariesResponse listDictionaries() {
+      return ListDictionariesResponse.newBuilder()
+          .addDictionaries(DictionaryArtifactDescriptor.newBuilder()
+              .setArtifactId("dictionary-large")
+              .setDisplayName("Large English dictionary")
+              .setEntryCount(80_000))
+          .build();
     }
 
     @Override

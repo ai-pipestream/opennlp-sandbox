@@ -80,4 +80,16 @@ describe("workbench navigation", () => {
     expect(lifecycleTab.getAttribute("aria-selected")).toBe("true");
     expect((document.getElementById("lifecycle-workbench") as HTMLElement).hidden).toBe(false);
   });
+
+  it("opens workflows from the build-your-own-index action", () => {
+    new WorkbenchNavigation();
+    const action = document.querySelector<HTMLButtonElement>("#server-search-index-help [data-workbench-jump]")!;
+
+    action.click();
+
+    expect(document.getElementById("workflows-workbench-tab")?.getAttribute("aria-selected"))
+      .toBe("true");
+    expect((document.getElementById("workflows-workbench") as HTMLElement).hidden).toBe(false);
+    expect((document.getElementById("server-search") as HTMLElement).hidden).toBe(true);
+  });
 });

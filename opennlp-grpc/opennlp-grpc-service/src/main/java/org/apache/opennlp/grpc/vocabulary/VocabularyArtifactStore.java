@@ -333,8 +333,9 @@ public final class VocabularyArtifactStore {
       texts.add(document.getRawText());
     }
 
-    requireDictionary(start.getDictionaryArtifactId());
-    final List<String> headwords = readDictionaryHeadwords(start.getDictionaryArtifactId());
+    final String dictionaryArtifactId = start.getDictionaryArtifactId();
+    final List<String> headwords = dictionaryArtifactId.isEmpty()
+        ? List.of() : readDictionaryHeadwords(dictionaryArtifactId);
     final List<TermCount> terms = new VocabularyLearner(
         start.getMinFrequency(), start.getMaxTerms()).learn(texts, headwords);
     if (terms.size() > maxVocabularyTerms) {
@@ -395,6 +396,15 @@ public final class VocabularyArtifactStore {
           "Unknown dictionary artifact '" + artifactId + "'");
     }
     return descriptor;
+  }
+
+  /**
+   * Lists imported dictionaries available to seed vocabulary learning.
+   *
+   * @return Imported dictionaries in stable artifact-id order.
+   */
+  public List<DictionaryArtifactDescriptor> listDictionaries() {
+    return List.copyOf(dictionaries.values());
   }
 
   /**
@@ -541,7 +551,9 @@ public final class VocabularyArtifactStore {
         descriptor = VocabularyArtifactDescriptor.parseFrom(input);
       }
       requireListedIdentity(artifactId, descriptor.getArtifactId());
-      requireDictionary(descriptor.getDictionaryArtifactId());
+      if (!descriptor.getDictionaryArtifactId().isEmpty()) {
+        requireDictionary(descriptor.getDictionaryArtifactId());
+      }
       verify(VOCABULARIES_KIND, artifactId, VOCABULARY_DATA,
           descriptor.getByteSize(), descriptor.getArtifactHash());
       if (vocabularies.putIfAbsent(descriptor.getArtifactId(), descriptor) != null) {
@@ -615,12 +627,14 @@ public final class VocabularyArtifactStore {
     validateOptional(start.hasLicenseUri(), start.getLicenseUri(), "dictionary license_uri");
   }
 
-  /** Validates vocabulary controls and the referenced dictionary. */
+  /** Validates vocabulary controls and the optional referenced dictionary. */
   private void validateLearningStart(LearnVocabularyStart start) {
     if (start == null) {
       throw new IllegalArgumentException("vocabulary learning start must not be null");
     }
-    requireDictionary(start.getDictionaryArtifactId());
+    if (!start.getDictionaryArtifactId().isEmpty()) {
+      requireDictionary(start.getDictionaryArtifactId());
+    }
     requireTrimmed(start.getDisplayName(), "vocabulary display_name");
     requireTrimmed(start.getProvenanceSummary(), "vocabulary provenance_summary");
     if (start.getMinFrequency() < 1) {

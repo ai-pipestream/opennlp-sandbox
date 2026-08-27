@@ -51,6 +51,8 @@ import {
 } from "./text-utils";
 import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
 
+const SEARCH_TOP_K_LIMIT = 50_000;
+
 export interface ServerSearchWorkbenchOptions {
   listIndexes(): Promise<SearchIndex[]>;
   search(request: SearchRequest): Promise<SearchResponse>;
@@ -223,7 +225,7 @@ export class ServerSearchWorkbench {
     const index = this.selectedIndex();
     const query = this.#query.value.trim();
     const compound = this.#clauses.length > 0;
-    const maximum = index?.maxTopK ?? 50;
+    const maximum = Math.min(index?.maxTopK ?? SEARCH_TOP_K_LIMIT, SEARCH_TOP_K_LIMIT);
     // Exhaustive-capable providers use a typed request; other providers stay bounded by top_k.
     const topK = this.#heatmapView
       ? maximum
@@ -559,7 +561,7 @@ export class ServerSearchWorkbench {
     if (!index) {
       return;
     }
-    const limit = index.maxTopK ?? 50;
+    const limit = Math.min(index.maxTopK ?? SEARCH_TOP_K_LIMIT, SEARCH_TOP_K_LIMIT);
     this.#topK.max = String(limit);
     if (Number(this.#topK.value) > limit) {
       this.#topK.value = String(limit);

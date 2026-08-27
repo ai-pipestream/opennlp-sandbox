@@ -30,6 +30,7 @@ import {
   encodeAnalyzeResponsePb,
   getCollection,
   getCollections,
+  getDictionaries,
   getDictionaryFormats,
   getHealth,
   getIndexAliases,
@@ -64,10 +65,15 @@ import {
 } from "./batch-analysis";
 import { readCollectionEvent, readCollectionResponse, readCollections } from "./collection-adapter";
 import { LifecycleWorkbench } from "./lifecycle-workbench";
-import { withXrayNormalization } from "./analysis-config";
+import {
+  buildAnalysisRequest,
+  withXrayNormalization,
+  type AnalysisCapabilities,
+} from "./analysis-config";
 import { AnalysisControls } from "./analysis-controls";
 import { AnnotationDrawer } from "./annotation-drawer";
 import { ChunkProjectionView } from "./chunk-projection-view";
+import { CorpusWorkflowWorkbench } from "./corpus-workflow";
 import {
   combinedAnnotationSegments,
   documentAnnotationChips,
@@ -114,6 +120,7 @@ import {
 import { errorMessage, flashButtonLabel, requiredElement } from "./ui-utils";
 import {
   readDictionaryFormats,
+  readDictionaries,
   readImportedDictionary,
   readLearnedVocabulary,
   readStaticModels,
@@ -188,6 +195,7 @@ let currentLayer: AnnotationLayerView | undefined;
 let currentCombinedSegments: CombinedAnnotationSegment[] = [];
 let currentHighlightSegments: CombinedAnnotationSegment[] = [];
 let currentOverlayKind: "all" | "highlights" = "all";
+let workflowCapabilities: AnalysisCapabilities | undefined;
 
 const analysisControls = new AnalysisControls(updateFormState);
 const annotationDrawer = new AnnotationDrawer();
@@ -312,6 +320,62 @@ const serverSearchWorkbench = new ServerSearchWorkbench({
   })),
 });
 
+const corpusWorkflow = new CorpusWorkflowWorkbench({
+  listDictionaries: async () => readDictionaries(await getDictionaries()),
+  listTeachers: async () => readTeachers(await getTeachers()),
+  listProviders: async () => readSearchProviderInstances(await getSearchProviders()),
+  analyze,
+  learnVocabulary: async (upload) => readLearnedVocabulary(await learnVocabulary(upload)),
+  trainStaticModel: async (request, onProgress) =>
+    readTrainedModel(await trainStaticModel(request, onProgress)),
+  index: async (request) => {
+    const response = await indexDocuments(request) as Record<string, unknown>;
+    const index = readSearchIndexes({ indexes: response.index ? [response.index] : [] })[0];
+    if (!index) {
+      throw new Error("The server returned an invalid workflow index descriptor.");
+    }
+    return index;
+  },
+  search: async (request) => readSearchResponse(await searchIndex(request)),
+}, {
+  createAnalysisRequest: (document, embeddingModelId) => {
+    if (!workflowCapabilities) {
+      throw new Error("Analysis capabilities are still loading.");
+    }
+    const request = buildAnalysisRequest(document.rawText, {
+      mode: "max",
+      sentenceChunks: Boolean(embeddingModelId),
+      tokenChunks: false,
+      tokenChunkSize: 96,
+      tokenChunkOverlap: 12,
+      embeddingModelId,
+    }, workflowCapabilities);
+    request.document.docId = document.docId;
+    return request;
+  },
+  onModelTrained: (model) => {
+    trainedEmbeddingModels.set(model.artifactId, `${model.displayName} (trained)`);
+    publishRuntimeEmbeddingModels();
+  },
+  onOpenAnalysis: (response, shape) => {
+    textArea.value = shape.rawText;
+    updateFormState();
+    storeResponse(response, shape);
+    chunkProjectionView.render(response);
+    renderDocumentShape(shape);
+    renderXray(response);
+    semanticWorkbench.setDocument("Workflow document", shape, response);
+    selectResultTab("document");
+    workbenchNavigation.show("analysis");
+    revealAnalysisResult();
+  },
+  onIndexChanged: () => {
+    void serverSearchWorkbench.initialize();
+    void semanticWorkbench.initializeWorkspaces();
+  },
+});
+void corpusWorkflow.initialize();
+
 textArea.addEventListener("input", updateFormState);
 sampleButton.addEventListener("click", () => {
   textArea.value = sampleText;
@@ -371,6 +435,7 @@ async function initialize(): Promise<void> {
   const serviceInfo = infoResult.status === "fulfilled" ? infoResult.value : undefined;
   const bundlesInfo = bundlesResult.status === "fulfilled" ? bundlesResult.value : undefined;
   const capabilities = analysisControls.configure(serviceInfo, bundlesInfo);
+  workflowCapabilities = capabilities;
   modelDataWorkbench.configure(capabilities);
   const profiles = capabilities.profiles;
   const bundles = capabilities.bundles;

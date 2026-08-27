@@ -171,6 +171,8 @@ final class GrpcJsonApi {
             ? deleteCollection(body) : methodNotAllowed();
         case "/api/v1/dictionary-formats" -> method.equals("GET")
             ? protobufJson(vocabularyRpc.listDictionaryFormats()) : methodNotAllowed();
+        case "/api/v1/dictionaries" -> method.equals("GET")
+            ? protobufJson(vocabularyRpc.listDictionaries()) : methodNotAllowed();
         case "/api/v1/import-dictionary" -> method.equals("POST")
             ? importDictionary(body) : methodNotAllowed();
         case "/api/v1/learn-vocabulary" -> method.equals("POST")

@@ -216,4 +216,29 @@ describe("server search workbench compound queries", () => {
       allHits: true,
     }));
   });
+
+  it("sends a requested fifty thousand result limit when the index permits it", async () => {
+    document.body.innerHTML = html.replace(/^[\s\S]*<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "");
+    const search = vi.fn().mockResolvedValue({ hits: [], truncated: false });
+    const workbench = new ServerSearchWorkbench({
+      listIndexes: () => Promise.resolve([{ ...testIndex(), maxTopK: 50_000 }]),
+      search,
+      analyzeSource: () => Promise.reject(new Error("not exercised")),
+    });
+    await workbench.initialize();
+    const topK = document.getElementById("server-search-top-k") as HTMLInputElement;
+    expect(topK.max).toBe("50000");
+    topK.value = "50000";
+    const query = document.getElementById("server-search-query") as HTMLInputElement;
+    query.value = "rabbit";
+    query.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("server-search-form")
+      ?.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+
+    await vi.waitFor(() => expect(search).toHaveBeenCalledWith({
+      indexId: "workspace-test",
+      query: { rawText: "rabbit" },
+      topK: 50_000,
+    }));
+  });
 });

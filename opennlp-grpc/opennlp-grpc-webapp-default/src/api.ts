@@ -89,7 +89,7 @@ export interface ImportDictionaryUpload {
 
 export interface LearnVocabularyUpload {
   start: {
-    dictionaryArtifactId: string;
+    dictionaryArtifactId?: string;
     displayName: string;
     minFrequency: number;
     maxTerms: number;
@@ -159,6 +159,10 @@ export function getUiExtensions(fetcher: Fetcher = fetch): Promise<unknown> {
 
 export function getSearchIndexes(fetcher: Fetcher = fetch): Promise<unknown> {
   return requestJson("/api/v1/search-indexes", undefined, fetcher);
+}
+
+export function getDictionaries(fetcher: Fetcher = fetch): Promise<unknown> {
+  return requestJson("/api/v1/dictionaries", undefined, fetcher);
 }
 
 export function searchIndex(request: SearchRequest, fetcher: Fetcher = fetch): Promise<unknown> {

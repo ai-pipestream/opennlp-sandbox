@@ -23,12 +23,16 @@ import org.apache.opennlp.grpc.v1.DownloadVocabularyRequest;
 import org.apache.opennlp.grpc.v1.ImportDictionaryUpload;
 import org.apache.opennlp.grpc.v1.LearnVocabularyUpload;
 import org.apache.opennlp.grpc.v1.ListDictionaryFormatsResponse;
+import org.apache.opennlp.grpc.v1.ListDictionariesResponse;
 import org.apache.opennlp.grpc.v1.VocabularyArtifactDescriptor;
 
 interface VocabularyRpc {
 
   /** @return Available dictionary formats and the effective vocabulary limits. */
   ListDictionaryFormatsResponse listDictionaryFormats();
+
+  /** @return Imported dictionary artifacts available to seed a vocabulary. */
+  ListDictionariesResponse listDictionaries();
 
   /**
    * Imports one complete dictionary, composed into the ImportDictionary client stream.

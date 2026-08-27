@@ -60,6 +60,12 @@ class SearchIndexRegistryTest {
   }
 
   @Test
+  void allowsFiftyThousandResultsWithinTheFixedSearchCeilings() {
+    assertEquals(50_000, SearchIndexBundleConfiguration.MAX_TOP_K_LIMIT);
+    assertEquals(50_000, SearchIndexBundleConfiguration.MAX_ALL_HITS_LIMIT);
+  }
+
+  @Test
   void closesProvidersInReverseLoadOrder() {
     final List<String> closed = new ArrayList<>();
     final SearchIndexProvider first = closeableProvider(descriptor("first"), closed);

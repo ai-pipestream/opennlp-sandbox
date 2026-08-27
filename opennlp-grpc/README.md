@@ -442,6 +442,9 @@ The Analyze workbench gives the output the full page width and provides Document
 Graph, and Protobuf JSON projections over the same response. Long source text and annotated output
 scroll vertically without a horizontal scrollbar. Selecting an annotation, graph node, or chunk
 opens details in a side drawer so the document does not collapse into a narrow column.
+The Workflows tab turns pasted documents into one guided analysis, vocabulary learning, static-model
+training, indexing, and search flow. It uses corpus-only vocabulary by default and can pair the
+corpus with an imported dictionary selected before the run.
 The web host loads additional static interfaces through the `WebUiExtension` ServiceLoader API.
 See [opennlp-grpc-webapp/README.md](opennlp-grpc-webapp/README.md) for endpoints, security defaults,
 and command-line options.
@@ -517,15 +520,17 @@ dictionary imports and vocabulary builds, so multiple client streams cannot mult
 working sets without an explicit operator choice. Values are validated against fixed safety
 ceilings at startup.
 
-The four RPCs form one explicit artifact flow:
+The five RPCs form one explicit artifact flow:
 
 1. `ListDictionaryFormats` returns built-in and extension formats plus the effective limits.
-2. `ImportDictionary` accepts a start frame followed by bounded encoded byte frames. The built-ins
+2. `ListDictionaries` returns the imported dictionary artifacts available for vocabulary learning.
+3. `ImportDictionary` accepts a start frame followed by bounded encoded byte frames. The built-ins
    accept UTF-8 headword-and-definition TSV, one UTF-8 headword per line, and OpenNLP dictionary
    XML. The server publishes a normalized, hashed dictionary artifact atomically.
-3. `LearnVocabulary` accepts a start frame followed by `OpenNlpDocument` values. Each document's
-   `raw_text` contributes corpus counts, and the imported dictionary preserves required headwords.
-4. `DownloadVocabulary` streams the exact hashed UTF-8 `term<TAB>count<TAB>source` artifact. The
+4. `LearnVocabulary` accepts a start frame followed by `OpenNlpDocument` values. Each document's
+   `raw_text` contributes corpus counts. An optional imported dictionary preserves required
+   headwords alongside those corpus terms.
+5. `DownloadVocabulary` streams the exact hashed UTF-8 `term<TAB>count<TAB>source` artifact. The
    downloaded table can be supplied to the OpenNLP embeddings `DistillModel` workflow as its terms
    input.
 
@@ -595,9 +600,9 @@ all published descriptors. Cancellation or a terminal-stage failure rolls back a
 order. The model and index plans remain operator-gated: the dictionary must already be imported, the
 teacher must be allowlisted, and persistence requires `search.persist.root`.
 
-The bundled web UI's Trainer tab drives the whole flow in the browser: import a dictionary,
-learn a vocabulary from pasted documents, watch the distillation progress stream, and pick the
-served model in Analyze to index and search with it.
+The bundled web UI's Trainer tab drives the whole flow in the browser: optionally import a
+dictionary, learn a vocabulary from pasted documents, watch the distillation progress stream,
+and pick the served model in Analyze to index and search with it.
 
 Every published model carries a manifest naming the exact size and SHA-256 of each model file;
 the descriptor's `artifact_hash` is the SHA-256 of that manifest. Models are re-verified against
@@ -678,7 +683,7 @@ search.dynamic.enabled=true
 search.index.legal-opinions.provider=turbo_quant
 search.index.legal-opinions.directory=/srv/opennlp/legal/legal-index-v1
 search.index.legal-opinions.passages=/srv/opennlp/legal/legal-index-v1/passages.jsonl
-search.index.legal-opinions.max_top_k=10000
+search.index.legal-opinions.max_top_k=50000
 search.index.legal-opinions.max_query_bytes=16384
 search.index.legal-opinions.max_response_bytes=8388608
 search.index.legal-opinions.max_records=100000
@@ -705,7 +710,7 @@ chunk text, and opens typed OpenNLP annotations for a selected source document. 
 and response sizes remain bounded by the descriptor advertised to the browser.
 
 The results panel offers two views. The ranked list orders scored chunks best first. A TurboQuant
-index with at most 10,000 records advertises `supports_all_hits` independently of the ordinary
+index with at most 50,000 records advertises `supports_all_hits` independently of the ordinary
 `max_top_k` setting. The interactive workbenches send the typed `all_hits` request for such an
 index. The server
 returns every ranked chunk that fits `max_response_bytes`, reports truncation explicitly, and

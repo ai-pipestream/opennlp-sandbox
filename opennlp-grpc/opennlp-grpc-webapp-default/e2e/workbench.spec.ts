@@ -30,12 +30,49 @@ test("scopes the hero to the Analyze tab", async ({ page }) => {
   await expect(page.locator("#server-search")).toBeVisible();
 });
 
-test("bridges the two search tabs in both directions", async ({ page }) => {
+test("bridges configured search to workflows and workspace search", async ({ page }) => {
   await page.click('[data-workbench-tab="corpus-search"]');
-  await page.click('[data-workbench-jump="session-search"]');
-  await expect(page.locator("#session-search")).toBeVisible();
+  await expect(page.locator("#server-search-index-help"))
+    .toContainText("Pick a configured index or");
+  await page.click('#server-search-index-help [data-workbench-jump="workflows"]');
+  await expect(page.locator("#workflows-workbench")).toBeVisible();
+  await page.click('[data-workbench-tab="session-search"]');
   await page.click('[data-workbench-jump="corpus-search"]');
   await expect(page.locator("#server-search")).toBeVisible();
+});
+
+test("offers automatic workflow defaults with optional resource choices", async ({ page }) => {
+  await page.click('[data-workbench-tab="workflows"]');
+  await expect(page.locator("#workflow-status")).toContainText("Ready");
+  await expect(page.locator("#workflow-dictionary-select option").first())
+    .toHaveText("Corpus terms only (default)");
+  await expect(page.locator("#workflow-teacher-select option")).not.toHaveCount(0);
+  await expect(page.locator("#workflow-provider-select option")).not.toHaveCount(0);
+  await expect(page.locator("#workflow-run-button")).toBeDisabled();
+  await page.fill("#workflow-corpus", "One small document is enough to start.");
+  await expect(page.locator("#workflow-run-button")).toBeEnabled();
+});
+
+test("builds and searches a live corpus workflow", async ({ page }, testInfo) => {
+  test.setTimeout(1_200_000);
+  test.skip(process.env.OPENNLP_E2E_WORKFLOW_WRITE !== "1",
+    "Set OPENNLP_E2E_WORKFLOW_WRITE=1 to create persistent vocabulary and model artifacts.");
+
+  await page.click('[data-workbench-tab="workflows"]');
+  await expect(page.locator("#workflow-status")).toContainText("Ready");
+  await page.fill("#workflow-name", "Live workflow smoke");
+  await page.fill("#workflow-corpus",
+    "People seek liberty, justice, and equal rights in a democratic society.\n\n"
+    + "Courts protect civil rights while elected governments write public policy.");
+  await page.fill("#workflow-query", "liberty and rights");
+  await page.click("#workflow-run-button");
+
+  await expect(page.locator("#workflow-status"))
+    .toContainText("is ready to explore", { timeout: 1_100_000 });
+  await expect(page.locator('#workflow-stages [data-state="complete"]')).toHaveCount(6);
+  await expect(page.locator(".workflow-analysis-card")).toHaveCount(2);
+  await expect(page.locator("#workflow-search-heatmap .heat-document")).toHaveCount(2);
+  await page.screenshot({ path: testInfo.outputPath("workflow-live.png"), fullPage: true });
 });
 
 test("holds inspector placeholders until a document is selected", async ({ page }) => {

@@ -20,11 +20,12 @@
 import { requiredElement } from "./ui-utils";
 
 export type WorkbenchName =
-  | "analysis" | "corpus-search" | "session-search" | "models" | "trainer" | "lifecycle";
+  | "analysis" | "workflows" | "corpus-search" | "session-search" | "models" | "trainer" | "lifecycle";
 
 export class WorkbenchNavigation {
   readonly #tabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-workbench-tab]"));
   readonly #analysis = requiredElement<HTMLElement>("analysis-workbench");
+  readonly #workflows = requiredElement<HTMLElement>("workflows-workbench");
   readonly #corpusSearch = requiredElement<HTMLElement>("server-search");
   readonly #sessionSearch = requiredElement<HTMLElement>("session-search");
   readonly #models = requiredElement<HTMLElement>("model-data-workbench");
@@ -48,6 +49,7 @@ export class WorkbenchNavigation {
 
   private select(name: WorkbenchName): void {
     this.#analysis.hidden = name !== "analysis";
+    this.#workflows.hidden = name !== "workflows";
     this.#corpusSearch.hidden = name !== "corpus-search";
     this.#sessionSearch.hidden = name !== "session-search";
     this.#models.hidden = name !== "models";
@@ -100,7 +102,7 @@ export function tabTargetIndex(key: string, currentIndex: number, count: number)
 }
 
 function workbenchName(value: string | undefined): WorkbenchName {
-  return value === "corpus-search" || value === "session-search" || value === "models"
+  return value === "workflows" || value === "corpus-search" || value === "session-search" || value === "models"
       || value === "trainer" || value === "lifecycle"
     ? value : "analysis";
 }

@@ -261,6 +261,23 @@ describe("trainer workbench", () => {
     expect(onModelsChanged).toHaveBeenLastCalledWith([MODEL]);
   });
 
+  it("learns directly from the corpus when no optional dictionary is selected", async () => {
+    const api = stubApi();
+    const trainer = new VocabularyTrainerWorkbench(api, {
+      onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn(),
+    });
+    await trainer.initialize();
+    (document.getElementById("trainer-corpus") as HTMLTextAreaElement).value =
+      "Liberty matters.\n\nHabeas corpus endures.";
+
+    (document.getElementById("trainer-learn-button") as HTMLButtonElement).click();
+
+    await vi.waitFor(() => expect(api.learnVocabulary).toHaveBeenCalled());
+    const start = vi.mocked(api.learnVocabulary).mock.calls[0]?.[0].start;
+    expect(start?.dictionaryArtifactId).toBeUndefined();
+    expect(document.getElementById("trainer-status")?.textContent).toContain("Learned 5 terms");
+  });
+
   it("restores the Copy id label after confirming the copy", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {

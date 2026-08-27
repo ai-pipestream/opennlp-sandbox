@@ -558,7 +558,7 @@ class OpenNlpSearchServiceImplTest {
   }
 
   @Test
-  void returnsTheTenThousandHitExhaustiveSafetyCeiling() {
+  void returnsTheFiftyThousandHitExhaustiveSafetyCeiling() {
     final int resultCount = SearchIndexBundleConfiguration.MAX_ALL_HITS_LIMIT;
     final SearchIndexDescriptor descriptor = SearchIndexRegistryTest.descriptor("legal")
         .toBuilder()

@@ -101,8 +101,7 @@ export class AnnotationDrawer {
       const summary = embeddingSummary(embedding);
       this.#content.replaceChildren(title, facts, summary);
     } else {
-      const source = document.createElement("pre");
-      source.textContent = JSON.stringify(annotation.source, null, 2);
+      const source = structuredValue(annotation.source);
       this.#content.replaceChildren(title, facts, source);
     }
     this.open(trigger);
@@ -300,10 +299,159 @@ function annotationBlock(layer: AnnotationLayerView, annotation: AnnotationView)
   if (annotation.score !== undefined) {
     addFact(facts, "Score", annotation.score.toFixed(4));
   }
-  const source = document.createElement("pre");
-  source.textContent = JSON.stringify(annotation.source, null, 2);
+  const source = structuredValue(annotation.source);
   block.append(title, facts, source);
   return block;
+}
+
+function structuredValue(source: Record<string, unknown>): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "structured-value";
+  const header = document.createElement("div");
+  header.className = "structured-value-header";
+  const label = document.createElement("strong");
+  label.textContent = "Value";
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "copy-button structured-copy";
+  copy.textContent = "Copy JSON";
+  copy.addEventListener("click", () => void copyJson(copy, source));
+  header.append(label, copy);
+  section.append(header, structuredFields(source));
+  return section;
+}
+
+function structuredFields(source: Record<string, unknown>): HTMLDListElement {
+  const fields = document.createElement("dl");
+  fields.className = "structured-fields";
+  for (const [key, value] of Object.entries(source)) {
+    const name = document.createElement("dt");
+    name.textContent = key;
+    const detail = document.createElement("dd");
+    detail.append(structuredFieldValue(key, value));
+    fields.append(name, detail);
+  }
+  return fields;
+}
+
+function structuredFieldValue(key: string, value: unknown): HTMLElement {
+  if (Array.isArray(value)) {
+    if (isVectorField(key, value)) {
+      return structuredVector(value);
+    }
+    if (value.length <= 8 && value.every(isScalar)) {
+      return codeValue(`[${value.map(scalarText).join(", ")}]`);
+    }
+    return structuredCollection(value);
+  }
+  const nested = recordValue(value);
+  if (nested) {
+    const entries = Object.entries(nested);
+    if (entries.length <= 4 && entries.every(([, entry]) => isScalar(entry))) {
+      const fields = entries.map(([name, entry]) => `${name}: ${scalarText(entry)}`);
+      return codeValue(`{ ${fields.join(", ")} }`);
+    }
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = countLabel(entries.length, "field");
+    details.append(summary, structuredFields(nested));
+    return details;
+  }
+  return codeValue(scalarText(value));
+}
+
+function structuredCollection(values: unknown[]): HTMLElement {
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = countLabel(values.length, "item");
+  const list = document.createElement("ol");
+  list.className = "structured-list";
+  for (const value of values) {
+    const item = document.createElement("li");
+    const nested = recordValue(value);
+    if (nested) {
+      item.append(structuredFields(nested));
+    } else if (Array.isArray(value)) {
+      item.append(structuredCollection(value));
+    } else {
+      item.append(codeValue(scalarText(value)));
+    }
+    list.append(item);
+  }
+  details.append(summary, list);
+  return details;
+}
+
+function structuredVector(values: unknown[]): HTMLElement {
+  const vector = values.filter((value): value is number =>
+    typeof value === "number" && Number.isFinite(value));
+  const container = document.createElement("span");
+  container.className = "structured-vector";
+  const summary = document.createElement("span");
+  const preview = vector.slice(0, 3).map(compactNumber).join(", ");
+  summary.textContent = `${vector.length} values${preview ? ` · ${preview}${vector.length > 3 ? ", …" : ""}` : ""}`;
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "copy-button vector-copy";
+  copy.textContent = "Copy vector";
+  copy.addEventListener("click", () => void copyVector(copy, vector));
+  container.append(summary, copy);
+  return container;
+}
+
+function isVectorField(key: string, value: unknown[]): boolean {
+  return asciiLowerCase(key).includes("vector")
+    && value.length > 0
+    && value.every((entry) => typeof entry === "number" && Number.isFinite(entry));
+}
+
+function isScalar(value: unknown): boolean {
+  return value === null
+    || typeof value === "string"
+    || typeof value === "number"
+    || typeof value === "boolean";
+}
+
+function scalarText(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return compactNumber(value);
+  }
+  return String(value);
+}
+
+function compactNumber(value: number): string {
+  return Number(value.toPrecision(6)).toString();
+}
+
+function codeValue(value: string): HTMLElement {
+  const code = document.createElement("code");
+  code.textContent = value;
+  return code;
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function countLabel(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+async function copyJson(button: HTMLButtonElement, value: Record<string, unknown>): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(value));
+    flashButtonLabel(button, "Copied");
+  } catch {
+    flashButtonLabel(button, "Copy failed");
+  }
 }
 
 function embeddingFromSource(source: Record<string, unknown>): ChunkProjectionEmbedding {

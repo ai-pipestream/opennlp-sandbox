@@ -52,6 +52,7 @@ class VocabularyArtifactStoreTest {
         importStart("Legal dictionary"),
         "HABEAS CORPUS\tA writ.\ndue process\tA protection.\n"
             .getBytes(StandardCharsets.UTF_8));
+    assertEquals(List.of(dictionary), store.listDictionaries());
 
     final VocabularyArtifactDescriptor vocabulary = store.learnVocabulary(
         LearnVocabularyStart.newBuilder()
@@ -83,6 +84,34 @@ class VocabularyArtifactStoreTest {
       assertFalse(children.anyMatch(path ->
           path.getFileName().toString().startsWith(".staging-")));
     }
+  }
+
+  @Test
+  void learnsCorpusOnlyVocabularyWithoutDictionary() throws Exception {
+    final VocabularyArtifactStore store = enabledStore(DictionaryFormatRegistry.discover(), Map.of());
+
+    final VocabularyArtifactDescriptor vocabulary = store.learnVocabulary(
+        LearnVocabularyStart.newBuilder()
+            .setDisplayName("Corpus vocabulary")
+            .setMinFrequency(2)
+            .setMaxTerms(20)
+            .setProvenanceSummary("Pasted workflow corpus")
+            .build(),
+        List.of(
+            document("Liberty protects people."),
+            document("People value liberty.")));
+
+    assertEquals("", vocabulary.getDictionaryArtifactId());
+    assertEquals(0, vocabulary.getDictionaryTermCount());
+    assertEquals(2, vocabulary.getCorpusTermCount());
+    final String tsv = new String(store.readVocabulary(vocabulary.getArtifactId()),
+        StandardCharsets.UTF_8);
+    assertTrue(tsv.contains("liberty\t2\tcorpus"));
+    assertTrue(tsv.contains("people\t2\tcorpus"));
+
+    final VocabularyArtifactStore reloaded = enabledStore(
+        DictionaryFormatRegistry.discover(), Map.of());
+    assertEquals(vocabulary, reloaded.requireVocabulary(vocabulary.getArtifactId()));
   }
 
   @Test

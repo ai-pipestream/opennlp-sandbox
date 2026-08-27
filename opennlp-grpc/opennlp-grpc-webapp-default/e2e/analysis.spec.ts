@@ -46,6 +46,12 @@ test("analyzes text and opens on the calm Highlights overlay", async ({ page }) 
     .toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => markers.count()).toBeGreaterThan(highlightCount);
 
+  await markers.first().click();
+  await expect(page.locator("#annotation-details")).toBeVisible();
+  await expect(page.locator("#annotation-details .structured-value").first()).toBeVisible();
+  await expect(page.locator("#annotation-details pre")).toHaveCount(0);
+  await page.click("#annotation-details-close");
+
   // Document-scoped category layers collapse to one ranked chip each.
   await expect(page.locator(".document-annotation-chip").filter({ hasText: "top of" }).first())
     .toBeVisible();

@@ -21,6 +21,7 @@ package org.apache.opennlp.grpc.vocabulary;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import com.google.protobuf.ByteString;
@@ -36,6 +37,8 @@ import org.apache.opennlp.grpc.v1.LearnVocabularyRequest;
 import org.apache.opennlp.grpc.v1.LearnVocabularyStart;
 import org.apache.opennlp.grpc.v1.ListDictionaryFormatsRequest;
 import org.apache.opennlp.grpc.v1.ListDictionaryFormatsResponse;
+import org.apache.opennlp.grpc.v1.ListDictionariesRequest;
+import org.apache.opennlp.grpc.v1.ListDictionariesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.StandardDictionaryFormat;
 import org.apache.opennlp.grpc.v1.VocabularyArtifactChunk;
@@ -87,6 +90,9 @@ class OpenNlpVocabularyServiceImplTest {
 
     assertNull(imported.error);
     assertEquals(2, imported.values.getFirst().getEntryCount());
+    final CapturingObserver<ListDictionariesResponse> dictionaries = new CapturingObserver<>();
+    service.listDictionaries(ListDictionariesRequest.getDefaultInstance(), dictionaries);
+    assertEquals(List.of(imported.values.getFirst()), dictionaries.values.getFirst().getDictionariesList());
     final CapturingObserver<VocabularyArtifactDescriptor> learned = new CapturingObserver<>();
     final StreamObserver<LearnVocabularyRequest> learnRequests = service.learnVocabulary(learned);
     learnRequests.onNext(LearnVocabularyRequest.newBuilder().setStart(
@@ -114,6 +120,32 @@ class OpenNlpVocabularyServiceImplTest {
     assertTrue(tsv.contains("habeas corpus\t1\tdictionary"));
     assertTrue(tsv.contains("protect\t1\tcorpus"));
     assertTrue(downloaded.completed);
+  }
+
+  @Test
+  void learnsCorpusOnlyVocabularyThroughStreamingRpcBoundary() throws Exception {
+    final DictionaryFormatRegistry formats = DictionaryFormatRegistry.discover();
+    final OpenNlpVocabularyServiceImpl service = new OpenNlpVocabularyServiceImpl(
+        formats, enabledStore(formats, Map.of()));
+    final CapturingObserver<VocabularyArtifactDescriptor> learned = new CapturingObserver<>();
+    final StreamObserver<LearnVocabularyRequest> requests = service.learnVocabulary(learned);
+    requests.onNext(LearnVocabularyRequest.newBuilder().setStart(
+        LearnVocabularyStart.newBuilder()
+            .setDisplayName("Corpus vocabulary")
+            .setMinFrequency(1)
+            .setMaxTerms(20)
+            .setProvenanceSummary("Pasted corpus")).build());
+    requests.onNext(LearnVocabularyRequest.newBuilder().setDocument(
+        OpenNlpDocument.newBuilder().setDocId("one")
+            .setRawText("Liberty and justice protect people.")).build());
+    requests.onCompleted();
+
+    assertNull(learned.error);
+    assertTrue(learned.completed);
+    assertEquals(1, learned.values.size());
+    assertEquals("", learned.values.getFirst().getDictionaryArtifactId());
+    assertEquals(0, learned.values.getFirst().getDictionaryTermCount());
+    assertTrue(learned.values.getFirst().getCorpusTermCount() > 0);
   }
 
   @Test

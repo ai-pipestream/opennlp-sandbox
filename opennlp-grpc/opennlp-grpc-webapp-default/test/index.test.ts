@@ -90,6 +90,7 @@ describe("analysis playground markup", () => {
     expect(html).toContain('role="dialog" aria-modal="true"');
     expect(html).toContain('role="tablist" aria-label="Workbench navigation"');
     expect(html).toContain('data-workbench-tab="analysis"');
+    expect(html).toContain('data-workbench-tab="workflows"');
     expect(html).toContain('data-workbench-tab="corpus-search"');
     expect(html).toContain('data-workbench-tab="session-search"');
     expect(html).toContain('data-workbench-tab="models"');
@@ -102,6 +103,9 @@ describe("analysis playground markup", () => {
 
   it("provides server-backed corpus and dynamic workspace search", () => {
     expect(html).toContain('<label for="server-search-index">');
+    expect(html).toContain('id="server-search-index-help"');
+    expect(html).toContain('Pick a configured index or');
+    expect(html).toContain('data-workbench-jump="workflows">build your own workspace index</button>');
     expect(html).toContain('<label for="server-search-query">');
     expect(html).toContain('id="server-search-status" role="status" aria-live="polite"');
     expect(html).toContain('id="server-search-results" aria-label="Server search results"');
@@ -118,6 +122,27 @@ describe("analysis playground markup", () => {
     expect(html).toContain('never performs vector ranking');
     expect(html).toContain('workspace-provider-select');
     expect(html).toContain('STANDARD_SEARCH_PROVIDER_TURBO_QUANT');
+  });
+
+  it("provides a guided corpus-to-search workflow with visible stage status", () => {
+    expect(html).toContain('id="workflows-workbench"');
+    expect(html).toContain('id="workflow-corpus"');
+    expect(html).toContain('id="workflow-teacher-select"');
+    expect(html).toContain('id="workflow-query"');
+    expect(html).toContain('id="workflow-run-button"');
+    expect(html).toContain('id="workflow-stages"');
+    expect(html).toContain('data-workflow-stage="analyze"');
+    expect(html).toContain('data-workflow-stage="vocabulary"');
+    expect(html).toContain('data-workflow-stage="train"');
+    expect(html).toContain('data-workflow-stage="embed"');
+    expect(html).toContain('data-workflow-stage="index"');
+    expect(html).toContain('data-workflow-stage="search"');
+    expect(html).toContain('id="workflow-analysis-results"');
+    expect(html).toContain('id="workflow-search-heatmap"');
+  });
+
+  it("allows corpus search result counts up to fifty thousand", () => {
+    expect(html).toContain('id="server-search-top-k" type="number" min="1" max="50000"');
   });
 
   it("holds inspector placeholders until an analyzed document is selected", () => {

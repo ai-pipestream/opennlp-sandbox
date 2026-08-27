@@ -41,6 +41,8 @@
       <nav class="site-nav" role="tablist" aria-label="Workbench navigation">
         <button id="analysis-workbench-tab" type="button" role="tab" aria-selected="true"
           aria-controls="analysis-workbench" data-workbench-tab="analysis">Analyze</button>
+        <button id="workflows-workbench-tab" type="button" role="tab" aria-selected="false" tabindex="-1"
+          aria-controls="workflows-workbench" data-workbench-tab="workflows">Workflows</button>
         <button id="corpus-search-workbench-tab" type="button" role="tab" aria-selected="false" tabindex="-1"
           aria-controls="server-search" data-workbench-tab="corpus-search">Corpus search</button>
         <button id="session-search-workbench-tab" type="button" role="tab" aria-selected="false" tabindex="-1"
@@ -378,6 +380,167 @@
           </div>
         </aside>
 
+        <section id="workflows-workbench" class="workflows-workbench" role="tabpanel"
+          aria-labelledby="workflows-workbench-tab" hidden>
+          <header class="model-data-heading workflow-heading">
+            <div>
+              <p class="section-kicker">Text to searchable knowledge</p>
+              <h3>Build and explore in one flow</h3>
+              <p>
+                Paste a small corpus and OpenNLP will analyze it, learn its vocabulary, distill a
+                static embedding model, build a live index, and search it. Every stage stays visible.
+              </p>
+            </div>
+            <span class="workflow-default-badge">Automatic defaults</span>
+          </header>
+
+          <div class="workflow-builder">
+            <section class="workflow-composer" aria-labelledby="workflow-input-heading">
+              <div class="workflow-section-heading">
+                <span>Input</span>
+                <h4 id="workflow-input-heading">Your text collection</h4>
+              </div>
+              <label for="workflow-corpus">Documents (blank line separates documents)</label>
+              <textarea id="workflow-corpus" rows="10"
+                placeholder="Paste one or more documents here. Separate documents with a blank line."></textarea>
+              <p id="workflow-corpus-stats" class="trainer-corpus-stats" aria-live="polite">
+                Add text to preview the workflow batch.
+              </p>
+              <div class="workflow-primary-fields">
+                <span>
+                  <label for="workflow-name">Workflow name</label>
+                  <input id="workflow-name" type="text" value="My text workflow" />
+                </span>
+                <form id="workflow-search-form">
+                  <label for="workflow-query">First search</label>
+                  <div class="workflow-query-row">
+                    <input id="workflow-query" type="search"
+                      value="What are these documents about?"
+                      placeholder="What should these documents help you find?" />
+                    <button id="workflow-search-button" type="submit" class="secondary-button"
+                      disabled>Search again</button>
+                  </div>
+                </form>
+              </div>
+
+              <details class="workflow-options">
+                <summary>
+                  <span><strong>Configure the workflow</strong><small>Dictionary, teacher, vector storage, and limits</small></span>
+                  <span class="workflow-option-summary">Defaults are ready</span>
+                </summary>
+                <div class="workflow-option-grid">
+                  <label for="workflow-dictionary-select">
+                    Vocabulary source
+                    <select id="workflow-dictionary-select" disabled>
+                      <option value="">Corpus terms only (default)</option>
+                    </select>
+                    <small>Pair the pasted corpus with a larger imported dictionary to guarantee its headwords.</small>
+                  </label>
+                  <label for="workflow-teacher-select">
+                    Embedding teacher
+                    <select id="workflow-teacher-select" disabled>
+                      <option value="">Discovering teachers</option>
+                    </select>
+                    <small>The selected teacher supplies semantic vectors for the learned vocabulary.</small>
+                  </label>
+                  <label for="workflow-provider-select">
+                    Vector storage
+                    <select id="workflow-provider-select" disabled>
+                      <option value="STANDARD_SEARCH_PROVIDER_FLAT_FLOAT">Exact flat float</option>
+                    </select>
+                    <small>Exact storage is the default; choose TurboQuant when the server offers it.</small>
+                  </label>
+                  <div class="workflow-numeric-options">
+                    <label for="workflow-min-frequency">Min term frequency
+                      <input id="workflow-min-frequency" type="number" min="1" value="1" />
+                    </label>
+                    <label for="workflow-max-terms">Max corpus terms
+                      <input id="workflow-max-terms" type="number" min="1" value="10000" />
+                    </label>
+                    <label for="workflow-pca-dims">PCA dimensions
+                      <input id="workflow-pca-dims" type="number" min="0" value="0" />
+                    </label>
+                  </div>
+                </div>
+              </details>
+
+              <button id="workflow-run-button" type="button" disabled>
+                Build workflow and search <span aria-hidden="true">→</span>
+              </button>
+              <p id="workflow-status" class="form-status" role="status" aria-live="polite">
+                Loading dictionaries, teachers, and search providers.
+              </p>
+            </section>
+
+            <aside class="workflow-progress" aria-labelledby="workflow-progress-heading">
+              <div class="workflow-section-heading">
+                <span>Progress</span>
+                <h4 id="workflow-progress-heading">Pipeline stages</h4>
+              </div>
+              <ol id="workflow-stages">
+                <li data-workflow-stage="analyze" data-state="pending">
+                  <i aria-hidden="true">1</i><span><strong>Analyze text</strong>
+                    <small class="workflow-stage-status">Waiting</small></span>
+                </li>
+                <li data-workflow-stage="vocabulary" data-state="pending">
+                  <i aria-hidden="true">2</i><span><strong>Learn vocabulary</strong>
+                    <small class="workflow-stage-status">Waiting</small></span>
+                </li>
+                <li data-workflow-stage="train" data-state="pending">
+                  <i aria-hidden="true">3</i><span><strong>Distill embeddings</strong>
+                    <small class="workflow-stage-status">Waiting</small></span>
+                </li>
+                <li data-workflow-stage="embed" data-state="pending">
+                  <i aria-hidden="true">4</i><span><strong>Embed documents</strong>
+                    <small class="workflow-stage-status">Waiting</small></span>
+                </li>
+                <li data-workflow-stage="index" data-state="pending">
+                  <i aria-hidden="true">5</i><span><strong>Build live index</strong>
+                    <small class="workflow-stage-status">Waiting</small></span>
+                </li>
+                <li data-workflow-stage="search" data-state="pending">
+                  <i aria-hidden="true">6</i><span><strong>Search and visualize</strong>
+                    <small class="workflow-stage-status">Waiting</small></span>
+                </li>
+              </ol>
+              <div class="workflow-accuracy-note">
+                <strong>What “train” means here</strong>
+                <p>The corpus chooses the vocabulary. The selected teacher supplies its semantic
+                  geometry, so a small pasted corpus does not pretend to train language meaning from scratch.</p>
+              </div>
+            </aside>
+          </div>
+
+          <section class="workflow-results" aria-labelledby="workflow-results-heading">
+            <div class="workflow-results-heading">
+              <div><span>Output</span><h4 id="workflow-results-heading">Analysis and search</h4></div>
+              <div id="workflow-artifacts" class="workflow-artifacts">No artifacts built yet.</div>
+            </div>
+            <div class="result-tabs" role="tablist" aria-label="Workflow result views">
+              <button type="button" role="tab" aria-selected="true"
+                data-workflow-result-tab="analysis">Analysis</button>
+              <button type="button" role="tab" aria-selected="false" tabindex="-1"
+                data-workflow-result-tab="search">Search heatmap</button>
+            </div>
+            <section id="workflow-analysis-panel" role="tabpanel">
+              <div id="workflow-analysis-results" class="workflow-analysis-results">
+                <p class="empty-message">Run the workflow to inspect each analyzed document.</p>
+              </div>
+            </section>
+            <section id="workflow-search-panel" role="tabpanel" hidden>
+              <div class="workflow-score-legend" aria-label="Similarity score color scale">
+                <span>−1</span><i></i><span>0</span><i></i><span>+1</span>
+              </div>
+              <div id="workflow-search-heatmap" class="server-search-heatmap">
+                <p class="empty-message">The search stage will shade every returned document chunk.</p>
+              </div>
+              <p id="workflow-search-selection" class="heatmap-selection" aria-live="polite">
+                Select a colored chunk to inspect its score.
+              </p>
+            </section>
+          </section>
+        </section>
+
         <section id="server-search" class="server-search-lens" role="tabpanel"
           aria-labelledby="corpus-search-workbench-tab" hidden>
           <div class="search-lens-heading">
@@ -421,9 +584,11 @@
           <form id="server-search-form" class="server-search-form">
             <div class="field">
               <label for="server-search-index">Search index</label>
-              <select id="server-search-index" required disabled>
+              <select id="server-search-index" aria-describedby="server-search-index-help" required disabled>
                 <option value="">Discovering configured indexes</option>
               </select>
+              <small id="server-search-index-help" class="field-help">Pick a configured index or
+                <button type="button" class="link-button" data-workbench-jump="workflows">build your own workspace index</button>.</small>
             </div>
             <div class="field server-query-field">
               <label for="server-search-query">Natural-language query</label>
@@ -432,7 +597,7 @@
             </div>
             <div class="field top-k-field">
               <label for="server-search-top-k">Results</label>
-              <input id="server-search-top-k" type="number" min="1" max="50" value="8" inputmode="numeric" />
+              <input id="server-search-top-k" type="number" min="1" max="50000" value="8" inputmode="numeric" />
             </div>
             <button id="server-search-button" type="submit" disabled>Search index <span aria-hidden="true">→</span></button>
           </form>
