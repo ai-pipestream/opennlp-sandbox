@@ -1219,6 +1219,15 @@ model.embedder.sentence-transformers.onnx.vector_space_id=minilm-v1
 model.embedder.sentence-transformers.cuda.vector_space_id=minilm-v1
 ```
 
+When `vector_space_id` is omitted the server derives one from the model id and the
+artifact hash (for example `sentence-transformers@6fd5d72fe4589f18`), so every route is
+complete enough to index into a workspace; the derived space is deliberately narrow to
+one artifact. Declare the id explicitly, as above, whenever several engines must share
+one space for fallback.
+
+```ini
+```
+
 `ListModelBundles` reports every `EmbeddingRoute`, including its backend id, priority,
 vector-space id, primary status, and artifact hash when known. Each embedding response
 also reports the route that actually produced the vector, including after fallback.

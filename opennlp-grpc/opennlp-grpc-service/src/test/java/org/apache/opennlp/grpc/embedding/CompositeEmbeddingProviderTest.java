@@ -180,6 +180,30 @@ class CompositeEmbeddingProviderTest {
   }
 
   @Test
+  void undeclaredVectorSpaceDerivesFromTheArtifact() {
+    // A single-engine model without a declared space still advertises a complete route,
+    // narrow to its own artifact so it never claims compatibility it cannot prove.
+    final CompositeEmbeddingProvider composite = new CompositeEmbeddingProvider(
+        List.of(providerWithHash("fast", "0123456789abcdef0123456789abcdef", FAST_VECTOR)),
+        Map.of());
+
+    assertEquals("minilm@0123456789abcdef",
+        composite.routesForModel("minilm").getFirst().getVectorSpaceId());
+    assertEquals("minilm@fast",
+        CompositeEmbeddingProvider.derivedVectorSpaceId("minilm", "fast", null));
+  }
+
+  @Test
+  void declaredVectorSpaceWinsOverTheDerivedOne() {
+    final CompositeEmbeddingProvider composite = new CompositeEmbeddingProvider(
+        List.of(providerWithHash("fast", "fast-hash", FAST_VECTOR)),
+        Map.of("model.embedder.minilm.fast.vector_space_id", "minilm-v1"));
+
+    assertEquals("minilm-v1",
+        composite.routesForModel("minilm").getFirst().getVectorSpaceId());
+  }
+
+  @Test
   void closesOwnedProvidersWhenConstructionFails() {
     final ClosingProvider first = new ClosingProvider("fast", 3);
     final ClosingProvider second = new ClosingProvider("slow", 4);
