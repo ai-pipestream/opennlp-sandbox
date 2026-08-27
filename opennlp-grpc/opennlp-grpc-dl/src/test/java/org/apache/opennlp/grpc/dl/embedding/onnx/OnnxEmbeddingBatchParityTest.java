@@ -76,6 +76,31 @@ class OnnxEmbeddingBatchParityTest {
   }
 
   @Test
+  void subBatchedVectorsMatchSingleBatchVectors() throws Exception {
+    final String dir = System.getProperty("dl.embedding.model.dir");
+    assumeTrue(dir != null && !dir.isBlank(),
+        "set -Ddl.embedding.model.dir to run the ONNX embedding batch-parity test");
+    final File model = new File(dir, "model.onnx");
+    final File vocab = new File(dir, "vocab.txt");
+    assumeTrue(model.isFile() && vocab.isFile(),
+        "model.onnx and vocab.txt must exist in " + dir);
+
+    try (OnnxSentenceEmbedder embedder = new OnnxSentenceEmbedder(
+        model, vocab, false, 0, true, OnnxSentenceEmbedder.Pooling.MEAN)) {
+      final float[][] whole = embedder.embedBatch(TEXTS, OnnxSentenceEmbedder.MAX_BATCH_TOKENS);
+      // A budget of one padded row forces every text into its own sub-batch.
+      final float[][] split = embedder.embedBatch(TEXTS, 1);
+      assertEquals(whole.length, split.length);
+      for (int i = 0; i < whole.length; i++) {
+        for (int d = 0; d < whole[i].length; d++) {
+          assertEquals(whole[i][d], split[i][d], TOLERANCE,
+              "sub-batched vector " + i + " differs at component " + d);
+        }
+      }
+    }
+  }
+
+  @Test
   void emptyBatchReturnsEmpty() {
     final String dir = System.getProperty("dl.embedding.model.dir");
     assumeTrue(dir != null && !dir.isBlank(),

@@ -74,6 +74,15 @@ final class OnnxSentenceEmbedder extends AbstractDL {
   /** Maximum wordpiece sequence length accepted by BERT-style encoders. */
   static final int MAX_SEQUENCE_TOKENS = 512;
 
+  /**
+   * Upper bound on {@code batch * maxLength} token slots handed to one {@code session.run}.
+   * Encoder activations scale with that product, so an unbounded batch (every chunk of a
+   * long document at once) allocates hundreds of megabytes per intermediate tensor and, on
+   * CUDA, leaves the runtime arena parked at that peak. Larger inputs run as several
+   * sequential sub-batches with identical results.
+   */
+  static final int MAX_BATCH_TOKENS = 16_384;
+
   private final BertTokenizer bertTokenizer;
   private final Pooling pooling;
   private final Set<String> declaredInputs;
@@ -186,14 +195,9 @@ final class OnnxSentenceEmbedder extends AbstractDL {
   }
 
   /**
-   * Embeds several texts in a single batched inference call.
-   *
-   * <p>Each text is tokenized independently, then all sequences are right-padded to the longest
-   * one and stacked into {@code [batch, maxLength]} tensors for one {@code session.run}. The
-   * {@code attention_mask} is {@code 0} at padded positions, so a correct encoder masks them out
-   * of self-attention and the real-token hidden states are identical to the unbatched path;
-   * pooling then reads only each row's real tokens, so every vector equals what
-   * {@link #embed(String)} would have returned for that text.</p>
+   * Embeds several texts, batching them into as few inference calls as the
+   * {@link #MAX_BATCH_TOKENS} budget allows. Every vector equals what {@link #embed(String)}
+   * would have returned for that text.
    *
    * @param texts The texts to embed. Must not be {@code null} and must not contain {@code null}
    *              elements.
@@ -203,32 +207,116 @@ final class OnnxSentenceEmbedder extends AbstractDL {
    * @throws OrtException If inference fails.
    */
   float[][] embedBatch(List<String> texts) throws OrtException {
+    return embedBatch(texts, MAX_BATCH_TOKENS);
+  }
+
+  /**
+   * Embeds several texts with an explicit token-slot budget per inference call;
+   * package-private so tests can force sub-batching on small inputs.
+   *
+   * @param texts The texts to embed. Must not be {@code null} and must not contain {@code null}
+   *              elements.
+   * @param maxBatchTokens The largest {@code batch * maxLength} product per call. Must be
+   *                       positive.
+   *
+   * @return One embedding vector per input text, in input order; an empty list for empty input.
+   *
+   * @throws OrtException If inference fails.
+   */
+  float[][] embedBatch(List<String> texts, int maxBatchTokens) throws OrtException {
     if (texts == null) {
       throw new IllegalArgumentException("texts must not be null");
     }
-    final int batch = texts.size();
-    if (batch == 0) {
+    if (maxBatchTokens < 1) {
+      throw new IllegalArgumentException("maxBatchTokens must be positive");
+    }
+    final int total = texts.size();
+    if (total == 0) {
       return new float[0][];
     }
-    final long[][] ids = new long[batch][];
-    int maxLength = 0;
-    for (int i = 0; i < batch; i++) {
+    final long[][] ids = new long[total][];
+    final int[] lengths = new int[total];
+    for (int i = 0; i < total; i++) {
       final String text = texts.get(i);
       if (text == null) {
         throw new IllegalArgumentException("texts must not contain null elements");
       }
       ids[i] = tokenIds(text);
+      lengths[i] = ids[i].length;
+    }
+    final float[][] vectors = new float[total][];
+    int from = 0;
+    for (int to : planBatches(lengths, maxBatchTokens)) {
+      final float[][] slice = runBatch(ids, from, to);
+      System.arraycopy(slice, 0, vectors, from, slice.length);
+      from = to;
+    }
+    return vectors;
+  }
+
+  /**
+   * Splits tokenized inputs into consecutive sub-batches whose padded size
+   * ({@code count * longest}) stays within the budget. A single input longer than the
+   * budget still forms its own sub-batch, so nothing is ever dropped.
+   *
+   * @param lengths The token count of every input, in order.
+   * @param maxBatchTokens The largest {@code count * longest} product per sub-batch.
+   *
+   * @return The exclusive end index of every sub-batch, ascending; the last equals
+   *     {@code lengths.length}.
+   */
+  static int[] planBatches(int[] lengths, int maxBatchTokens) {
+    final int[] ends = new int[lengths.length];
+    int batches = 0;
+    int count = 0;
+    int longest = 0;
+    for (int i = 0; i < lengths.length; i++) {
+      final int candidateLongest = Math.max(longest, lengths[i]);
+      if (count > 0 && (long) (count + 1) * candidateLongest > maxBatchTokens) {
+        ends[batches++] = i;
+        count = 0;
+        longest = 0;
+      }
+      longest = Math.max(longest, lengths[i]);
+      count++;
+    }
+    if (count > 0) {
+      ends[batches++] = lengths.length;
+    }
+    return Arrays.copyOf(ends, batches);
+  }
+
+  /**
+   * Runs one padded sub-batch of pre-tokenized inputs through the session.
+   *
+   * <p>The sequences are right-padded to the longest one and stacked into
+   * {@code [batch, maxLength]} tensors. The {@code attention_mask} is {@code 0} at padded
+   * positions, so a correct encoder masks them out of self-attention and the real-token
+   * hidden states are identical to the unbatched path; pooling then reads only each row's
+   * real tokens, so every vector equals what {@link #embed(String)} would have returned.</p>
+   *
+   * @param ids The token ids of every input.
+   * @param from The inclusive start index of this sub-batch.
+   * @param to The exclusive end index of this sub-batch.
+   *
+   * @return One vector per input of the sub-batch, in order.
+   *
+   * @throws OrtException If inference fails.
+   */
+  private float[][] runBatch(long[][] ids, int from, int to) throws OrtException {
+    final int batch = to - from;
+    int maxLength = 0;
+    for (int i = from; i < to; i++) {
       maxLength = Math.max(maxLength, ids[i].length);
     }
-
     final long[] flatIds = new long[batch * maxLength];
     final long[] flatMask = new long[batch * maxLength];
     final long[] flatTypes = new long[batch * maxLength];
     for (int i = 0; i < batch; i++) {
       final int offset = i * maxLength;
-      System.arraycopy(ids[i], 0, flatIds, offset, ids[i].length);
+      System.arraycopy(ids[from + i], 0, flatIds, offset, ids[from + i].length);
       // Real tokens occupy the leading positions; pad ids stay 0 and are masked out by mask=0.
-      Arrays.fill(flatMask, offset, offset + ids[i].length, 1L);
+      Arrays.fill(flatMask, offset, offset + ids[from + i].length, 1L);
     }
     final long[] shape = {batch, maxLength};
 
@@ -246,8 +334,9 @@ final class OnnxSentenceEmbedder extends AbstractDL {
         final float[][] vectors = new float[batch][];
         for (int i = 0; i < batch; i++) {
           // Pool over this row's real tokens only, excluding the right-side padding.
-          final float[][] realTokens = ids[i].length == maxLength
-              ? hiddenStates[i] : Arrays.copyOf(hiddenStates[i], ids[i].length);
+          final int length = ids[from + i].length;
+          final float[][] realTokens = length == maxLength
+              ? hiddenStates[i] : Arrays.copyOf(hiddenStates[i], length);
           vectors[i] = pool(realTokens);
         }
         return vectors;

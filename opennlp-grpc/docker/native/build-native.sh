@@ -30,6 +30,7 @@ BUILDER_IMAGE=ghcr.io/graalvm/native-image-community:25
 SLF4J_SIMPLE_VERSION=2.0.18
 OUT=docker/native/out
 mkdir -p "${OUT}"
+mkdir -p "${OUT}"
 
 # The native binaries log through slf4j-simple instead of log4j-core: netty's
 # bundled native-image metadata initializes its logging at build time, and
@@ -41,7 +42,10 @@ if [ ! -f "${slf4j_jar}" ]; then
 fi
 
 cp opennlp-grpc-distr/target/opennlp-grpc-server-all-*.jar "${OUT}/server.jar"
-cp opennlp-grpc-webapp/target/opennlp-grpc-webapp-*.jar "${OUT}/webapp.jar"
+# The target directory also holds -sources and -javadoc jars after an install.
+webapp_jar=$(ls opennlp-grpc-webapp/target/opennlp-grpc-webapp-*.jar \
+  | grep -vE -- '-(sources|javadoc|tests)\.jar$' | head -n 1)
+cp "${webapp_jar}" "${OUT}/webapp.jar"
 
 # Shared flags. The SimulateClassInitializer limits matter: without them the
 # points-to analysis wedges for hours unrolling one enormous static
@@ -49,6 +53,10 @@ cp opennlp-grpc-webapp/target/opennlp-grpc-webapp-*.jar "${OUT}/webapp.jar"
 common_flags=(
   --no-fallback --enable-url-protocols=http,https -H:+AddAllCharsets
   --initialize-at-build-time=org.slf4j.simple,org.slf4j.helpers,org.slf4j.LoggerFactory,org.slf4j.Logger
+  # grpc-netty-shaded manages pooled direct buffers through the FFM API on JDK 25
+  # (CleanerJava25 closes an Arena.ofShared per freed chunk); without shared arena
+  # support the first large response dies mid-write with UnsupportedFeatureError.
+  -H:+SharedArenaSupport
   -H:+UnlockExperimentalVMOptions
   -H:SimulateClassInitializerMaxLoopIterations=32
   -H:SimulateClassInitializerMaxInlineDepth=8
