@@ -131,7 +131,7 @@ final class DocumentLayersValidator {
         annotation.getAlternativesList().forEach(tree -> validateParseTree(tree, textLength));
       });
       case SUBWORD_VALUES -> layer.getSubwordValues().getAnnotationsList().forEach(annotation ->
-          requireSpan(annotation.getSpan(), positional, textLength));
+          requireSubwordSpan(annotation.getSpan(), positional, textLength));
       case GEO_VALUES -> layer.getGeoValues().getAnnotationsList().forEach(annotation -> {
         requireSpan(annotation.getSpan(), positional, textLength);
         probability(annotation.getResolution().getConfidence(), "geocode confidence");
@@ -341,6 +341,19 @@ final class DocumentLayersValidator {
       fail("span-bearing annotation is in a document-scoped layer");
     }
     span(annotationSpan, textLength);
+  }
+
+  /** Validates a subword span, which may cover no source characters. */
+  private static void requireSubwordSpan(
+      AnnotationSpan annotationSpan, boolean positional, int textLength) {
+    if (!positional) {
+      fail("span-bearing annotation is in a document-scoped layer");
+    }
+    if (annotationSpan.getStart() < 0 || annotationSpan.getEnd() < annotationSpan.getStart()
+        || annotationSpan.getEnd() > textLength) {
+      fail("invalid subword annotation span [" + annotationSpan.getStart() + ","
+          + annotationSpan.getEnd() + ") for text length " + textLength);
+    }
   }
 
   /** Converts a document-container span to the wire value. */

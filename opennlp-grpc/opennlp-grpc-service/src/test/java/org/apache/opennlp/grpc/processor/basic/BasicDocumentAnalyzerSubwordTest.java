@@ -17,6 +17,8 @@
  */
 package org.apache.opennlp.grpc.processor.basic;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -51,6 +53,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BasicDocumentAnalyzerSubwordTest {
 
   private static final String TEXT = "The cats sat on the mats.";
+  private static final String SPEECH = speechFixture();
+
+  private static String speechFixture() {
+    try (InputStream input = BasicDocumentAnalyzerSubwordTest.class
+        .getResourceAsStream("/document/vibe-coding-speech.txt")) {
+      if (input == null) {
+        throw new IllegalStateException("Speech regression fixture is missing");
+      }
+      return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not read speech regression fixture", e);
+    }
+  }
 
   private static String fixtureModelPath() {
     try {
@@ -117,6 +132,19 @@ class BasicDocumentAnalyzerSubwordTest {
     assertEquals(0, response.getDocument().getSentencesCount());
     assertTrue(response.getDiagnosticsList().stream()
         .anyMatch(d -> d.getStep() == PipelineStep.PIPELINE_STEP_SUBWORD_TOKENIZE));
+  }
+
+  @Test
+  void subwordLayerPreservesPiecesWithoutSourceSurface() {
+    final AnalyzeDocumentResponse response =
+        analyzerWithSubwordModel().analyze(request(SPEECH, subwordProfile(null)));
+
+    final AnnotationLayer subwords = layer(response, "opennlp:subwords").orElseThrow();
+    assertTrue(subwords.getSubwordValues().getAnnotationsList().stream()
+        .anyMatch(annotation -> annotation.getSpan().getStart()
+            == annotation.getSpan().getEnd()),
+        "fixture did not exercise a model piece without source surface");
+    assertEquals(SPEECH, response.getDocument().getRawText());
   }
 
   @Test

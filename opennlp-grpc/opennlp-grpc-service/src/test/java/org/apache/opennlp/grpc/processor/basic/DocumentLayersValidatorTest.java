@@ -17,6 +17,9 @@
  */
 package org.apache.opennlp.grpc.processor.basic;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import org.apache.opennlp.grpc.embedding.StubEmbeddingProvider;
@@ -35,6 +38,8 @@ import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.StandardLayer;
 import org.apache.opennlp.grpc.v1.StringAnnotation;
 import org.apache.opennlp.grpc.v1.StringAnnotationList;
+import org.apache.opennlp.grpc.v1.SubwordAnnotation;
+import org.apache.opennlp.grpc.v1.SubwordAnnotationList;
 import org.apache.opennlp.grpc.v1.TermVectorAnnotation;
 import org.apache.opennlp.grpc.v1.TermVectorAnnotationList;
 import org.apache.opennlp.grpc.v1.TermVectorMode;
@@ -47,6 +52,19 @@ class DocumentLayersValidatorTest {
 
   private static final StubEmbeddingProvider EMBEDDINGS =
       new StubEmbeddingProvider(Map.of("mini", 3));
+  private static final String SPEECH = speechFixture();
+
+  private static String speechFixture() {
+    try (InputStream input = DocumentLayersValidatorTest.class
+        .getResourceAsStream("/document/vibe-coding-speech.txt")) {
+      if (input == null) {
+        throw new IllegalStateException("Speech regression fixture is missing");
+      }
+      return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not read speech regression fixture", e);
+    }
+  }
 
   private static AnnotationSpan span(int start, int end) {
     return AnnotationSpan.newBuilder().setStart(start).setEnd(end)
@@ -61,7 +79,11 @@ class DocumentLayersValidatorTest {
   }
 
   private static OpenNlpDocument document(AnnotationLayer... layers) {
-    return OpenNlpDocument.newBuilder().setRawText("café")
+    return document("café", layers);
+  }
+
+  private static OpenNlpDocument document(String text, AnnotationLayer... layers) {
+    return OpenNlpDocument.newBuilder().setRawText(text)
         .setLayers(DocumentLayers.newBuilder().addAllLayers(java.util.List.of(layers)))
         .build();
   }
@@ -149,6 +171,24 @@ class DocumentLayersValidatorTest {
   void rejectsOutOfBoundsSpans() {
     assertInternal(invalid(strings("opennlp:tokens", LayerScope.LAYER_SCOPE_POSITIONAL,
         StringAnnotation.newBuilder().setSpan(span(0, 8)).setValue("bad").build())));
+  }
+
+  @Test
+  void acceptsZeroWidthSubwordSpans() {
+    final AnnotationLayer subwords = DocumentShapeAssembler.layer("opennlp:subwords")
+        .setScope(LayerScope.LAYER_SCOPE_POSITIONAL)
+        .setSubwordValues(SubwordAnnotationList.newBuilder()
+            .addAnnotations(SubwordAnnotation.newBuilder()
+                .setSpan(span(0, 0)).setPiece("▁").setVocabularyId(4)))
+        .build();
+
+    DocumentLayersValidator.validate(document(SPEECH, subwords), EMBEDDINGS);
+  }
+
+  @Test
+  void rejectsZeroWidthSpansForOtherPositionalAnnotations() {
+    assertInternal(invalid(strings("opennlp:tokens", LayerScope.LAYER_SCOPE_POSITIONAL,
+        StringAnnotation.newBuilder().setSpan(span(0, 0)).setValue("Good").build())));
   }
 
   @Test

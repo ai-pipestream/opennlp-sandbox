@@ -174,7 +174,8 @@ function boundaryEvents(
 /** Returns document-scoped annotations that cannot be projected onto a text span. */
 export function documentScopedAnnotations(shape: DocumentShapeView): AnnotationEntry[] {
   return shape.layers.flatMap((layer) => layer.annotations.flatMap((annotation) =>
-    hasUsableSpan(annotation, shape.rawText.length) ? [] : [{ layer, annotation }]));
+    layer.scope === "LAYER_SCOPE_POSITIONAL"
+      || hasUsableSpan(annotation, shape.rawText.length) ? [] : [{ layer, annotation }]));
 }
 
 export interface DocumentAnnotationChip extends AnnotationEntry {

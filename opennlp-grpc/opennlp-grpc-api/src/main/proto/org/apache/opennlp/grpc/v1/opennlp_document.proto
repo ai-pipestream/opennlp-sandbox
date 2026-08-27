@@ -903,6 +903,7 @@ message SubwordAnnotationList {
 // One subword piece: the model's normalized piece text, its vocabulary id, and the
 // exact span of original text it covers. The piece is generally not a substring of
 // the input, because the model normalizes; the span always is the source location.
+// A control or byte-fallback piece with no source surface has start equal to end.
 message SubwordAnnotation {
   // The span of original text the piece covers.
   AnnotationSpan span = 1;

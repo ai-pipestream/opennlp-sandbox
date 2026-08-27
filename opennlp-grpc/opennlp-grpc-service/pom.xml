@@ -193,6 +193,16 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
+                <configuration>
+                    <excludes combine.children="append">
+                        <!-- User-supplied input retained byte-for-byte as a regression fixture. -->
+                        <exclude>src/test/resources/document/vibe-coding-speech.txt</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <!-- Test jar so add-on modules can run the search registry and service tests
                  that need their provider on the classpath, reusing these fixtures. -->
             <plugin>

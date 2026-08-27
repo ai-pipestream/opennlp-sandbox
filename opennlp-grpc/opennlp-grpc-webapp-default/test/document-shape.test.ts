@@ -230,6 +230,32 @@ describe("document shape reader", () => {
     ]);
   });
 
+  it("does not present zero-width positional subwords as document annotations", () => {
+    const shape = readDocumentShape({
+      document: {
+        rawText: "Good afternoon.",
+        offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+        layers: { layers: [{
+          id: "opennlp:subwords",
+          scope: "LAYER_SCOPE_POSITIONAL",
+          identity: { standard: "STANDARD_LAYER_SUBWORDS" },
+          subwordValues: { annotations: [{
+            span: { start: 0, end: 0 },
+            piece: "▁",
+            vocabularyId: 4,
+          }] },
+        }] },
+      },
+    });
+
+    expect(shape.layers[0]?.annotations[0]).toMatchObject({
+      start: 0,
+      end: 0,
+      label: "▁",
+    });
+    expect(documentScopedAnnotations(shape)).toEqual([]);
+  });
+
   it("builds thirty thousand annotation segments within a bounded time", () => {
     const annotationCount = 30_000;
     const rawText = "x ".repeat(annotationCount);
