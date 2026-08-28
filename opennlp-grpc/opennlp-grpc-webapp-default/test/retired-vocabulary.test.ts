@@ -172,6 +172,8 @@ function isWordChar(char: string): boolean {
 /** Strings that mention a retired word on purpose: API names quoted for developers. */
 const ALLOWED = [
   "From code these are the persist, seal, reindex, alias, and collection RPCs on",
+  // The coverage flyout defines the retired word on purpose: falling coverage is drift.
+  "Falling coverage over time is vocabulary drift",
 ];
 
 function violations(strings: Array<{ file: string; text: string }>): string[] {

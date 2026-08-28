@@ -143,7 +143,9 @@ wire-complete:
 - **Persist** is explicit (a `PersistIndex` RPC), with an optional
   auto-checkpoint interval. A persisted live index keeps raw vectors next to
   the quantized form, so indexing continues across restarts; a separate
-  explicit seal turns one into an immutable bundle.
+  explicit seal marks the checkpoint read-only. A sealed index stays
+  searchable, aliasable and deletable; only the bundles configured at
+  startup are immutable in every sense.
 - **Watch, not poll**: a server-streaming RPC emits collection events (drift
   threshold crossed, index persisted, model published). Each event is a
   self-contained descriptor snapshot, so consumers track no cursors, sessions,

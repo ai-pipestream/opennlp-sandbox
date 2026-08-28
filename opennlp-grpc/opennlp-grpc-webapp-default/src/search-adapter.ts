@@ -187,6 +187,12 @@ export interface SearchProviderInstance {
   standard?: string;
 }
 
+/**
+ * Display-name prefix of the scratch indexes the Analyze tab's heatmap builds for one
+ * document; the lifecycle and live index pickers hide them.
+ */
+export const SCRATCH_INDEX_PREFIX = "Current document heatmap:";
+
 /** The provider listing plus the two server-wide facts every search tab gates on. */
 export interface SearchProviderListing {
   providers: SearchProviderInstance[];

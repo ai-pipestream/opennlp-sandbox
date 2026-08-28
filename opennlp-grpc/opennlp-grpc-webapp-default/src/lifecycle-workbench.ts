@@ -19,11 +19,12 @@
 
 import type { ReindexIndexRequest, SetCollectionRequest } from "./api";
 import type { CollectionEventView, CollectionView } from "./collection-adapter";
-import type {
-  IndexAliasView,
-  SearchIndex,
-  SearchProviderInstance,
-  SearchProviderListing,
+import {
+  type IndexAliasView,
+  type SearchIndex,
+  type SearchProviderInstance,
+  type SearchProviderListing,
+  SCRATCH_INDEX_PREFIX,
 } from "./search-adapter";
 import { ellipsizeCodePoints, formatInteger } from "./text-utils";
 import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
@@ -134,7 +135,9 @@ export class LifecycleWorkbench {
         this.#api.listStaticModels(),
         this.#api.listCollections(),
       ]);
-      this.#indexes = indexes.filter((index) => !index.immutable);
+      // Read-only indexes stay listed: they are still searchable, can be aliased, and a
+      // person who just made one read-only should not watch it vanish.
+      this.#indexes = indexes.filter((index) => !index.label.startsWith(SCRATCH_INDEX_PREFIX));
       this.#listing = providers;
       this.renderIndexOptions();
       this.renderProviders(providers.providers);
@@ -142,9 +145,14 @@ export class LifecycleWorkbench {
       this.renderAliases(aliases);
       this.renderModels(models);
       this.renderCollectionOptions(collections);
-      this.setStatus(this.#indexes.length === 0
-        ? "No live indexes yet. Build one on the Build index tab, or add analyzed documents on Live index search."
-        : `${this.#indexes.length} live ${this.#indexes.length === 1 ? "index" : "indexes"} available.`);
+      if (this.#indexes.length === 0) {
+        this.setStatus("No live indexes yet. Build one from your documents, or analyze a document "
+          + "and add it to a live index. ");
+        this.#status.append(jumpButton("workflows", "Open Build index"), " ",
+          jumpButton("session-search", "Open Live index search"));
+      } else {
+        this.setStatus(`${this.#indexes.length} ${this.#indexes.length === 1 ? "index" : "indexes"} available.`);
+      }
     } catch (error) {
       this.setStatus(errorMessage(error, "Could not load the lifecycle catalog."), true);
     }
@@ -159,7 +167,8 @@ export class LifecycleWorkbench {
       this.#indexSelect.disabled = true;
     } else {
       for (const index of this.#indexes) {
-        this.#indexSelect.add(new Option(`${index.label} (${index.id})`, index.id));
+        this.#indexSelect.add(new Option(
+          `${index.label} (${index.id})${index.immutable ? " · read-only" : ""}`, index.id));
       }
       this.#indexSelect.disabled = false;
       if (this.#indexes.some((index) => index.id === selected)) {
@@ -275,9 +284,10 @@ export class LifecycleWorkbench {
         ? await this.#api.seal(index.id)
         : await this.#api.persist(index.id);
       this.report(this.#workspaceStatus, seal
-        ? `Made '${index.label}' read-only and saved it to disk.`
+        ? `Made '${index.label}' read-only and saved it to disk. It stays searchable. `
         : `Saved '${index.label}' to disk (${formatInteger(updated?.size ?? 0)} chunks); `
-          + "it now survives a server restart.");
+          + "it now survives a server restart. ");
+      this.#workspaceStatus.append(jumpButton("session-search", "Search it on Live index search"));
       await this.refresh();
     });
   }
@@ -416,6 +426,11 @@ export class LifecycleWorkbench {
         this.renderCollection(collection);
         this.startWatch(collection.id);
       }
+    }, (message) => {
+      // A typo in the free-text vocabulary id is the usual cause; say where ids come from.
+      if (message.includes("vocabulary")) {
+        this.#collectionStatus.append(" ", jumpButton("trainer", "Learn a vocabulary on the Trainer tab"));
+      }
     });
   }
 
@@ -502,9 +517,16 @@ export class LifecycleWorkbench {
     addFact(this.#driftStats, "Analysis chain", collection.analysisChainId || "Not reported");
     const coverage = Math.round(drift.vocabularyCoverage * 100);
     this.#coverageBar.style.width = `${coverage}%`;
-    this.#coverageLabel.textContent = collection.vocabularyArtifactId
-      ? `${coverage}% of term occurrences hit vocabulary '${collection.vocabularyArtifactId}'.`
-      : "No vocabulary artifact is configured; every indexed term counts as new.";
+    this.#coverageBar.parentElement?.classList.toggle("is-unmeasured", !collection.vocabularyArtifactId);
+    if (collection.vocabularyArtifactId) {
+      this.#coverageLabel.textContent =
+        `${coverage}% of term occurrences hit vocabulary '${collection.vocabularyArtifactId}'.`;
+    } else {
+      this.#coverageBar.style.width = "0%";
+      this.#coverageLabel.textContent = "Not measured: this collection has no vocabulary artifact, "
+        + "so there is nothing to cover. ";
+      this.#coverageLabel.append(jumpButton("trainer", "Learn one on the Trainer tab"));
+    }
     if (collection.termStatistics.length === 0) {
       this.#termStatistics.append(emptyMessage("The member indexes hold no analyzable terms yet."));
       return;
@@ -534,7 +556,11 @@ export class LifecycleWorkbench {
    * Runs one lifecycle action, reporting a failure to the status region that
    * sits next to the controls that started it.
    */
-  private async run(region: HTMLElement, work: () => Promise<void>): Promise<void> {
+  private async run(
+    region: HTMLElement,
+    work: () => Promise<void>,
+    onError?: (message: string) => void,
+  ): Promise<void> {
     if (this.#busy) {
       return;
     }
@@ -543,7 +569,9 @@ export class LifecycleWorkbench {
     try {
       await work();
     } catch (error) {
-      this.report(region, errorMessage(error, "The lifecycle request failed."), true);
+      const message = errorMessage(error, "The lifecycle request failed.");
+      this.report(region, message, true);
+      onError?.(message);
     } finally {
       this.#busy = false;
       this.updateControls();
@@ -551,16 +579,19 @@ export class LifecycleWorkbench {
   }
 
   private updateControls(): void {
-    const hasIndex = Boolean(this.selectedIndex());
+    const selected = this.selectedIndex();
+    const hasIndex = Boolean(selected);
+    const writable = hasIndex && !selected?.immutable;
     const enabled = this.#listing.dynamicIndexingEnabled;
     const canSave = this.#listing.persistenceConfigured;
-    this.#persistButton.disabled = this.#busy || !hasIndex || !enabled || !canSave;
-    this.#sealButton.disabled = this.#busy || !hasIndex || !enabled || !canSave;
+    this.#persistButton.disabled = this.#busy || !writable || !enabled || !canSave;
+    this.#sealButton.disabled = this.#busy || !writable || !enabled || !canSave;
     this.#setAliasButton.disabled = this.#busy || !hasIndex || !enabled;
     this.#reindexButton.disabled = this.#busy || !hasIndex || !enabled;
     const reason = !enabled
       ? "Live indexing is disabled by the server operator."
-      : !canSave ? "Saving to disk is not configured on this server: set search.persist.root." : "";
+      : !canSave ? "Saving to disk is not configured on this server: set search.persist.root."
+      : hasIndex && !writable ? "This index is already read-only." : "";
     this.#persistButton.title = reason;
     this.#sealButton.title = reason;
     this.#collectionSaveButton.disabled = this.#busy;
@@ -601,4 +632,14 @@ export class LifecycleWorkbench {
 
 function delay(millis: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, millis));
+}
+
+/** A link-styled button that jumps to another workbench. */
+function jumpButton(target: string, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "link-button";
+  button.dataset.workbenchJump = target;
+  button.textContent = label;
+  return button;
 }

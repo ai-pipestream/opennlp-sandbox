@@ -1112,6 +1112,12 @@
             </section>
             <section class="lifecycle-panel">
               <h4>Collections</h4>
+              <p class="field-help"><strong>A collection is a named group of live indexes you want to
+                watch together.</strong> It is not something you search. It records which indexes
+                belong together, which dictionary, vocabulary and model they were built from, and how
+                many unfamiliar terms should raise an alert; the server then reports, live, how much of
+                the group's text the current vocabulary still covers. In Qdrant, Solr or Weaviate a
+                collection is the searchable thing itself; here that is a live index.</p>
               <label for="collection-select">Collection</label>
               <select id="collection-select"></select>
               <div class="lifecycle-inline">
@@ -1149,6 +1155,17 @@
               </div>
               <p id="collection-status" class="form-status" role="status" aria-live="polite"></p>
               <h5>Vocabulary coverage</h5>
+              <details class="help-callout">
+                <summary>What vocabulary coverage measures</summary>
+                <p>A <strong>vocabulary</strong> here is the term list the serving model was distilled
+                  from (learned on the Trainer tab). Coverage is the share of term occurrences in the
+                  collection's indexes that hit a row of that vocabulary; the terms that miss are listed
+                  below as out-of-vocabulary. Falling coverage over time is vocabulary drift: the
+                  documents have moved on from the words the model knows. It does not measure semantic
+                  drift, where the same words change meaning. When coverage falls, learn a new
+                  vocabulary from the current documents, distil a new model, and rebuild the index
+                  with it.</p>
+              </details>
               <div class="coverage-meter" role="img" aria-label="Vocabulary coverage">
                 <i id="collection-coverage-bar" style="width: 0%"></i>
               </div>

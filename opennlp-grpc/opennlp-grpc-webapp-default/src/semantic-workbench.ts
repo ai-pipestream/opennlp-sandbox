@@ -36,6 +36,7 @@ import {
   type SearchRequest,
   type SearchResponse,
   createIndexDocumentsRequest,
+  SCRATCH_INDEX_PREFIX,
 } from "./search-adapter";
 import { collapseWhitespace, ellipsizeCodePoints } from "./text-utils";
 import { emptyMessage, requiredElement } from "./ui-utils";
@@ -95,7 +96,7 @@ type HeatmapMode = "query" | "sentiment";
 const ALL_PROJECTIONS = "ALL_PROJECTIONS";
 const TURBO_QUANT_PROVIDER = "STANDARD_SEARCH_PROVIDER_TURBO_QUANT";
 /** Display-name prefix marking the short-lived heatmap indexes this tab creates. */
-const HEATMAP_INDEX_PREFIX = "Current document heatmap:";
+const HEATMAP_INDEX_PREFIX = SCRATCH_INDEX_PREFIX;
 
 /** Coordinates server-owned, in-memory workspace indexing and query rendering. */
 export class SemanticWorkbench {
