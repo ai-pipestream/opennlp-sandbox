@@ -26,6 +26,7 @@ import {
 } from "./query-builder";
 import type { SearchHit, SearchIndex, SearchRequest, SearchResponse } from "./search-adapter";
 import {
+  supportsKeywordClauses,
   createAllHitsSearchRequest,
   createCompoundSearchRequest,
   createSearchRequest,
@@ -143,7 +144,8 @@ export class ServerSearchWorkbench {
       if (this.#indexes.length === 0) {
         this.#indexSelect.add(new Option("No server indexes configured", ""));
         this.setStatus("The service is available, but it did not report a configured search index.");
-        this.#indexDescription.textContent = "No index exists yet. Build one on the Build index tab, or ask the operator to configure a read-only index.";
+        this.#indexDescription.textContent = "No index exists yet. Build one from your own documents, or ask the operator to configure a read-only index. ";
+        this.#indexDescription.append(jumpButton("workflows", "Open Build index"));
         return;
       }
       for (const index of this.#indexes) {
@@ -220,6 +222,43 @@ export class ServerSearchWorkbench {
     this.#builderSlop.hidden = kind !== "phrase";
   }
 
+  /**
+   * Offers only the clause kinds the selected index can execute: an index with no keyword
+   * component runs semantic clauses alone, and the builder says so instead of letting the
+   * search fail.
+   */
+  private updateClauseKinds(): void {
+    const index = this.selectedIndex();
+    const keyword = index === undefined || supportsKeywordClauses(index);
+    for (const option of Array.from(this.#builderKind.options)) {
+      if (option.value === "term" || option.value === "phrase") {
+        option.disabled = !keyword;
+      }
+    }
+    if (!keyword && this.#builderKind.value !== "semantic") {
+      this.#builderKind.value = "semantic";
+      this.updateBuilderControls();
+    }
+    this.#builderKind.title = keyword ? "" : "This index has no keyword component, so only semantic clauses run.";
+  }
+
+  /**
+   * Writes a search failure to the status line with the jump that resolves it: a missing
+   * index points at where indexes are built and saved, a missing embedding model at the
+   * catalog.
+   */
+  private explainFailure(message: string): void {
+    this.setStatus(message, true);
+    const lower = asciiLowerCase(message);
+    if (lower.includes("unknown search index") || lower.includes("unknown index")) {
+      this.#status.append(" ", jumpButton("workflows", "Build an index"), " ",
+        jumpButton("lifecycle", "Save one to disk on Lifecycle"));
+    } else if (lower.includes("embedding model") || lower.includes("vector space")
+        || lower.includes("not loaded")) {
+      this.#status.append(" ", jumpButton("models", "Install a model on Models & data"));
+    }
+  }
+
   private async search(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const index = this.selectedIndex();
@@ -276,7 +315,7 @@ export class ServerSearchWorkbench {
       this.#hits = [];
       this.renderResults();
       this.renderHeatmap();
-      this.setStatus(errorMessage(error, "Search failed."), true);
+      this.explainFailure(errorMessage(error, "Search failed."));
     } finally {
       this.#busy = false;
       this.updateControls();
@@ -575,7 +614,10 @@ export class ServerSearchWorkbench {
       : ` · ${formatInteger(index.maxResponseBytes)} response bytes max`;
     this.#indexDescription.textContent = `${index.corpusTitle} · ${size} · ${dimension} · ${metricLabel(index.metric)}`
       + `${license}${queryLimit}${responseLimit}. `
-      + (index.provenance || "No provenance summary was reported.");
+      + (index.provenance || "No provenance summary was reported.")
+      + (supportsKeywordClauses(index) ? ""
+        : " This index has no keyword component, so Advanced search runs semantic clauses only.");
+    this.updateClauseKinds();
   }
 
   private selectedIndex(): SearchIndex | undefined {
@@ -650,4 +692,14 @@ function previewText(value: string, limit: number): string {
 
 function joinMode(value: string): JoinMode {
   return value === "or" || value === "rrf" ? value : "and";
+}
+
+/** A link-styled button that jumps to another workbench. */
+function jumpButton(target: string, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "link-button";
+  button.dataset.workbenchJump = target;
+  button.textContent = label;
+  return button;
 }

@@ -940,7 +940,19 @@ public final class OpenNlpSearchServiceImpl
   private SearchIndexProvider findProvider(String idOrAlias) {
     final String indexId = aliasRegistry.resolve(idOrAlias);
     final SearchIndexProvider immutable = registry.find(indexId);
-    return immutable != null ? immutable : dynamicRegistry.require(indexId);
+    if (immutable != null) {
+      return immutable;
+    }
+    try {
+      return dynamicRegistry.require(indexId);
+    } catch (AnalysisException e) {
+      if (e.getFailureType() != AnalysisException.FailureType.NOT_FOUND) {
+        throw e;
+      }
+      // Neither registry knows the id; say so once rather than blaming the live one.
+      throw AnalysisException.notFound("Unknown search index '" + idOrAlias
+          + "': no read-only bundle or live index has that id or alias");
+    }
   }
 
   /**

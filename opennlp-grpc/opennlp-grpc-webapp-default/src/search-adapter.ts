@@ -53,6 +53,23 @@ export interface SearchIndex {
   licenseUri?: string;
   corpusArtifactHash?: string;
   build: SearchIndexBuild;
+  /** The modalities the index executes; absent when the server did not report them. */
+  components?: SearchIndexComponent[];
+}
+
+/** One search modality an index executes, and which provider instance serves it. */
+export interface SearchIndexComponent {
+  kind: "vector" | "keyword" | "unspecified";
+  providerInstanceId: string;
+}
+
+/**
+ * Whether an index can run keyword (term and phrase) clauses. An index whose components
+ * were not reported is given the benefit of the doubt.
+ */
+export function supportsKeywordClauses(index: SearchIndex): boolean {
+  return index.components === undefined
+    || index.components.some((component) => component.kind === "keyword");
 }
 
 export interface SearchEmbeddingRoute {
@@ -258,6 +275,8 @@ export function readSearchIndexes(response: unknown): SearchIndex[] {
       maxResponseBytes: positiveInteger(descriptor.maxResponseBytes),
       supportsAllHits: descriptor.supportsAllHits === true,
       immutable,
+      ...(Array.isArray(descriptor.components)
+        ? { components: readComponents(descriptor.components) } : {}),
       corpusTitle: text(corpus?.title) || "Untitled corpus",
       provenance: text(corpus?.provenanceSummary),
       sourceUri: safeUri(corpus?.sourceUri),
@@ -464,4 +483,20 @@ function safeUri(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Reads the components list of a descriptor; entries without a kind are unspecified. */
+function readComponents(values: unknown[]): SearchIndexComponent[] {
+  return values.flatMap((value) => {
+    const component = record(value);
+    if (!component) {
+      return [];
+    }
+    const kind = text(component.kind);
+    return [{
+      kind: kind === "SEARCH_COMPONENT_KIND_VECTOR" ? "vector"
+        : kind === "SEARCH_COMPONENT_KIND_KEYWORD" ? "keyword" : "unspecified",
+      providerInstanceId: text(component.providerInstanceId),
+    }];
+  });
 }

@@ -27,6 +27,7 @@ import {
   readSearchProviderInstances,
   readSearchResponse,
   readSearchProviderListing,
+  supportsKeywordClauses,
 } from "../src/search-adapter";
 
 function indexDescriptor(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -163,6 +164,28 @@ describe("server search API adapter", () => {
     // An older gateway omits both flags: live indexing on, nothing saved to disk.
     expect(readSearchProviderListing({ providers: [] }))
       .toMatchObject({ dynamicIndexingEnabled: true, persistenceConfigured: false });
+  });
+
+  it("reads the components an index executes and whether keyword clauses can run", () => {
+    const [index] = readSearchIndexes({ indexes: [{
+      indexId: "bundle-1",
+      displayName: "Bundle",
+      provider: { standard: "STANDARD_SEARCH_PROVIDER_TURBO_QUANT" },
+      embeddingRoute: { modelId: "m", backendId: "static", vectorSpaceId: "s" },
+      metric: "SEARCH_METRIC_COSINE",
+      immutable: true,
+      components: [
+        { kind: "SEARCH_COMPONENT_KIND_VECTOR", providerInstanceId: "turbo_quant" },
+        { kind: "SEARCH_COMPONENT_KIND_KEYWORD", providerInstanceId: "terms" },
+      ],
+    }] });
+    expect(index?.components).toEqual([
+      { kind: "vector", providerInstanceId: "turbo_quant" },
+      { kind: "keyword", providerInstanceId: "terms" },
+    ]);
+    expect(supportsKeywordClauses(index!)).toBe(true);
+    expect(supportsKeywordClauses({ ...index!, components: [index!.components![0]!] })).toBe(false);
+    expect(supportsKeywordClauses({ ...index!, components: undefined })).toBe(true);
   });
 
   it("creates a protobuf JSON search request with a document-shaped query", () => {

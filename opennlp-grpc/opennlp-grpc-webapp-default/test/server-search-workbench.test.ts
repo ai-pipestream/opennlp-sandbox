@@ -109,6 +109,60 @@ describe("server search hit inspection", () => {
     document.body.innerHTML = "";
   });
 
+  it("points an empty index list at the Build index tab", async () => {
+    document.body.innerHTML = html.replace(/^[\s\S]*<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "");
+    const workbench = new ServerSearchWorkbench({
+      listIndexes: () => Promise.resolve([]),
+      search: () => Promise.resolve({ hits: [], truncated: false }),
+      analyzeSource: () => Promise.reject(new Error("not exercised")),
+    });
+    await workbench.initialize();
+
+    const description = document.getElementById("server-index-description")!;
+    expect(description.textContent).toContain("No index exists yet");
+    expect(description.querySelector<HTMLElement>("[data-workbench-jump]")?.dataset.workbenchJump)
+      .toBe("workflows");
+  });
+
+  it("explains a missing index with jumps to where indexes are built and saved", async () => {
+    document.body.innerHTML = html.replace(/^[\s\S]*<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "");
+    const workbench = new ServerSearchWorkbench({
+      listIndexes: () => Promise.resolve([testIndex()]),
+      search: () => Promise.reject(new Error("Unknown search index 'workspace-test': no read-only bundle or live index has that id or alias")),
+      analyzeSource: () => Promise.reject(new Error("not exercised")),
+    });
+    await workbench.initialize();
+    (document.getElementById("server-search-query") as HTMLInputElement).value = "writ";
+    document.getElementById("server-search-query")!.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("server-search-form")!
+      .dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(document.getElementById("server-search-status")!.textContent)
+      .toContain("Unknown search index"));
+
+    const jumps = Array.from(document.querySelectorAll<HTMLElement>("#server-search-status [data-workbench-jump]"))
+      .map((jump) => jump.dataset.workbenchJump);
+    expect(jumps).toEqual(["workflows", "lifecycle"]);
+  });
+
+  it("offers only semantic clauses on an index with no keyword component", async () => {
+    document.body.innerHTML = html.replace(/^[\s\S]*<body[^>]*>/, "").replace(/<\/body>[\s\S]*$/, "");
+    const vectorOnly = { ...testIndex(), components: [
+      { kind: "vector" as const, providerInstanceId: "turbo_quant" }] };
+    const workbench = new ServerSearchWorkbench({
+      listIndexes: () => Promise.resolve([vectorOnly]),
+      search: () => Promise.resolve({ hits: [], truncated: false }),
+      analyzeSource: () => Promise.reject(new Error("not exercised")),
+    });
+    await workbench.initialize();
+
+    const kind = document.getElementById("builder-kind") as HTMLSelectElement;
+    const disabled = Array.from(kind.options).filter((option) => option.disabled).map((option) => option.value);
+    expect(disabled).toEqual(["term", "phrase"]);
+    expect(kind.value).toBe("semantic");
+    expect(document.getElementById("server-index-description")!.textContent)
+      .toContain("no keyword component");
+  });
+
   it("shows the chunk once when it exactly matches the original span", async () => {
     await searchOneHit(testHit(), () => new Promise<never>(() => undefined));
 
