@@ -52,17 +52,18 @@ class DocumentLayersValidatorTest {
 
   private static final StubEmbeddingProvider EMBEDDINGS =
       new StubEmbeddingProvider(Map.of("mini", 3));
-  private static final String SPEECH = speechFixture();
+  /** Chapter 1 of Pride and Prejudice (public domain), a multi-paragraph regression text. */
+  private static final String NOVEL = novelFixture();
 
-  private static String speechFixture() {
+  private static String novelFixture() {
     try (InputStream input = DocumentLayersValidatorTest.class
-        .getResourceAsStream("/document/vibe-coding-speech.txt")) {
+        .getResourceAsStream("/document/pride-and-prejudice-chapter-1.txt")) {
       if (input == null) {
-        throw new IllegalStateException("Speech regression fixture is missing");
+        throw new IllegalStateException("Novel regression fixture is missing");
       }
       return new String(input.readAllBytes(), StandardCharsets.UTF_8);
     } catch (IOException e) {
-      throw new IllegalStateException("Could not read speech regression fixture", e);
+      throw new IllegalStateException("Could not read novel regression fixture", e);
     }
   }
 
@@ -182,7 +183,7 @@ class DocumentLayersValidatorTest {
                 .setSpan(span(0, 0)).setPiece("▁").setVocabularyId(4)))
         .build();
 
-    DocumentLayersValidator.validate(document(SPEECH, subwords), EMBEDDINGS);
+    DocumentLayersValidator.validate(document(NOVEL, subwords), EMBEDDINGS);
   }
 
   @Test

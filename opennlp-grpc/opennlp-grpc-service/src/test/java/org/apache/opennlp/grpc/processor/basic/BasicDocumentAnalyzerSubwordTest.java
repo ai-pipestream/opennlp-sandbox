@@ -53,17 +53,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BasicDocumentAnalyzerSubwordTest {
 
   private static final String TEXT = "The cats sat on the mats.";
-  private static final String SPEECH = speechFixture();
+  /** Chapter 1 of Pride and Prejudice (public domain), a multi-paragraph regression text. */
+  private static final String NOVEL = novelFixture();
 
-  private static String speechFixture() {
+  private static String novelFixture() {
     try (InputStream input = BasicDocumentAnalyzerSubwordTest.class
-        .getResourceAsStream("/document/vibe-coding-speech.txt")) {
+        .getResourceAsStream("/document/pride-and-prejudice-chapter-1.txt")) {
       if (input == null) {
-        throw new IllegalStateException("Speech regression fixture is missing");
+        throw new IllegalStateException("Novel regression fixture is missing");
       }
       return new String(input.readAllBytes(), StandardCharsets.UTF_8);
     } catch (IOException e) {
-      throw new IllegalStateException("Could not read speech regression fixture", e);
+      throw new IllegalStateException("Could not read novel regression fixture", e);
     }
   }
 
@@ -137,14 +138,14 @@ class BasicDocumentAnalyzerSubwordTest {
   @Test
   void subwordLayerPreservesPiecesWithoutSourceSurface() {
     final AnalyzeDocumentResponse response =
-        analyzerWithSubwordModel().analyze(request(SPEECH, subwordProfile(null)));
+        analyzerWithSubwordModel().analyze(request(NOVEL, subwordProfile(null)));
 
     final AnnotationLayer subwords = layer(response, "opennlp:subwords").orElseThrow();
     assertTrue(subwords.getSubwordValues().getAnnotationsList().stream()
         .anyMatch(annotation -> annotation.getSpan().getStart()
             == annotation.getSpan().getEnd()),
         "fixture did not exercise a model piece without source surface");
-    assertEquals(SPEECH, response.getDocument().getRawText());
+    assertEquals(NOVEL, response.getDocument().getRawText());
   }
 
   @Test
