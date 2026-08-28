@@ -129,7 +129,7 @@ import {
   VocabularyTrainerWorkbench,
 } from "./vocabulary-trainer";
 import { tabTargetIndex, WorkbenchNavigation } from "./workbench-navigation";
-import { loadAliceDemo } from "./demo-data";
+import { loadAliceDemo, loadPrideAndPrejudiceDemo } from "./demo-data";
 import { jsonPresentation } from "./json-response";
 
 const sampleText =
@@ -141,6 +141,7 @@ const textArea = requiredElement<HTMLTextAreaElement>("analysis-text");
 const analyzeButton = requiredElement<HTMLButtonElement>("analyze-button");
 const sampleButton = requiredElement<HTMLButtonElement>("sample-button");
 const aliceSampleButton = requiredElement<HTMLButtonElement>("alice-sample-button");
+const prideSampleButton = requiredElement<HTMLButtonElement>("pride-sample-button");
 const copyButton = requiredElement<HTMLButtonElement>("copy-button");
 const downloadButton = requiredElement<HTMLButtonElement>("download-button");
 const downloadPbButton = requiredElement<HTMLButtonElement>("download-pb-button");
@@ -383,6 +384,7 @@ sampleButton.addEventListener("click", () => {
   textArea.focus();
 });
 aliceSampleButton.addEventListener("click", () => void loadAliceSample());
+prideSampleButton.addEventListener("click", () => void loadPrideSample());
 form.addEventListener("submit", submitAnalysis);
 batchText.addEventListener("input", () => {
   batchButton.disabled = busy || !serviceAvailable
@@ -589,6 +591,21 @@ async function loadAliceSample(): Promise<void> {
     setFormStatus(errorMessage(error, "Could not load the Alice demo."), true);
   } finally {
     aliceSampleButton.disabled = false;
+  }
+}
+
+async function loadPrideSample(): Promise<void> {
+  prideSampleButton.disabled = true;
+  setFormStatus("Loading the compressed public-domain Pride and Prejudice demo.");
+  try {
+    textArea.value = await loadPrideAndPrejudiceDemo();
+    updateFormState();
+    textArea.focus();
+    setFormStatus("Pride and Prejudice loaded. All configured features are ready to run.");
+  } catch (error) {
+    setFormStatus(errorMessage(error, "Could not load the Pride and Prejudice demo."), true);
+  } finally {
+    prideSampleButton.disabled = false;
   }
 }
 

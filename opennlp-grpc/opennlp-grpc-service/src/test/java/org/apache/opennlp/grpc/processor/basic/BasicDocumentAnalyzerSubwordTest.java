@@ -39,6 +39,8 @@ import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.PipelineStep;
 import org.apache.opennlp.grpc.v1.SubwordAnnotation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -53,12 +55,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BasicDocumentAnalyzerSubwordTest {
 
   private static final String TEXT = "The cats sat on the mats.";
-  /** Chapter 1 of Pride and Prejudice (public domain), a multi-paragraph regression text. */
-  private static final String NOVEL = novelFixture();
-
-  private static String novelFixture() {
+  /**
+   * Reads one public-domain chapter fixture (Pride and Prejudice or Alice's Adventures in
+   * Wonderland), multi-paragraph regression texts for the subword layer.
+   */
+  private static String novelFixture(String resource) {
     try (InputStream input = BasicDocumentAnalyzerSubwordTest.class
-        .getResourceAsStream("/document/pride-and-prejudice-chapter-1.txt")) {
+        .getResourceAsStream(resource)) {
       if (input == null) {
         throw new IllegalStateException("Novel regression fixture is missing");
       }
@@ -135,17 +138,21 @@ class BasicDocumentAnalyzerSubwordTest {
         .anyMatch(d -> d.getStep() == PipelineStep.PIPELINE_STEP_SUBWORD_TOKENIZE));
   }
 
-  @Test
-  void subwordLayerPreservesPiecesWithoutSourceSurface() {
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "/document/pride-and-prejudice-chapter-1.txt",
+      "/document/alice-in-wonderland-chapter-1.txt"})
+  void subwordLayerPreservesPiecesWithoutSourceSurface(String resource) {
+    final String novel = novelFixture(resource);
     final AnalyzeDocumentResponse response =
-        analyzerWithSubwordModel().analyze(request(NOVEL, subwordProfile(null)));
+        analyzerWithSubwordModel().analyze(request(novel, subwordProfile(null)));
 
     final AnnotationLayer subwords = layer(response, "opennlp:subwords").orElseThrow();
     assertTrue(subwords.getSubwordValues().getAnnotationsList().stream()
         .anyMatch(annotation -> annotation.getSpan().getStart()
             == annotation.getSpan().getEnd()),
         "fixture did not exercise a model piece without source surface");
-    assertEquals(NOVEL, response.getDocument().getRawText());
+    assertEquals(novel, response.getDocument().getRawText());
   }
 
   @Test

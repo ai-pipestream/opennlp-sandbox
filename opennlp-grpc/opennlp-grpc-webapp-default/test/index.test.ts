@@ -65,6 +65,7 @@ describe("analysis playground markup", () => {
     expect(html).not.toContain('id="sentiment-heatmap"');
     expect(html).toContain('id="semantic-query"');
     expect(html).toContain('id="alice-sample-button"');
+    expect(html).toContain('id="pride-sample-button"');
     expect(html).toContain('id="add-to-index-button"');
     expect(html).toContain('id="search-results"');
     expect(html).toContain('Apache OpenNLP');
