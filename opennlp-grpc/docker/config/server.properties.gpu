@@ -24,3 +24,9 @@ model.embedder.minilm-gpu.lowercase=true
 model.embedder.minilm-gpu.pooling=mean
 model.embedder.default_id=minilm-gpu
 model.embedder.gpu_device_id=0
+
+# The demo node installs catalog models, keeps trainer artifacts and saves live indexes
+# under its state volume, so Models & data, Build index, Trainer and Lifecycle all work.
+model.catalog_root=/srv/opennlp/catalog
+vocabulary.artifact_root=/srv/opennlp/artifacts
+search.persist.root=/srv/opennlp/checkpoints

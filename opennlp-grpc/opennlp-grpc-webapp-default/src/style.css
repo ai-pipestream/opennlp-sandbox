@@ -1916,3 +1916,4 @@ mark.matched-span {
 .lifecycle-panel.is-unavailable { opacity: 0.62; }
 .workflow-progress li[data-state="skipped"] { opacity: 0.62; }
 .workflow-progress li[data-state="skipped"] > i { border-style: dotted; }
+.catalog-installs-off { margin: 0.5rem 0 0; color: var(--muted-deep); font-size: 0.62rem; font-style: italic; }

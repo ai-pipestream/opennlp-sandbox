@@ -277,6 +277,39 @@ describe("model catalog workbench", () => {
     expect(workbench.focus("PIPELINE_STEP_NER")).toBe(0);
   });
 
+  it("says on every card that installs are off when the node has no catalog root", async () => {
+    const service = api();
+    service.listCatalog = vi.fn(async () => ({ models: [STATIC_MODEL, ...GERMAN_PACK], installsEnabled: false }));
+    const workbench = new ModelDataWorkbench(service, {
+      onEmbeddingModelInstalled: vi.fn(),
+      onTeacherInstalled: vi.fn(),
+    });
+    await workbench.initialize();
+
+    expect(document.querySelectorAll("[data-catalog-consent], [data-pack-consent]")).toHaveLength(0);
+    expect(document.querySelectorAll("[data-catalog-install], [data-pack-install]")).toHaveLength(0);
+    const notices = Array.from(document.querySelectorAll(".catalog-installs-off"));
+    expect(notices).toHaveLength(2);
+    expect(notices[0]?.textContent).toContain("model.catalog_root");
+    expect(document.getElementById("resource-install-status")?.textContent)
+      .toContain("installs are off on this node");
+  });
+
+  it("offers the tab a fresh install unlocks", async () => {
+    const service = api();
+    const workbench = new ModelDataWorkbench(service, {
+      onEmbeddingModelInstalled: vi.fn(),
+      onTeacherInstalled: vi.fn(),
+    });
+    await workbench.initialize();
+    document.querySelector<HTMLInputElement>("[data-catalog-consent]")!.click();
+    document.querySelector<HTMLButtonElement>("[data-catalog-install]")!.click();
+    await vi.waitFor(() => expect(service.install).toHaveBeenCalled());
+
+    await vi.waitFor(() => expect(document.querySelector<HTMLElement>(
+      "#resource-install-status [data-workbench-jump]")?.dataset.workbenchJump).toBe("analysis"));
+  });
+
   it("requires license acknowledgement before installing and activates static models", async () => {
     const service = api();
     const installed = vi.fn();

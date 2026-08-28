@@ -384,6 +384,8 @@ export class ModelDataWorkbench {
           ? "Installed and active"
           : restartRole(model.role) ? "Installed, restart required" : "Installed, not loaded";
         card.append(state);
+      } else if (!installsEnabled) {
+        card.append(installsOffNotice());
       } else {
         const consent = document.createElement("label");
         consent.className = "catalog-consent";
@@ -410,7 +412,8 @@ export class ModelDataWorkbench {
     if (models.length === 0) {
       this.#catalog.textContent = "This build does not publish a standard model catalog.";
     } else if (!installsEnabled) {
-      this.setStatus("Catalog browsing is available. Configure model.catalog_root to enable node downloads.");
+      this.setStatus("Catalog browsing is available, but installs are off on this node: the "
+        + "operator has not set model.catalog_root to a writable directory.");
     }
   }
 
@@ -473,6 +476,10 @@ export class ModelDataWorkbench {
     card.append(header, description, facts, members, references);
 
     const remaining = pack.models.filter((model) => !installed.has(model.catalogId));
+    if (remaining.length > 0 && !installsEnabled) {
+      card.append(installsOffNotice());
+      return card;
+    }
     if (remaining.length === 0) {
       const state = document.createElement("strong");
       state.className = "catalog-installed-state";
@@ -559,8 +566,10 @@ export class ModelDataWorkbench {
         : `${model.displayName} is installed; restart required before it becomes active.`);
       if (model.role === "static" && installed.loaded) {
         this.#callbacks.onEmbeddingModelInstalled(model.modelId, model.displayName);
+        this.#status.append(" ", jumpButton("analysis", "Use it on the Analyze tab"));
       } else if (model.role === "teacher" && installed.loaded) {
         this.#callbacks.onTeacherInstalled();
+        this.#status.append(" ", jumpButton("trainer", "Distill with it on the Trainer tab"));
       }
       await this.initialize();
     } catch (error) {
@@ -834,4 +843,22 @@ function catalogTags(model: ModelCatalogSummary): HTMLUListElement {
     tags.append(tag);
   }
   return tags;
+}
+
+/** The line a card shows in place of its install controls when the node cannot install. */
+function installsOffNotice(): HTMLParagraphElement {
+  const notice = document.createElement("p");
+  notice.className = "catalog-installs-off";
+  notice.textContent = "Installs are off on this node: the operator has not set model.catalog_root.";
+  return notice;
+}
+
+/** A link-styled button that jumps to another workbench. */
+function jumpButton(target: string, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "link-button";
+  button.dataset.workbenchJump = target;
+  button.textContent = label;
+  return button;
 }
