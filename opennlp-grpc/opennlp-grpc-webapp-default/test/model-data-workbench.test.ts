@@ -44,6 +44,10 @@ const STATIC_MODEL = {
   dimension: 256,
   languages: ["en"],
   description: "Ready-to-serve static embeddings.",
+  format: "Safetensors",
+  unlocks: ["PIPELINE_STEP_EMBED", "PIPELINE_STEP_CHUNK"],
+  requiresRestart: false,
+  files: [],
 };
 
 function germanPackModel(
@@ -153,6 +157,39 @@ describe("model catalog readers", () => {
   });
 });
 
+describe("catalog unlock tags and focus", () => {
+  it("reads the three resource roles and the derived fields", () => {
+    const result = readModelCatalog({ installsEnabled: true, models: [{
+      catalogId: "oewn", displayName: "Open English WordNet", modelId: "oewn-2024",
+      role: "MODEL_ARTIFACT_ROLE_WORDNET_LEXICON", byteSize: "12",
+      sourceUri: "https://en-word.net/", revision: "2024",
+      licenseName: "CC-BY-4.0", licenseUri: "https://creativecommons.org/licenses/by/4.0/",
+      format: "MODEL_ARTIFACT_FORMAT_WN_LMF", unlocks: ["PIPELINE_STEP_EXPAND"],
+      requiresRestart: true,
+      files: [{ relativePath: "english-wordnet-2024.xml.gz", byteSize: "12", sha256Hex: "e1" }],
+    }, {
+      catalogId: "spm", displayName: "T5 SentencePiece", modelId: "t5-small",
+      role: "MODEL_ARTIFACT_ROLE_SUBWORD_MODEL", byteSize: "7",
+      sourceUri: "https://huggingface.co/google-t5/t5-small", revision: "df1b",
+      licenseName: "Apache-2.0", licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+    }, {
+      catalogId: "topics", displayName: "Topics", modelId: "topics",
+      role: "MODEL_ARTIFACT_ROLE_DOC_CATEGORIZER", byteSize: "7",
+      sourceUri: "https://example.test/topics", revision: "1",
+      licenseName: "Apache-2.0", licenseUri: "https://www.apache.org/licenses/LICENSE-2.0",
+    }] });
+
+    expect(result.models.map((model) => model.role))
+      .toEqual(["wordnet-lexicon", "subword-model", "doc-categorizer"]);
+    expect(result.models[0]).toMatchObject({
+      format: "WN-LMF", unlocks: ["PIPELINE_STEP_EXPAND"], requiresRestart: true,
+      files: [{ relativePath: "english-wordnet-2024.xml.gz", byteSize: 12, sha256Hex: "e1" }],
+    });
+    // A gateway that predates the fields reads as unknown format, no unlocks, no restart.
+    expect(result.models[1]).toMatchObject({ format: "", unlocks: [], requiresRestart: false, files: [] });
+  });
+});
+
 describe("catalog language packs", () => {
   it("groups the four pipeline roles sharing one model id into a language pack", () => {
     const { packs, singles } = groupCatalogPacks([STATIC_MODEL, ...GERMAN_PACK]);
@@ -207,6 +244,38 @@ describe("model catalog workbench", () => {
       }),
     };
   }
+
+  it("tags each card with what it unlocks and lets a jump focus the fixing card", async () => {
+    const parser = { ...STATIC_MODEL, catalogId: "gum-parser", displayName: "GUM parser",
+      role: "parser" as const, modelId: "gum", format: "OpenNLP .bin",
+      unlocks: ["PIPELINE_STEP_PARSE"], requiresRestart: true };
+    const service = api();
+    service.listCatalog = vi.fn(async () => ({ models: [STATIC_MODEL, parser], installsEnabled: true }));
+    const fixers: Array<Map<string, unknown>> = [];
+    const workbench = new ModelDataWorkbench(service, {
+      onEmbeddingModelInstalled: () => undefined,
+      onTeacherInstalled: () => undefined,
+      onCatalogLoaded: (map) => fixers.push(map),
+    });
+    await workbench.initialize();
+
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".catalog-model-card"));
+    const tagsOf = (id: string) => Array.from(cards.find((card) => card.dataset.catalogId === id)!
+      .querySelectorAll(".catalog-tags li")).map((tag) => tag.textContent);
+    expect(tagsOf("potion-base-8m")).toEqual([
+      "Unlocks: Document embeddings", "Unlocks: Chunk embeddings", "Format: Safetensors", "Serves on install",
+    ]);
+    expect(tagsOf("gum-parser")).toEqual([
+      "Unlocks: Constituency parses", "Format: OpenNLP .bin", "Serves after a restart",
+    ]);
+    expect(fixers.at(-1)?.get("PIPELINE_STEP_PARSE"))
+      .toEqual([{ catalogId: "gum-parser", displayName: "GUM parser" }]);
+
+    expect(workbench.focus("PIPELINE_STEP_PARSE")).toBe(1);
+    expect(cards.find((card) => card.dataset.catalogId === "gum-parser")!.classList.contains("is-focused")).toBe(true);
+    expect(cards.find((card) => card.dataset.catalogId === "potion-base-8m")!.classList.contains("is-focused")).toBe(false);
+    expect(workbench.focus("PIPELINE_STEP_NER")).toBe(0);
+  });
 
   it("requires license acknowledgement before installing and activates static models", async () => {
     const service = api();
@@ -270,6 +339,10 @@ describe("model catalog workbench", () => {
       modelId: "gum",
       dimension: 0,
       licenseName: "CC-BY-4.0",
+      format: "OpenNLP .bin",
+      unlocks: ["PIPELINE_STEP_PARSE"],
+      requiresRestart: true,
+      files: [{ relativePath: "parser.bin", byteSize: 4, sha256Hex: "ab" }],
     };
     const service = api();
     service.listCatalog = vi.fn(async () => ({ models: [parser], installsEnabled: true }));

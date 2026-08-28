@@ -424,6 +424,27 @@ sender half-closes at shutdown. Like the JSON gateway, the sink channel carries 
 credentials, so targets belong on loopback or a trusted network. An instance naming
 an unknown provider fails startup listing the available sink ids.
 
+### Catalog roles, unlock tags, and install failures
+
+Every catalog entry now says what it unlocks. `ModelCatalogDescriptor` carries the artifact
+`format` (derived from the pinned file names: OpenNLP `.bin`, ONNX, SentencePiece, WN-LMF,
+safetensors), the pipeline steps it `unlocks`, whether it `requires_restart`, and its pinned
+`files`; the workbench renders these as tags on each card and uses them to route a
+browned-out feature on the Analyze tab to the card that fixes it. Three roles joined the
+classic ones: `SUBWORD_MODEL` (published as `model.subword.<id>.path`), `WORDNET_LEXICON`
+(`model.wordnet.<id>.path`, plain or gzipped WN-LMF), and `DOC_CATEGORIZER`
+(`model.doccat.<id>.path`). The standard catalog offers the T5 small SentencePiece model
+and Open English WordNet 2024 for the first two.
+
+An install refuses up front when the catalog root lacks the model's size plus a 64 MiB
+margin (`RESOURCE_EXHAUSTED`), when another installed model already claims the same
+restart slot (`FAILED_PRECONDITION`, naming the occupant), when a download fails
+(`UNAVAILABLE`, naming the file and host), or when a downloaded file fails its pinned
+SHA-256 (`FAILED_PRECONDITION`); nothing is published in any of these cases.
+`ListSearchProviders` also reports whether live indexing is enabled and whether
+`search.persist.root` is set, so the search tabs brown out with the reason instead of
+failing per click.
+
 ### Gateway deadlines scale with input size
 
 The gateway's per-RPC deadline (`--request-timeout-seconds`, default 30) covers a

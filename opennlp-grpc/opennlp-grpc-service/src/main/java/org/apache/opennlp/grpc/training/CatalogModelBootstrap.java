@@ -148,34 +148,13 @@ public final class CatalogModelBootstrap {
 
   /**
    * Returns the startup configuration key one restart-only role publishes to, or
-   * {@code null} for roles that serve without a restart. Parser, chunker, and name finder
-   * keys are per model id (a name finder's model id is its entity type); the sentence detector, tokenizer, POS tagger, and lemmatizer publish
-   * into the {@code model.pipeline.<lang>} set of the pack's declared language, so
-   * packs for different languages coexist and route by language at request time.
+   * {@code null} for roles that serve without a restart.
+   *
+   * @param descriptor The catalog descriptor.
+   * @return The configuration key, or {@code null}.
    */
   private static String restartConfigurationKey(
       org.apache.opennlp.grpc.v1.ModelCatalogDescriptor descriptor) {
-    final String modelId = descriptor.getModelId();
-    return switch (descriptor.getRole()) {
-      case MODEL_ARTIFACT_ROLE_PARSER -> "model.parser." + modelId + ".path";
-      case MODEL_ARTIFACT_ROLE_CHUNKER -> "model.chunker." + modelId + ".path";
-      case MODEL_ARTIFACT_ROLE_NAME_FINDER -> "model.name_finder." + modelId + ".path";
-      case MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR ->
-          pipelineKey(descriptor, "sentence_detector");
-      case MODEL_ARTIFACT_ROLE_TOKENIZER -> pipelineKey(descriptor, "tokenizer");
-      case MODEL_ARTIFACT_ROLE_POS_TAGGER -> pipelineKey(descriptor, "pos_tagger");
-      case MODEL_ARTIFACT_ROLE_LEMMATIZER -> pipelineKey(descriptor, "lemmatizer");
-      default -> null;
-    };
-  }
-
-  /** Builds one language pipeline slot key from the pack's declared language. */
-  private static String pipelineKey(
-      org.apache.opennlp.grpc.v1.ModelCatalogDescriptor descriptor, String slot) {
-    if (descriptor.getLanguagesCount() != 1 || descriptor.getLanguages(0).isBlank()) {
-      throw new IllegalArgumentException("Catalog model '" + descriptor.getCatalogId()
-          + "' must declare exactly one language for role " + descriptor.getRole());
-    }
-    return "model.pipeline." + descriptor.getLanguages(0) + "." + slot + ".path";
+    return CatalogRoles.restartConfigurationKey(descriptor);
   }
 }

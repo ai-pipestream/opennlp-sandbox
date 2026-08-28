@@ -31,7 +31,7 @@
 - [ ] `ListVocabularies` RPC and gateway route, then a vocabulary artifact picker.
 - [ ] Jumps: rebuild empty state to Trainer, post-rebuild to Workspace search,
       alias list note "use this name anywhere an index id is accepted".
-- [ ] Detect HTTP 501 (dynamic indexing disabled) at load and brown out the panel.
+- [x] Detect HTTP 501 (dynamic indexing disabled) at load and brown out the panel.
 - [ ] Translate the remaining server errors at the boundary (404 unknown vocabulary,
       429 distinct-term limit, 412 not persistent).
 - [ ] After a Workflows build, offer "Save this workspace" inline.

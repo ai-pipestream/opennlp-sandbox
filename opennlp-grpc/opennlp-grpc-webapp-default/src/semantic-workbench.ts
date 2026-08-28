@@ -599,11 +599,28 @@ export class SemanticWorkbench {
     this.#graphChart?.resize();
   }
 
+  /**
+   * Browns out the tab when the operator disabled live indexing, saying so once instead
+   * of letting every add and search fail with the same server error.
+   */
+  setAvailability(dynamicIndexingEnabled: boolean): void {
+    this.#available = dynamicIndexingEnabled;
+    if (!dynamicIndexingEnabled) {
+      this.setStatus("Live indexing is disabled by the server operator, so documents cannot be "
+        + "added or searched here. Read-only indexes are still searched on the Corpus search tab.",
+        true);
+    }
+    this.updateControls();
+  }
+
+  #available = true;
+
   private updateControls(): void {
-    this.#workspaceSelect.disabled = this.#busy;
-    this.#providerSelect.disabled = Boolean(this.#workspace) || this.#busy;
-    const indexable = Boolean(this.#current?.wireDocument && this.#current.modelId);
-    const searchable = Boolean(this.#workspace) || indexable;
+    this.#workspaceSelect.disabled = this.#busy || !this.#available;
+    this.#providerSelect.disabled = Boolean(this.#workspace) || this.#busy || !this.#available;
+    const indexable = this.#available
+      && Boolean(this.#current?.wireDocument && this.#current.modelId);
+    const searchable = this.#available && (Boolean(this.#workspace) || indexable);
     this.#addButton.disabled = !indexable || this.#busy;
     this.#clearButton.disabled = (!this.#workspace && this.#heatmapWorkspaces.size === 0) || this.#busy;
     this.#searchButton.disabled = !searchable || !this.#query.value.trim() || this.#busy;

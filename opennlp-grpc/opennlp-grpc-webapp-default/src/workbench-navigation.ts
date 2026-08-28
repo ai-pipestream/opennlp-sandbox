@@ -37,9 +37,30 @@ export class WorkbenchNavigation {
       tab.addEventListener("click", () => this.select(workbenchName(tab.dataset.workbenchTab)));
       tab.addEventListener("keydown", (event) => this.navigate(event));
     }
-    for (const jump of document.querySelectorAll<HTMLElement>("[data-workbench-jump]")) {
-      jump.addEventListener("click", () => this.show(workbenchName(jump.dataset.workbenchJump)));
-    }
+    // Jump links are created at runtime too (a browned-out feature's fix button), so one
+    // delegated listener serves them all.
+    document.addEventListener("click", (event) => {
+      const jump = (event.target as Element | null)?.closest<HTMLElement>("[data-workbench-jump]");
+      if (!jump) {
+        return;
+      }
+      const name = workbenchName(jump.dataset.workbenchJump);
+      this.show(name);
+      const focus = jump.dataset.workbenchFocus;
+      if (focus) {
+        this.#focusHandlers.get(name)?.(focus);
+      }
+    });
+  }
+
+  readonly #focusHandlers = new Map<WorkbenchName, (focus: string) => void>();
+
+  /**
+   * Registers what a workbench does when a jump carries a focus, e.g. Models & data
+   * scrolling to the card that fixes a pipeline step.
+   */
+  onFocus(name: WorkbenchName, handler: (focus: string) => void): void {
+    this.#focusHandlers.set(name, handler);
   }
 
   /** Switches to the named workbench, exactly as selecting its tab would. */

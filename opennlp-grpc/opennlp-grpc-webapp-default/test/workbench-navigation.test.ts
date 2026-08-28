@@ -92,4 +92,21 @@ describe("workbench navigation", () => {
     expect((document.getElementById("workflows-workbench") as HTMLElement).hidden).toBe(false);
     expect((document.getElementById("server-search") as HTMLElement).hidden).toBe(true);
   });
+
+  it("serves jump links created after start-up and hands their focus to the target workbench", () => {
+    document.body.innerHTML = html;
+    const navigation = new WorkbenchNavigation();
+    const focused: string[] = [];
+    navigation.onFocus("models", (step) => focused.push(step));
+    const jump = document.createElement("button");
+    jump.dataset.workbenchJump = "models";
+    jump.dataset.workbenchFocus = "PIPELINE_STEP_NER";
+    document.getElementById("analysis-workbench")!.append(jump);
+
+    jump.click();
+
+    expect(document.getElementById("model-data-workbench")!.hidden).toBe(false);
+    expect(document.getElementById("analysis-workbench")!.hidden).toBe(true);
+    expect(focused).toEqual(["PIPELINE_STEP_NER"]);
+  });
 });

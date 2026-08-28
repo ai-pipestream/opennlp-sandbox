@@ -26,6 +26,7 @@ import {
   readSearchIndexes,
   readSearchProviderInstances,
   readSearchResponse,
+  readSearchProviderListing,
 } from "../src/search-adapter";
 
 function indexDescriptor(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -148,6 +149,20 @@ describe("server search API adapter", () => {
     ];
 
     expect(readSearchIndexes({ indexes: invalid })).toEqual([]);
+  });
+
+  it("reads the server-wide live indexing and persistence flags beside the providers", () => {
+    const listing = readSearchProviderListing({
+      providers: [{ instanceId: "flat_float", providerId: "flat_float", capabilities: [] }],
+      dynamicIndexingEnabled: false,
+      persistenceConfigured: true,
+    });
+    expect(listing.providers.map((provider) => provider.instanceId)).toEqual(["flat_float"]);
+    expect(listing.dynamicIndexingEnabled).toBe(false);
+    expect(listing.persistenceConfigured).toBe(true);
+    // An older gateway omits both flags: live indexing on, nothing saved to disk.
+    expect(readSearchProviderListing({ providers: [] }))
+      .toMatchObject({ dynamicIndexingEnabled: true, persistenceConfigured: false });
   });
 
   it("creates a protobuf JSON search request with a document-shaped query", () => {

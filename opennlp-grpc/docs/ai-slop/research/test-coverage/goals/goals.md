@@ -16,7 +16,7 @@ Effort: S under a day, M a few days, L a week or more.
       the `IndexDocumentsRequest` assembly) under `test/fixtures/requests/`;
       `FrontEndRequestFixtureTest` in the gateway parses each with the strict
       parser and runs the static validators (`DynamicSearchIndexRegistry.validateEmbedding`).
-- [ ] (M) Playwright smoke inside `docker/test-image.sh` with a novel-sized
+- [x] (M) Playwright smoke inside `docker/test-image.sh` with a novel-sized
       payload; invoke the script from CI or a release checklist.
 - [ ] (M) Pin the sentiment label set of the catalog model at the integration
       layer; export the set from the FE and assert it in a vitest.

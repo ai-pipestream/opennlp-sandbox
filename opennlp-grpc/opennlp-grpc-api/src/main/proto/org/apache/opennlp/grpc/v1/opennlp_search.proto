@@ -408,6 +408,11 @@ message ListSearchProvidersRequest {}
 message ListSearchProvidersResponse {
   // Provider instances in stable instance-id order.
   repeated SearchProviderInstance providers = 1;
+  // False when the operator disabled live indexing: every live-index RPC then fails
+  // with FAILED_PRECONDITION, and a client should say so before the first click.
+  bool dynamic_indexing_enabled = 2;
+  // True when search.persist.root is set, so live indexes can be saved to disk.
+  bool persistence_configured = 3;
 }
 
 // One configured search provider instance. The instance id is the value

@@ -27,6 +27,7 @@ import {
 } from "./analysis-config";
 import type { AnalyzeRequest } from "./api";
 import type { DiscoveryOption } from "./discovery";
+import type { CatalogFixer } from "./model-data-workbench";
 import { replaceCharacter, withoutPrefix } from "./text-utils";
 import { requiredElement } from "./ui-utils";
 
@@ -43,6 +44,9 @@ export class AnalysisControls {
   readonly #featureOptions = requiredElement<HTMLDivElement>("feature-options");
   /** The checklist wrapper; absent in unit fixtures that mount the grid alone. */
   readonly #featurePicker = document.getElementById("feature-picker");
+  /** Where a browned-out feature explains itself; absent in fixtures that mount the grid alone. */
+  readonly #availability = document.getElementById("feature-availability");
+  #fixers = new Map<string, CatalogFixer[]>();
   readonly #modelList = requiredElement<HTMLUListElement>("model-list");
   readonly #onChange: () => void;
   #capabilities: AnalysisCapabilities = discoverAnalysisCapabilities(undefined, undefined);
@@ -252,7 +256,77 @@ export class AnalysisControls {
     if (this.#tokenChunks.checked) {
       labels.push("Token windows");
     }
-    this.#enabledFeatures.replaceChildren(...labels.map(featureChip));
+    const unavailable = PIPELINE_ORDER.filter((step) =>
+      this.#capabilities.supportedSteps.includes(step) && !this.#capabilities.maxSteps.includes(step));
+    this.#enabledFeatures.replaceChildren(
+      ...labels.map(featureChip),
+      ...unavailable.map((step) => this.unavailableChip(step)));
+  }
+
+  /**
+   * Records which catalog entries would make each pipeline step ready, so a browned-out
+   * feature can offer the install instead of naming a configuration key.
+   */
+  setFeatureFixers(fixers: Map<string, CatalogFixer[]>): void {
+    this.#fixers = fixers;
+    this.renderFeatures();
+  }
+
+  /** A muted, clickable chip for a step this server build supports but cannot run yet. */
+  private unavailableChip(step: string): HTMLLIElement {
+    const item = document.createElement("li");
+    item.className = "feature-chip is-unavailable";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.unavailableStep = step;
+    button.textContent = featureLabel(step);
+    button.title = "Not available on this server. Select to see why.";
+    button.addEventListener("click", () => this.explain(step));
+    item.append(button);
+    return item;
+  }
+
+  /**
+   * Explains one unavailable step with a fixed shape: the reason, and one of three fixes.
+   * A catalog entry that unlocks it offers a jump that lands on that card; a supported
+   * step with no catalog entry names the operator setting; anything else is not in this
+   * build.
+   */
+  explain(step: string): void {
+    const panel = this.#availability;
+    if (!panel) {
+      return;
+    }
+    const label = featureLabel(step);
+    const fixers = this.#fixers.get(step) ?? [];
+    const supported = this.#capabilities.supportedSteps.includes(step);
+    panel.replaceChildren();
+    panel.hidden = false;
+    const heading = document.createElement("p");
+    heading.className = "feature-availability-title";
+    heading.textContent = `${label} is not available on this server.`;
+    const reason = document.createElement("p");
+    reason.textContent = `Reason: ${!supported
+      ? "this server build does not include it."
+      : "no model or resource that serves it is loaded."}`;
+    const fix = document.createElement("p");
+    panel.append(heading, reason, fix);
+    if (fixers.length > 0) {
+      fix.textContent = `Fix: install ${fixers.map((fixer) => fixer.displayName).join(" or ")}`
+        + " from the model catalog. ";
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "link-button";
+      jump.dataset.workbenchJump = "models";
+      jump.dataset.workbenchFocus = step;
+      jump.textContent = "Open Models & data";
+      fix.append(jump);
+    } else if (supported) {
+      fix.textContent = `Fix: ask the operator to set ${CONFIGURATION_KEYS[step] ?? "its model path"}`
+        + " in server.properties and restart.";
+    } else {
+      fix.textContent = "Fix: none from here; a different server build is needed.";
+    }
   }
 
   private renderFeatureOptions(): void {
@@ -293,6 +367,33 @@ export class AnalysisControls {
     });
     this.#featureOptions.replaceChildren(...options);
   }
+}
+
+/**
+ * The operator setting that serves each step when no catalog entry can, transcribed from
+ * the service's own "not configured" errors.
+ */
+export const CONFIGURATION_KEYS: Readonly<Record<string, string>> = {
+  PIPELINE_STEP_NER: "model.name_finder.<entity_type>.path",
+  PIPELINE_STEP_GEOCODE: "a name finder, model.name_finder.<entity_type>.path",
+  PIPELINE_STEP_PARSE: "model.parser.<model_id>.path",
+  PIPELINE_STEP_SYNTACTIC_CHUNK: "model.chunker.<model_id>.path",
+  PIPELINE_STEP_SUBWORD_TOKENIZE: "model.subword.<model_id>.path",
+  PIPELINE_STEP_EXPAND: "model.wordnet.<model_id>.path",
+  PIPELINE_STEP_DOC_CATEGORIZE: "model.doccat.<model_id>.path",
+  PIPELINE_STEP_SENTIMENT: "model.sentiment_dl.<model_id>.path",
+  PIPELINE_STEP_EMBED: "model.embedder.<model_id>.<backend>",
+  PIPELINE_STEP_CHUNK: "model.embedder.<model_id>.<backend>",
+  PIPELINE_STEP_SENTENCE_DETECT: "model.pipeline.<lang>.sentence_detector.path",
+  PIPELINE_STEP_TOKENIZE: "model.pipeline.<lang>.tokenizer.path",
+  PIPELINE_STEP_POS_TAG: "model.pipeline.<lang>.pos_tagger.path",
+  PIPELINE_STEP_LEMMATIZE: "model.pipeline.<lang>.lemmatizer.path",
+  PIPELINE_STEP_STEM: "a language pack, model.pipeline.<lang>.tokenizer.path",
+};
+
+/** The feature name a person reads for a pipeline step. */
+function featureLabel(step: string): string {
+  return FEATURE_NAMES[step] ?? readableStep(step);
 }
 
 function readableStep(step: string): string {

@@ -1900,3 +1900,17 @@ mark.matched-span {
   --info-chip-bg: #183249;
   --info-chip-ink: #a8dff0;
 }
+
+/* Browned-out features and the panel that explains them. */
+.feature-chip.is-unavailable { opacity: 0.62; border-style: dotted; }
+.feature-chip.is-unavailable button { all: unset; cursor: pointer; }
+.feature-chip.is-unavailable button:focus-visible { outline: 2px solid var(--accent); }
+.feature-availability { margin-top: 0.5rem; padding: 0.6rem 0.75rem; border: 1px solid var(--warn-border); border-radius: 0.5rem; background: var(--warn-surface); font-size: 0.66rem; }
+.feature-availability p { margin: 0.15rem 0; }
+.feature-availability-title { font-weight: 600; }
+
+/* Catalog card tags and the card a jump landed on. */
+.catalog-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0; padding: 0; list-style: none; }
+.catalog-tags li { padding: 0.1rem 0.45rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.57rem; color: var(--muted-deep); }
+.catalog-model-card.is-focused { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lifecycle-panel.is-unavailable { opacity: 0.62; }

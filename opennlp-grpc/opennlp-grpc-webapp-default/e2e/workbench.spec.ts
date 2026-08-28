@@ -42,6 +42,12 @@ test("bridges configured search to workflows and workspace search", async ({ pag
 });
 
 test("offers automatic workflow defaults with optional resource choices", async ({ page }) => {
+  // A build needs a teacher and a writable artifact root; a server without them shows
+  // the browned-out state, which is a skip here, not a failure.
+  const teachers = await page.request.get("/api/v1/teachers").then((reply) => reply.json());
+  test.skip(!Array.isArray(teachers.teachers) || teachers.teachers.length === 0
+    || teachers.writesEnabled === false,
+    "The server has no teacher or no writable artifact root, so nothing can be built.");
   await page.click('[data-workbench-tab="workflows"]');
   await expect(page.locator("#workflow-status")).toContainText("Ready");
   await expect(page.locator("#workflow-dictionary-select option").first())

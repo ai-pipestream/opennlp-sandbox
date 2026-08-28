@@ -56,10 +56,12 @@ class StandardModelCatalogTest {
         "fr-ud-gsd-tokens",
         "gum-cc-by-4-chunker",
         "gum-cc-by-4-parser",
+        "open-english-wordnet-2024",
         "paraphrase-multilingual-minilm-l12-v2-teacher",
         "potion-base-8m",
         "potion-multilingual-128m",
-        "potion-retrieval-32m"),
+        "potion-retrieval-32m",
+        "t5-small-sentencepiece"),
         models.stream().map(model -> model.descriptor().getCatalogId()).toList());
     final Map<String, ModelArtifactRole> roles = models.stream().collect(
         Collectors.toMap(
@@ -95,6 +97,26 @@ class StandardModelCatalogTest {
     return models.stream()
         .filter(model -> catalogId.equals(model.descriptor().getCatalogId()))
         .findFirst().orElseThrow().descriptor().getDimension();
+  }
+
+  @Test
+  void offersASentencePieceModelAndAWordNetLexicon() {
+    final Map<String, CatalogModel> models = new StandardModelCatalog().models().stream()
+        .collect(Collectors.toMap(model -> model.descriptor().getCatalogId(), model -> model));
+    final CatalogModel subword = models.get("t5-small-sentencepiece");
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_SUBWORD_MODEL,
+        subword.descriptor().getRole());
+    assertEquals("t5-small", subword.descriptor().getModelId());
+    assertEquals("spiece.model", subword.files().getFirst().relativePath().toString());
+    assertEquals(791_656, subword.descriptor().getByteSize());
+    final CatalogModel wordnet = models.get("open-english-wordnet-2024");
+    assertEquals(ModelArtifactRole.MODEL_ARTIFACT_ROLE_WORDNET_LEXICON,
+        wordnet.descriptor().getRole());
+    assertEquals("oewn-2024", wordnet.descriptor().getModelId());
+    assertEquals("CC-BY-4.0", wordnet.descriptor().getLicenseName());
+    assertEquals("english-wordnet-2024.xml.gz",
+        wordnet.files().getFirst().relativePath().toString());
+    assertEquals(12_912_118, wordnet.descriptor().getByteSize());
   }
 
   @Test

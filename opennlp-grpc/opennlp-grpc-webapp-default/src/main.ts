@@ -107,6 +107,7 @@ import {
   readIndexResponse,
   readSearchIndexes,
   readSearchProviderInstances,
+  readSearchProviderListing,
   readSearchResponse,
 } from "./search-adapter";
 import { ServerSearchWorkbench } from "./server-search-workbench";
@@ -214,11 +215,13 @@ const modelDataWorkbench = new ModelDataWorkbench({
     publishRuntimeEmbeddingModels();
   },
   onTeacherInstalled: () => void vocabularyTrainer.initialize(),
+  onCatalogLoaded: (fixers) => analysisControls.setFeatureFixers(fixers),
 });
 const chunkProjectionView = new ChunkProjectionView((group, chunk, trigger) => {
   annotationDrawer.showChunk(group, chunk, trigger);
 });
 const workbenchNavigation = new WorkbenchNavigation();
+workbenchNavigation.onFocus("models", (step) => modelDataWorkbench.focus(step));
 
 const vocabularyTrainer = new VocabularyTrainerWorkbench({
   listDictionaryFormats: async () => readDictionaryFormats(await getDictionaryFormats()),
@@ -289,7 +292,7 @@ const semanticWorkbench = new SemanticWorkbench({
 
 const lifecycleWorkbench = new LifecycleWorkbench({
   listIndexes: async () => readSearchIndexes(await getSearchIndexes()),
-  listProviders: async () => readSearchProviderInstances(await getSearchProviders()),
+  listProviders: async () => readSearchProviderListing(await getSearchProviders()),
   listAliases: async () => readIndexAliases(await getIndexAliases()),
   persist: async (indexId) => readIndexResponse(await persistIndex(indexId)),
   seal: async (indexId) => readIndexResponse(await sealIndex(indexId)),
@@ -308,6 +311,10 @@ const lifecycleWorkbench = new LifecycleWorkbench({
     watchCollection(collectionId, (event) => onEvent(readCollectionEvent(event))),
 });
 void lifecycleWorkbench.initialize();
+void getSearchProviders().then(
+  (listing) => semanticWorkbench.setAvailability(
+    readSearchProviderListing(listing).dynamicIndexingEnabled),
+  () => undefined);
 
 const serverSearchWorkbench = new ServerSearchWorkbench({
   listIndexes: async () => readSearchIndexes(await getSearchIndexes()),

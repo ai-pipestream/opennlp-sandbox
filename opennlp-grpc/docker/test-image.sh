@@ -98,6 +98,56 @@ text_limit=$(curl -s "http://127.0.0.1:$HTTP_PORT/api/v1/service-info" \
   | python3 -c 'import json,sys; print(int(json.load(sys.stdin)["maxTextBytes"]))')
 check "service-info reports the configured text limit" "$text_limit" 524288
 
+say "Novel-sized analyze through the gateway (Alice, ~150 KB)"
+novel_sentences=$(python3 - "$HTTP_PORT" <<'PY'
+import gzip, json, sys, urllib.request
+port = sys.argv[1]
+text = gzip.open("opennlp-grpc-webapp-default/public/data/alice-in-wonderland.txt.gz", "rt",
+                 encoding="utf-8").read()
+body = json.dumps({"document": {"docId": "alice", "rawText": text},
+                   "profile": {"steps": ["PIPELINE_STEP_SENTENCE_DETECT", "PIPELINE_STEP_TOKENIZE",
+                                         "PIPELINE_STEP_POS_TAG"]}}).encode()
+request = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/analyze", body,
+                                 {"Content-Type": "application/json"})
+with urllib.request.urlopen(request, timeout=600) as reply:
+    print(len(json.load(reply)["document"]["sentences"]) >= 900)
+PY
+)
+check "a novel analyzes without a deadline or size failure" "$novel_sentences" True
+
+say "Keep-alive survives a pause longer than the JDK default"
+keepalive=$(python3 - "$HTTP_PORT" <<'PY'
+import socket, sys, time
+port = int(sys.argv[1])
+s = socket.create_connection(("127.0.0.1", port), timeout=10)
+s.sendall(b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+s.settimeout(5)
+data = b""
+while b"ok" not in data:
+    data += s.recv(4096)
+time.sleep(35)
+s.sendall(b"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+try:
+    print("alive" if s.recv(4096) else "closed")
+except OSError:
+    print("closed")
+PY
+)
+check "connection still served after a 35 s idle" "$keepalive" alive
+
+if [ "${OPENNLP_TEST_SKIP_E2E:-0}" != 1 ] && command -v npx >/dev/null 2>&1; then
+  say "Playwright smoke against the container"
+  if (cd opennlp-grpc-webapp-default \
+      && OPENNLP_E2E_BASE_URL="http://127.0.0.1:$HTTP_PORT" npx playwright test --reporter=line); then
+    printf 'ok   browser suite\n'
+  else
+    printf 'FAIL browser suite\n'
+    failures=$((failures + 1))
+  fi
+else
+  say "Skipping the Playwright smoke (OPENNLP_TEST_SKIP_E2E=1 or npx missing)"
+fi
+
 say "Graceful shutdown"
 start=$(date +%s)
 docker stop "$NAME" >/dev/null

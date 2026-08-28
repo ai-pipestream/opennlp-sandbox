@@ -187,8 +187,12 @@ class OpenNlpModelTrainingServiceImplTest {
         .build(), response);
 
     final StatusRuntimeException failure = (StatusRuntimeException) response.error;
-    assertEquals(Status.Code.INTERNAL, failure.getStatus().getCode());
-    assertEquals("Catalog model installation failed", failure.getStatus().getDescription());
+    assertEquals(Status.Code.UNAVAILABLE, failure.getStatus().getCode());
+    assertTrue(failure.getStatus().getDescription().startsWith("Download of "),
+        failure.getStatus().getDescription());
+    assertTrue(failure.getStatus().getDescription().endsWith("from example.invalid failed"),
+        failure.getStatus().getDescription());
+    assertFalse(failure.getStatus().getDescription().contains("secret transport detail"));
   }
 
   @Test

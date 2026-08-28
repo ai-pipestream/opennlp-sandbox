@@ -68,6 +68,25 @@ describe("workspace search", () => {
       <button id="graph-completeness"></button>`;
   });
 
+  it("browns out the tab when the operator disabled live indexing", () => {
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+    });
+    workbench.setAvailability(false);
+
+    expect((document.getElementById("search-button") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.getElementById("add-to-index-button") as HTMLButtonElement).disabled).toBe(true);
+    expect(document.getElementById("semantic-status")!.textContent)
+      .toContain("Live indexing is disabled by the server operator");
+  });
+
   it("indexes the current document on the server when the first workspace query is submitted", async () => {
     const index = vi.fn().mockResolvedValue({
       ...DYNAMIC_INDEX,

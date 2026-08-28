@@ -27,7 +27,21 @@ import { errorMessage, requiredElement } from "./ui-utils";
 
 export type ModelArtifactRole =
   "teacher" | "static" | "parser" | "chunker"
-  | "sentence-detector" | "tokenizer" | "pos-tagger" | "lemmatizer" | "name-finder";
+  | "sentence-detector" | "tokenizer" | "pos-tagger" | "lemmatizer" | "name-finder"
+  | "subword-model" | "wordnet-lexicon" | "doc-categorizer";
+
+/** One pinned file an install writes, as the catalog verifies it. */
+export interface CatalogFileSummary {
+  relativePath: string;
+  byteSize: number;
+  sha256Hex: string;
+}
+
+/** A catalog entry that would make a pipeline step ready. */
+export interface CatalogFixer {
+  catalogId: string;
+  displayName: string;
+}
 
 export interface ModelCatalogSummary {
   catalogId: string;
@@ -42,6 +56,12 @@ export interface ModelCatalogSummary {
   dimension: number;
   languages: string[];
   description: string;
+  /** Artifact format label, e.g. "ONNX"; empty when the server did not say. */
+  format: string;
+  /** Pipeline steps the model unlocks once active, as wire enum names. */
+  unlocks: string[];
+  requiresRestart: boolean;
+  files: CatalogFileSummary[];
 }
 
 export interface InstalledModelSummary {
@@ -149,6 +169,8 @@ export interface ModelCatalogApi {
 export interface ModelCatalogCallbacks {
   onEmbeddingModelInstalled(modelId: string, displayName: string): void;
   onTeacherInstalled(): void;
+  /** Runs after each catalog listing with the entries that unlock each pipeline step. */
+  onCatalogLoaded?: (fixers: Map<string, CatalogFixer[]>) => void;
 }
 
 /** Renders model, data, and node-local catalog readiness. */
@@ -245,6 +267,7 @@ export class ModelDataWorkbench {
       const item = document.createElement("article");
       const state = ready.has(step) ? "ready" : supported.has(step) ? "missing" : "unsupported";
       item.className = `resource-feature is-${state}`;
+      item.dataset.featureStep = step;
       const title = document.createElement("strong");
       title.textContent = FEATURE_NAMES[step] ?? step;
       const label = document.createElement("span");
@@ -266,12 +289,51 @@ export class ModelDataWorkbench {
     this.#summary.textContent = `${ready.size} of ${PIPELINE_ORDER.length} features ready`;
   }
 
+  /**
+   * Scrolls the readiness card of a pipeline step into view and outlines every catalog
+   * card whose install would make that step ready. Returns how many cards fix it.
+   */
+  focus(step: string): number {
+    for (const outlined of this.#catalog.querySelectorAll(".is-focused")) {
+      outlined.classList.remove("is-focused");
+    }
+    const feature = this.#features.querySelector<HTMLElement>(`[data-feature-step="${step}"]`);
+    feature?.scrollIntoView?.({ block: "center" });
+    let fixers = 0;
+    for (const card of this.#catalog.querySelectorAll<HTMLElement>("[data-unlocks]")) {
+      if ((card.dataset.unlocks ?? "").split(" ").includes(step)) {
+        card.classList.add("is-focused");
+        if (fixers === 0) {
+          card.scrollIntoView?.({ block: "nearest" });
+        }
+        fixers++;
+      }
+    }
+    return fixers;
+  }
+
+  /** Catalog entries that unlock each pipeline step, from the last listing. */
+  fixers(): Map<string, CatalogFixer[]> {
+    const fixers = new Map<string, CatalogFixer[]>();
+    for (const model of this.#lastCatalog) {
+      for (const step of model.unlocks) {
+        fixers.set(step, [...(fixers.get(step) ?? []),
+          { catalogId: model.catalogId, displayName: model.displayName }]);
+      }
+    }
+    return fixers;
+  }
+
+  #lastCatalog: ModelCatalogSummary[] = [];
+
   private renderCatalog(
     models: ModelCatalogSummary[],
     installedModels: InstalledModelSummary[],
     installsEnabled: boolean,
   ): void {
     this.#catalog.replaceChildren();
+    this.#lastCatalog = models;
+    this.#callbacks.onCatalogLoaded?.(this.fixers());
     const installed = new Map(installedModels.map((model) => [model.catalogId, model]));
     const { packs, singles } = groupCatalogPacks(models);
     for (const pack of packs) {
@@ -282,6 +344,7 @@ export class ModelDataWorkbench {
       const card = document.createElement("article");
       card.className = "catalog-model-card";
       card.dataset.catalogId = model.catalogId;
+      card.dataset.unlocks = model.unlocks.join(" ");
 
       const header = document.createElement("header");
       const title = document.createElement("h5");
@@ -298,6 +361,7 @@ export class ModelDataWorkbench {
       facts.textContent = `${byteLabel(model.byteSize)} · ${model.licenseName}`
         + (model.dimension > 0 ? ` · ${model.dimension} dimensions` : "")
         + (model.languages.length > 0 ? ` · ${model.languages.join(", ")}` : "");
+      const tags = catalogTags(model);
       const source = document.createElement("a");
       source.href = model.sourceUri;
       source.target = "_blank";
@@ -311,7 +375,7 @@ export class ModelDataWorkbench {
       const references = document.createElement("div");
       references.className = "catalog-model-references";
       references.append(source, license);
-      card.append(header, description, facts, references);
+      card.append(header, description, facts, tags, references);
 
       if (active) {
         const state = document.createElement("strong");
@@ -539,7 +603,10 @@ export function readModelCatalog(
       : model.role === "MODEL_ARTIFACT_ROLE_TOKENIZER" ? "tokenizer"
       : model.role === "MODEL_ARTIFACT_ROLE_POS_TAGGER" ? "pos-tagger"
       : model.role === "MODEL_ARTIFACT_ROLE_LEMMATIZER" ? "lemmatizer"
-      : model.role === "MODEL_ARTIFACT_ROLE_NAME_FINDER" ? "name-finder" : undefined;
+      : model.role === "MODEL_ARTIFACT_ROLE_NAME_FINDER" ? "name-finder"
+      : model.role === "MODEL_ARTIFACT_ROLE_SUBWORD_MODEL" ? "subword-model"
+      : model.role === "MODEL_ARTIFACT_ROLE_WORDNET_LEXICON" ? "wordnet-lexicon"
+      : model.role === "MODEL_ARTIFACT_ROLE_DOC_CATEGORIZER" ? "doc-categorizer" : undefined;
     if (!role) {
       throw new Error(`Catalog model '${catalogId}' has an unsupported role.`);
     }
@@ -569,6 +636,16 @@ export function readModelCatalog(
       dimension: count(model.dimension),
       languages: asArray(model.languages).filter((item): item is string => typeof item === "string"),
       description: optionalString(model.description),
+      format: formatLabel(optionalString(model.format)),
+      unlocks: asArray(model.unlocks).filter((item): item is string => typeof item === "string"),
+      requiresRestart: model.requiresRestart === true,
+      files: asArray(model.files).flatMap((value) => {
+        const file = asRecord(value);
+        const relativePath = optionalString(file?.relativePath);
+        return file && relativePath
+          ? [{ relativePath, byteSize: count(file.byteSize), sha256Hex: optionalString(file.sha256Hex) }]
+          : [];
+      }),
     };
   });
   return { models, installsEnabled: body.installsEnabled === true };
@@ -643,6 +720,18 @@ function restartRole(role: ModelArtifactRole | undefined): boolean {
     || role === "pos-tagger" || role === "lemmatizer" || role === "name-finder";
 }
 
+/** Wire format enum to the label on a card. */
+function formatLabel(format: string): string {
+  const labels: Record<string, string> = {
+    MODEL_ARTIFACT_FORMAT_OPENNLP_BIN: "OpenNLP .bin",
+    MODEL_ARTIFACT_FORMAT_ONNX: "ONNX",
+    MODEL_ARTIFACT_FORMAT_SENTENCEPIECE: "SentencePiece",
+    MODEL_ARTIFACT_FORMAT_WN_LMF: "WN-LMF",
+    MODEL_ARTIFACT_FORMAT_SAFETENSORS: "Safetensors",
+  };
+  return labels[format] ?? "";
+}
+
 function roleLabel(role: ModelArtifactRole): string {
   if (role === "static") {
     return "Ready-to-serve static table";
@@ -652,11 +741,15 @@ function roleLabel(role: ModelArtifactRole): string {
   }
   const labels: Record<string, string> = {
     parser: "Constituency parser",
-    chunker: "Syntactic chunker",
+    chunker: "Phrase chunker",
     "sentence-detector": "Sentence detector",
     tokenizer: "Tokenizer",
     "pos-tagger": "POS tagger",
     lemmatizer: "Lemmatizer",
+    "name-finder": "Name finder",
+    "subword-model": "SentencePiece model",
+    "wordnet-lexicon": "WordNet lexicon",
+    "doc-categorizer": "Document categorizer",
   };
   return labels[role] ?? role;
 }
@@ -712,4 +805,33 @@ function listItem(text: string): HTMLLIElement {
   const item = document.createElement("li");
   item.textContent = text;
   return item;
+}
+
+/** Names for unlocked steps that are not selectable features on the Analyze tab. */
+const UNLOCK_NAMES: Readonly<Record<string, string>> = {
+  PIPELINE_STEP_CHUNK: "Chunk embeddings",
+};
+
+/** The tag row of a catalog card: what installing unlocks, its format, and when it serves. */
+function catalogTags(model: ModelCatalogSummary): HTMLUListElement {
+  const tags = document.createElement("ul");
+  tags.className = "catalog-tags";
+  tags.setAttribute("aria-label", "What this model unlocks");
+  const labels: string[] = [];
+  if (model.role === "teacher") {
+    labels.push("Unlocks: distilling on the Trainer tab");
+  }
+  for (const step of model.unlocks) {
+    labels.push(`Unlocks: ${FEATURE_NAMES[step] ?? UNLOCK_NAMES[step] ?? step}`);
+  }
+  if (model.format) {
+    labels.push(`Format: ${model.format}`);
+  }
+  labels.push(model.requiresRestart ? "Serves after a restart" : "Serves on install");
+  for (const label of labels) {
+    const tag = document.createElement("li");
+    tag.textContent = label;
+    tags.append(tag);
+  }
+  return tags;
 }

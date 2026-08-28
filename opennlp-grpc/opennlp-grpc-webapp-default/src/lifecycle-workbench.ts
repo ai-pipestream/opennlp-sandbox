@@ -19,14 +19,19 @@
 
 import type { ReindexIndexRequest, SetCollectionRequest } from "./api";
 import type { CollectionEventView, CollectionView } from "./collection-adapter";
-import type { IndexAliasView, SearchIndex, SearchProviderInstance } from "./search-adapter";
+import type {
+  IndexAliasView,
+  SearchIndex,
+  SearchProviderInstance,
+  SearchProviderListing,
+} from "./search-adapter";
 import { ellipsizeCodePoints, formatInteger } from "./text-utils";
 import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
 import type { TrainedModelSummary } from "./vocabulary-trainer";
 
 export interface LifecycleApi {
   listIndexes(): Promise<SearchIndex[]>;
-  listProviders(): Promise<SearchProviderInstance[]>;
+  listProviders(): Promise<SearchProviderListing>;
   listAliases(): Promise<IndexAliasView[]>;
   persist(indexId: string): Promise<SearchIndex | undefined>;
   seal(indexId: string): Promise<SearchIndex | undefined>;
@@ -95,6 +100,9 @@ export class LifecycleWorkbench {
   #indexes: SearchIndex[] = [];
   #busy = false;
   #watchGeneration = 0;
+  #listing: SearchProviderListing = {
+    providers: [], dynamicIndexingEnabled: true, persistenceConfigured: false,
+  };
 
   constructor(api: LifecycleApi) {
     this.#api = api;
@@ -127,8 +135,10 @@ export class LifecycleWorkbench {
         this.#api.listCollections(),
       ]);
       this.#indexes = indexes.filter((index) => !index.immutable);
+      this.#listing = providers;
       this.renderIndexOptions();
-      this.renderProviders(providers);
+      this.renderProviders(providers.providers);
+      this.renderAvailability();
       this.renderAliases(aliases);
       this.renderModels(models);
       this.renderCollectionOptions(collections);
@@ -542,13 +552,39 @@ export class LifecycleWorkbench {
 
   private updateControls(): void {
     const hasIndex = Boolean(this.selectedIndex());
-    this.#persistButton.disabled = this.#busy || !hasIndex;
-    this.#sealButton.disabled = this.#busy || !hasIndex;
-    this.#setAliasButton.disabled = this.#busy || !hasIndex;
-    this.#reindexButton.disabled = this.#busy || !hasIndex;
+    const enabled = this.#listing.dynamicIndexingEnabled;
+    const canSave = this.#listing.persistenceConfigured;
+    this.#persistButton.disabled = this.#busy || !hasIndex || !enabled || !canSave;
+    this.#sealButton.disabled = this.#busy || !hasIndex || !enabled || !canSave;
+    this.#setAliasButton.disabled = this.#busy || !hasIndex || !enabled;
+    this.#reindexButton.disabled = this.#busy || !hasIndex || !enabled;
+    const reason = !enabled
+      ? "Live indexing is disabled by the server operator."
+      : !canSave ? "Saving to disk is not configured on this server: set search.persist.root." : "";
+    this.#persistButton.title = reason;
+    this.#sealButton.title = reason;
     this.#collectionSaveButton.disabled = this.#busy;
     this.#collectionDeleteButton.disabled = this.#busy;
     this.#refreshButton.disabled = this.#busy;
+  }
+
+  /**
+   * Browns out the live-index panel when the server cannot serve it, saying why once
+   * instead of failing on every click.
+   */
+  private renderAvailability(): void {
+    const panel = this.#indexSelect.closest<HTMLElement>(".lifecycle-panel");
+    const disabled = !this.#listing.dynamicIndexingEnabled;
+    panel?.classList.toggle("is-unavailable", disabled);
+    if (disabled) {
+      this.report(this.#workspaceStatus,
+        "Live indexing is disabled by the server operator, so nothing here can be saved, "
+        + "made read-only, aliased, or rebuilt.", true);
+    } else if (!this.#listing.persistenceConfigured) {
+      this.report(this.#workspaceStatus,
+        "Saving to disk is not configured on this server (search.persist.root), so live "
+        + "indexes last until the next restart.");
+    }
   }
 
   /** Reports catalog-level progress in the status line above both panels. */

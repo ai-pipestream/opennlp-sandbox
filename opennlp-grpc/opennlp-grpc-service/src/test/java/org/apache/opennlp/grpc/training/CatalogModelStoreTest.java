@@ -40,6 +40,8 @@ import org.apache.opennlp.grpc.v1.InstallModelStage;
 import org.apache.opennlp.grpc.v1.InstallModelProgress;
 import org.apache.opennlp.grpc.v1.InstalledModelDescriptor;
 import org.apache.opennlp.grpc.v1.ModelArtifactRole;
+import org.apache.opennlp.grpc.v1.PipelineStep;
+import org.apache.opennlp.grpc.v1.ModelArtifactFormat;
 import org.apache.opennlp.grpc.v1.ModelCatalogDescriptor;
 import org.apache.opennlp.grpc.vocabulary.DictionaryFormatRegistry;
 import org.apache.opennlp.grpc.vocabulary.VocabularyArtifactStore;
@@ -146,6 +148,152 @@ class CatalogModelStoreTest {
   }
 
   @Test
+  void subwordWordnetAndDoccatInstallationsWaitForARestart() throws Exception {
+    for (ModelArtifactRole role : List.of(
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SUBWORD_MODEL,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_WORDNET_LEXICON,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_DOC_CATEGORIZER)) {
+      final Path source = Files.createDirectories(
+          temporaryDirectory.resolve(role.name() + "-source"));
+      Files.write(source.resolve("model.bin"), new byte[] {1, 2, 3, 4});
+      final CatalogModel model = testModel(source, role,
+          "catalog-" + role.name().substring("MODEL_ARTIFACT_ROLE_".length())
+              .toLowerCase(java.util.Locale.ROOT).replace('_', '-'));
+      final TrainedModelEmbeddingProvider registry = registry();
+      final CatalogModelStore store = new CatalogModelStore(
+          temporaryDirectory.resolve(role.name() + "-catalog"), List.of(model),
+          trainingStore(registry), registry, copyingInstaller(source));
+      final InstalledModelDescriptor installed =
+          store.install(request(model), ignored -> { }, () -> false);
+      assertFalse(installed.getLoaded());
+      assertTrue(store.installedModels().getFirst().getCatalog().getRequiresRestart());
+    }
+  }
+
+  @Test
+  void catalogListingsCarryFormatUnlocksRestartAndFiles() throws Exception {
+    final Path source = Files.createDirectories(temporaryDirectory.resolve("ner-source"));
+    Files.write(source.resolve("en-ner-person.bin"), new byte[] {1, 2, 3, 4});
+    final CatalogModel model = testModel(source,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_NAME_FINDER, "person");
+    final TrainedModelEmbeddingProvider registry = registry();
+    final CatalogModelStore store = new CatalogModelStore(
+        temporaryDirectory.resolve("ner-catalog"), List.of(model), trainingStore(registry),
+        registry, copyingInstaller(source));
+
+    final ModelCatalogDescriptor listed = store.catalogModels().getFirst();
+
+    assertEquals(ModelArtifactFormat.MODEL_ARTIFACT_FORMAT_OPENNLP_BIN, listed.getFormat());
+    assertEquals(List.of(PipelineStep.PIPELINE_STEP_NER, PipelineStep.PIPELINE_STEP_GEOCODE),
+        listed.getUnlocksList());
+    assertTrue(listed.getRequiresRestart());
+    assertEquals(1, listed.getFilesCount());
+    assertEquals("en-ner-person.bin", listed.getFiles(0).getRelativePath());
+    assertEquals(4, listed.getFiles(0).getByteSize());
+    assertEquals(model.files().getFirst().sha256(), listed.getFiles(0).getSha256Hex());
+    // The installed record carries the same decorated descriptor.
+    store.install(request(model), ignored -> { }, () -> false);
+    assertEquals(listed, store.installedModels().getFirst().getCatalog());
+  }
+
+  @Test
+  void refusesToInstallWhenTheCatalogRootLacksFreeSpace() throws Exception {
+    final Path source = Files.createDirectories(temporaryDirectory.resolve("space-source"));
+    Files.write(source.resolve("model.bin"), new byte[] {1, 2, 3, 4});
+    final CatalogModel model = testModel(source,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER, "space-parser");
+    final TrainedModelEmbeddingProvider registry = registry();
+    final CatalogModelStore store = new CatalogModelStore(
+        temporaryDirectory.resolve("space-catalog"), List.of(model), trainingStore(registry),
+        registry, copyingInstaller(source), CatalogModelStore::deleteTree, () -> 3L);
+
+    final InsufficientDiskSpaceException failure = assertThrows(
+        InsufficientDiskSpaceException.class,
+        () -> store.install(request(model), ignored -> { }, () -> false));
+
+    assertTrue(failure.getMessage().contains("free space"), failure.getMessage());
+    assertTrue(store.installedModels().isEmpty());
+    try (var entries = Files.list(temporaryDirectory.resolve("space-catalog"))) {
+      assertEquals(0, entries.count(), "nothing may be staged when space is short");
+    }
+  }
+
+  @Test
+  void aCorruptDownloadIsReportedAsAChecksumFailure() throws Exception {
+    final Path source = Files.createDirectories(temporaryDirectory.resolve("corrupt-source"));
+    Files.write(source.resolve("model.bin"), new byte[] {1, 2, 3, 4});
+    final CatalogModel model = testModel(source,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER, "corrupt-parser");
+    final TrainedModelEmbeddingProvider registry = registry();
+    final CatalogModelStore store = new CatalogModelStore(
+        temporaryDirectory.resolve("corrupt-catalog"), List.of(model), trainingStore(registry),
+        registry, (file, target) -> {
+          Files.createDirectories(target.getParent());
+          Files.write(target, new byte[] {9, 9, 9, 9});
+        });
+
+    final CatalogChecksumException failure = assertThrows(CatalogChecksumException.class,
+        () -> store.install(request(model), ignored -> { }, () -> false));
+
+    assertTrue(failure.getMessage().contains("model.bin"), failure.getMessage());
+    assertTrue(store.installedModels().isEmpty());
+  }
+
+  @Test
+  void aFailedDownloadNamesItsSource() throws Exception {
+    final Path source = Files.createDirectories(temporaryDirectory.resolve("offline-source"));
+    Files.write(source.resolve("model.bin"), new byte[] {1, 2, 3, 4});
+    final CatalogModel model = testModel(source,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER, "offline-parser");
+    final TrainedModelEmbeddingProvider registry = registry();
+    final CatalogModelStore store = new CatalogModelStore(
+        temporaryDirectory.resolve("offline-catalog"), List.of(model), trainingStore(registry),
+        registry, (file, target) -> {
+          throw new IOException("connection reset");
+        });
+
+    final CatalogDownloadException failure = assertThrows(CatalogDownloadException.class,
+        () -> store.install(request(model), ignored -> { }, () -> false));
+
+    assertTrue(failure.getMessage().contains("example.invalid"), failure.getMessage());
+    assertTrue(failure.getMessage().contains("model.bin"), failure.getMessage());
+    // The transport detail is for the log, not the client.
+    assertFalse(failure.getMessage().contains("connection reset"), failure.getMessage());
+  }
+
+  @Test
+  void refusesASecondModelForAnOccupiedPipelineSlot() throws Exception {
+    final Path first = Files.createDirectories(temporaryDirectory.resolve("slot-first"));
+    Files.write(first.resolve("a.bin"), new byte[] {1, 2, 3, 4});
+    final Path second = Files.createDirectories(temporaryDirectory.resolve("slot-second"));
+    Files.write(second.resolve("b.bin"), new byte[] {5, 6, 7, 8});
+    // Two catalog entries with one model id claim the same model.parser.<id>.path slot.
+    final CatalogModel one = testModel(first,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER, "shared-parser");
+    final CatalogModel two = new CatalogModel(testModel(second,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER, "shared-parser").descriptor().toBuilder()
+        .setCatalogId("shared-parser-alternative").build(),
+        testModel(second, ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER, "shared-parser").files());
+    final TrainedModelEmbeddingProvider registry = registry();
+    final CatalogModelStore store = new CatalogModelStore(
+        temporaryDirectory.resolve("slot-catalog"), List.of(one, two), trainingStore(registry),
+        registry, (file, target) -> {
+          Files.createDirectories(target.getParent());
+          Files.copy((file.relativePath().toString().equals("a.bin") ? first : second)
+              .resolve(file.relativePath()), target);
+        });
+    store.install(request(one), ignored -> { }, () -> false);
+
+    final IllegalStateException failure = assertThrows(IllegalStateException.class,
+        () -> store.install(request(two), ignored -> { }, () -> false));
+
+    assertTrue(failure.getMessage().contains("model.parser.shared-parser.path"),
+        failure.getMessage());
+    assertTrue(failure.getMessage().contains("shared-parser-catalog"), failure.getMessage());
+    assertEquals(1, store.installedModels().size());
+  }
+
+  @Test
   void consentAndPinnedIdentityAreRequiredBeforeAnyDownload() throws Exception {
     final Path source = Files.createDirectories(temporaryDirectory.resolve("identity-source"));
     TrainingTestSupport.writeStaticModelDirectory(source);
@@ -244,7 +392,8 @@ class CatalogModelStoreTest {
     final IOException failure = assertThrows(IOException.class,
         () -> store.install(request(model), ignored -> { }, () -> false));
 
-    assertEquals("download failure", failure.getMessage());
+    assertTrue(failure.getMessage().contains("example.invalid"), failure.getMessage());
+    assertEquals("download failure", failure.getCause().getMessage());
     assertEquals(1, failure.getSuppressed().length);
     assertEquals("cleanup failure", failure.getSuppressed()[0].getMessage());
   }

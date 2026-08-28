@@ -43,6 +43,16 @@ live index.
 
 One PR. Infrastructure the tab goals plug into.
 
+Status 2026-08-28: landed. Browned-out chips with the three-outcome panel and
+`data-workbench-focus` jumps; provider flags for live indexing and persistence;
+`format`, `unlocks`, `requires_restart`, `files` on the catalog descriptor with
+tags on every card; roles and catalog entries for SentencePiece and WordNet
+(the document categorizer role exists, with no public model to pin yet);
+typed install failures with a free-space and slot check; the docker smoke runs
+a novel-sized analyze, a keep-alive probe, and the Playwright suite. Still
+open from this phase: a small read-only bundle inside the smoke image, so the
+Corpus search spec stops skipping.
+
 1. Brown-out: the three-outcome explanation panel and
    `data-workbench-jump` with `data-workbench-focus="<step>"` that scrolls
    Models & data to the fixing card (`research/analyze-tab/findings/model-gating.md` section 5).

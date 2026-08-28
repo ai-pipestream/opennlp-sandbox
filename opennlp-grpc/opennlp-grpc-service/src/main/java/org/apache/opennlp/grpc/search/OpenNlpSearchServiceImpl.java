@@ -235,6 +235,8 @@ public final class OpenNlpSearchServiceImpl
       StreamObserver<ListSearchProvidersResponse> responseObserver) {
     responseObserver.onNext(ListSearchProvidersResponse.newBuilder()
         .addAllProviders(dynamicRegistry.catalog().instances())
+        .setDynamicIndexingEnabled(dynamicRegistry.isEnabled())
+        .setPersistenceConfigured(dynamicRegistry.isPersistenceConfigured())
         .build());
     responseObserver.onCompleted();
   }

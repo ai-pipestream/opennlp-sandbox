@@ -70,6 +70,28 @@ class CatalogModelBootstrapTest {
   }
 
   @Test
+  void addsVerifiedSubwordWordnetAndDoccatPaths() throws Exception {
+    final Path root = temporaryDirectory.resolve("resource-catalog");
+    final CatalogModel subword = model(modelSource("spiece"), "spiece",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SUBWORD_MODEL);
+    final CatalogModel wordnet = model(modelSource("oewn"), "oewn",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_WORDNET_LEXICON);
+    final CatalogModel doccat = model(modelSource("topics"), "topics",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_DOC_CATEGORIZER);
+    install(root, List.of(subword, wordnet, doccat), subword);
+    install(root, List.of(subword, wordnet, doccat), wordnet);
+    install(root, List.of(subword, wordnet, doccat), doccat);
+
+    final Map<String, String> prepared = CatalogModelBootstrap.prepare(
+        Map.of(CatalogModelStore.CATALOG_ROOT_KEY, root.toString()),
+        List.of(subword, wordnet, doccat));
+
+    assertEquals(installedPath(root, subword), prepared.get("model.subword.spiece.path"));
+    assertEquals(installedPath(root, wordnet), prepared.get("model.wordnet.oewn.path"));
+    assertEquals(installedPath(root, doccat), prepared.get("model.doccat.topics.path"));
+  }
+
+  @Test
   void addsVerifiedParserAndChunkerPathsBeforeRegistryConstruction() throws Exception {
     final Path root = temporaryDirectory.resolve("catalog");
     final CatalogModel parser = model(modelSource("gum-parser"), "gum-parser",
@@ -186,7 +208,20 @@ class CatalogModelBootstrapTest {
         ModelArtifactRole.MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR, "de");
     final List<CatalogModel> catalog = List.of(first, second);
     install(root, catalog, first);
-    install(root, catalog, second);
+
+    // The store guards the slot at install time, so a live node never reaches the boot
+    // conflict; the second install is refused naming the slot and its occupant.
+    final IllegalStateException refused = assertThrows(IllegalStateException.class,
+        () -> install(root, catalog, second));
+    assertTrue(refused.getMessage().contains("model.pipeline.de.sentence_detector.path"),
+        refused.getMessage());
+    assertTrue(refused.getMessage().contains("de-sentence-catalog"), refused.getMessage());
+
+    // A root assembled from two nodes can still hold both; the bootstrap refuses to boot it.
+    final Path other = temporaryDirectory.resolve("slot-collision-other");
+    install(other, catalog, second);
+    Files.move(other.resolve(second.descriptor().getCatalogId()),
+        root.resolve(second.descriptor().getCatalogId()));
 
     final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
         () -> CatalogModelBootstrap.prepare(

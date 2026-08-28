@@ -169,6 +169,28 @@ export interface SearchProviderInstance {
   standard?: string;
 }
 
+/** The provider listing plus the two server-wide facts every search tab gates on. */
+export interface SearchProviderListing {
+  providers: SearchProviderInstance[];
+  /** False when the operator disabled live indexing; every live-index call then fails. */
+  dynamicIndexingEnabled: boolean;
+  /** True when live indexes can be saved to disk (search.persist.root is set). */
+  persistenceConfigured: boolean;
+}
+
+/**
+ * Reads the whole search-providers reply. A reply from a gateway that predates the flags
+ * reads as enabled and not persistable, which matches what such a server did.
+ */
+export function readSearchProviderListing(response: unknown): SearchProviderListing {
+  const envelope = record(response);
+  return {
+    providers: readSearchProviderInstances(response),
+    dynamicIndexingEnabled: envelope?.dynamicIndexingEnabled !== false,
+    persistenceConfigured: envelope?.persistenceConfigured === true,
+  };
+}
+
 /** Reads the search-providers listing JSON defensively. */
 export function readSearchProviderInstances(response: unknown): SearchProviderInstance[] {
   const envelope = record(response);

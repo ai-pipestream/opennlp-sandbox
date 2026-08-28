@@ -15,7 +15,7 @@
       the constant "Workbench index" (`semantic-workbench.ts:331`).
 - [ ] Give `LifecycleWorkbench` an `onIndexChanged` and clear `#workspace` when
       the picker is rebuilt.
-- [ ] Search capability block on `service-info` (dynamic indexing enabled,
+- [x] Search capability block on `service-info` (dynamic indexing enabled,
       providers, persistence configured); brown out the tab on 501 with the reason.
 - [ ] Tests: delete path, Add button, result list, error paths, `#index-count`,
       provider lock; update `test/index.test.ts:105` for the heading.

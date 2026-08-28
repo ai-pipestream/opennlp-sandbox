@@ -128,6 +128,26 @@ class OpenNlpSearchServiceImplTest {
             .map(SearchProviderInstance::getInstanceId).toList());
     assertTrue(observer.value.getProviders(0).getCapabilitiesList().contains(
         SearchProviderCapability.SEARCH_PROVIDER_CAPABILITY_VECTOR));
+    // The default service has live indexing on and no persistence root.
+    assertTrue(observer.value.getDynamicIndexingEnabled());
+    assertFalse(observer.value.getPersistenceConfigured());
+  }
+
+  @Test
+  void providerListingReportsPersistenceWhenARootIsConfigured(@TempDir Path root) {
+    final OpenNlpSearchServiceImpl service = new OpenNlpSearchServiceImpl(
+        new SearchIndexRegistry(List.of()),
+        new DynamicSearchIndexRegistry(
+            SearchProviderCatalog.discover(), new WorkspaceCheckpointStore(root)),
+        new StubEmbeddingProvider(EmbeddingRoute.getDefaultInstance(), 2, List.of(),
+            new float[] {1, 0}));
+    final CapturingObserver<ListSearchProvidersResponse> observer = new CapturingObserver<>();
+
+    service.listSearchProviders(ListSearchProvidersRequest.getDefaultInstance(), observer);
+
+    assertNull(observer.error);
+    assertTrue(observer.value.getDynamicIndexingEnabled());
+    assertTrue(observer.value.getPersistenceConfigured());
   }
 
   @Test

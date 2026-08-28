@@ -184,6 +184,15 @@ public final class DynamicSearchIndexRegistry implements AutoCloseable {
   }
 
   /**
+   * Reports whether live indexes can be saved to disk.
+   *
+   * @return {@code true} when a checkpoint root is configured.
+   */
+  public boolean isPersistenceConfigured() {
+    return checkpointStore != null;
+  }
+
+  /**
    * Validates a provider selection for a new live vector index.
    *
    * @param selector Provider selection, or the unset default instance.

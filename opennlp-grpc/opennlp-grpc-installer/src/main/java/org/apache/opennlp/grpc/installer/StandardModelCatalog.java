@@ -109,6 +109,8 @@ public final class StandardModelCatalog implements ModelCatalogProvider {
         539_431, "309de611ff7a8c4227c57086838d4783bcede8520026d7ad416c85a513567ce7",
         1_754_275, "c1d7e327acae631bd25936f2efc51c0110c9338fd6e52cfa3e3b234963e55cd5",
         1_039_483, "d9970825f87e95fbc4c54e7c35cb2af141a29fd65f21908d86e29ef9af2da914"));
+    models.add(catalog.sentencePieceModel());
+    models.add(catalog.openEnglishWordNet());
     models.sort(Comparator.comparing(model -> model.descriptor().getCatalogId()));
     return List.copyOf(models);
   }
@@ -160,6 +162,47 @@ public final class StandardModelCatalog implements ModelCatalogProvider {
         .build();
     return new CatalogModel(descriptor, List.of(new CatalogFile(Path.of(fileName),
         URI.create(UD_MODELS_ROOT + "/" + fileName), byteSize, sha256)));
+  }
+
+  /**
+   * Creates the pinned SentencePiece entry: the T5 small unigram model, a compact general
+   * English subword vocabulary that serves subword tokenization after a restart.
+   */
+  private CatalogModel sentencePieceModel() {
+    final String revision = "df1b051c49625cf57a3d0d8d3863ed4d13564fe4";
+    final String repository = "google-t5/t5-small";
+    return model("t5-small-sentencepiece", "T5 small SentencePiece model",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_SUBWORD_MODEL, "t5-small", repository, revision,
+        APACHE_2, APACHE_2_URI, 0, List.of("en"),
+        "32k-piece unigram SentencePiece model from T5 small, for subword tokenization",
+        List.of(file(repository, revision, "spiece.model", 791_656,
+            "d60acb128cf7b7f2536e8f38a5b18a05535c9e14c7a355904270e15b0945ea86")));
+  }
+
+  /**
+   * Creates the pinned Open English WordNet 2024 entry, served gzipped as published, for
+   * lexical expansion after a restart.
+   */
+  private CatalogModel openEnglishWordNet() {
+    final String fileName = "english-wordnet-2024.xml.gz";
+    final long byteSize = 12_912_118;
+    final ModelCatalogDescriptor descriptor = ModelCatalogDescriptor.newBuilder()
+        .setCatalogId("open-english-wordnet-2024")
+        .setDisplayName("Open English WordNet 2024")
+        .setRole(ModelArtifactRole.MODEL_ARTIFACT_ROLE_WORDNET_LEXICON)
+        .setModelId("oewn-2024")
+        .setSourceUri("https://en-word.net/")
+        .setRevision("2024")
+        .setLicenseName(CC_BY_4_0)
+        .setLicenseUri("https://creativecommons.org/licenses/by/4.0/")
+        .setByteSize(byteSize)
+        .addLanguages("en")
+        .setDescription("Open English WordNet 2024 in WN-LMF, for synonym and hypernym "
+            + "expansion")
+        .build();
+    return new CatalogModel(descriptor, List.of(new CatalogFile(Path.of(fileName),
+        URI.create("https://en-word.net/static/" + fileName), byteSize,
+        "e1f633b0a93758cae34ea27c44c4dad310a8af2467b155f99dd6673af697e875")));
   }
 
   /** Creates the pinned English distillation teacher entry. */
