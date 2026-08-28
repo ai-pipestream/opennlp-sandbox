@@ -269,6 +269,11 @@ requires the user to review and acknowledge the catalog entry's license before i
 installation. Model weights are downloaded from checksum-pinned revisions and are never bundled
 with the OpenNLP source or binary distribution.
 
+The catalog also offers the seven classic OpenNLP 1.5 English name finders (person,
+location, organization, date, money, percentage, time; Apache-2.0). Installing one publishes
+`model.name_finder.<type>.path` at the next restart, after which `PIPELINE_STEP_NER` serves
+that entity type.
+
 The standard catalog currently distinguishes these roles:
 
 | Catalog id | Upstream model | Role after installation |
@@ -418,6 +423,14 @@ server stub, accept the `StreamDocuments` stream, and reply with a summary when 
 sender half-closes at shutdown. Like the JSON gateway, the sink channel carries no
 credentials, so targets belong on loopback or a trusted network. An instance naming
 an unknown provider fails startup listing the available sink ids.
+
+### Gateway deadlines scale with input size
+
+The gateway's per-RPC deadline (`--request-timeout-seconds`, default 30) covers a
+sentence, not a novel. Analysis and formatting calls therefore add
+`--request-timeout-per-megabyte-seconds` (default 120) for every mebibyte of document text
+they submit, never exceeding `--long-running-timeout-seconds` (default 1800); pass `0` to
+disable the scaling.
 
 ## Run the optional web application
 
@@ -1067,9 +1080,12 @@ model.doccat_dl.sentiment.backend=onnx          # onnx (default, CPU) | cuda
 model.doccat_dl.sentiment.gpu_device_id=0       # only with backend=cuda
 ```
 
-These are served by `opennlp-dl`'s `DocumentCategorizerDL`, which splits and re-tokenizes the
-raw document text internally, and are reported in the catalog with `backend_id` `onnx` or
-`cuda`. They participate in `DOC_CATEGORIZE` exactly like classic models, except that, because
+These are served by the add-on's own batched ONNX classifier, which tokenizes the raw
+document text internally, feeds only the inputs the model declares (so DistilBERT exports
+without `token_type_ids` load like BERT exports), windows long inputs and averages their
+scores, and classifies a whole document's sentences in a few inference calls. They are
+reported in the catalog with `backend_id` `onnx` or `cuda`. An optional
+`lowercase=false` keeps case for cased vocabularies. They participate in `DOC_CATEGORIZE` exactly like classic models, except that, because
 they consume the raw text, they need no upstream `TOKENIZE` and run under a `DOC_CATEGORIZE`-only
 profile (classic maxent categorizers still require `TOKENIZE`).
 

@@ -72,4 +72,35 @@ public interface DocCategorizerModel {
    *     never {@code null}.
    */
   DocumentClassification classify(String documentText, String[] documentTokens);
+
+  /**
+   * Classifies several documents, in order. The default classifies one at a time; backends
+   * that batch inference (transformer models on an accelerator) override it so a document
+   * of thousands of sentences costs a handful of calls instead of one call per sentence.
+   *
+   * @param documentTexts The documents' whole texts. Must not be {@code null}.
+   * @param documentTokens The documents' tokens, one array per document in the same order;
+   *     each may be empty if no tokenizer ran. Must not be {@code null} and must match
+   *     {@code documentTexts} in size.
+   *
+   * @return One classification per document, in input order; never {@code null}.
+   *
+   * @throws IllegalArgumentException If the lists are {@code null} or differ in size.
+   */
+  default List<DocumentClassification> classifyBatch(
+      List<String> documentTexts, List<String[]> documentTokens) {
+    if (documentTexts == null || documentTokens == null) {
+      throw new IllegalArgumentException("documentTexts and documentTokens must not be null");
+    }
+    if (documentTexts.size() != documentTokens.size()) {
+      throw new IllegalArgumentException(
+          "documentTexts and documentTokens must have the same size");
+    }
+    final List<DocumentClassification> classifications =
+        new java.util.ArrayList<>(documentTexts.size());
+    for (int i = 0; i < documentTexts.size(); i++) {
+      classifications.add(classify(documentTexts.get(i), documentTokens.get(i)));
+    }
+    return classifications;
+  }
 }

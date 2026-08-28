@@ -91,6 +91,9 @@ enum ModelArtifactRole {
   MODEL_ARTIFACT_ROLE_POS_TAGGER = 7;
   // OpenNLP lemmatizer model activated on the next server start.
   MODEL_ARTIFACT_ROLE_LEMMATIZER = 8;
+  // A classic name finder model serving one entity type; published as
+  // model.name_finder.<model_id>.path at the next restart.
+  MODEL_ARTIFACT_ROLE_NAME_FINDER = 9;
 }
 
 // One immutable entry in the server-owned model catalog. Source_uri is a

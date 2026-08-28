@@ -592,7 +592,8 @@ public final class CatalogModelStore {
            MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR,
            MODEL_ARTIFACT_ROLE_TOKENIZER,
            MODEL_ARTIFACT_ROLE_POS_TAGGER,
-           MODEL_ARTIFACT_ROLE_LEMMATIZER -> true;
+           MODEL_ARTIFACT_ROLE_LEMMATIZER,
+           MODEL_ARTIFACT_ROLE_NAME_FINDER -> true;
       default -> false;
     };
   }

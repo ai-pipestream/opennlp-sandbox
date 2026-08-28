@@ -56,6 +56,9 @@ public final class StandardModelCatalog implements ModelCatalogProvider {
       "https://downloads.apache.org/opennlp/models/ud-models-1.3";
   private static final String UD_MODELS_SOURCE = "https://opennlp.apache.org/models.html";
   private static final String UD_MODELS_REVISION = "ud-models-1.3-2.5.4";
+  private static final String NER_15_ROOT = "https://opennlp.sourceforge.net/models-1.5";
+  private static final String NER_15_SOURCE = "https://opennlp.apache.org/models.html";
+  private static final String NER_15_REVISION = "models-1.5";
 
   /** Public no-arg constructor required by {@link java.util.ServiceLoader}. */
   public StandardModelCatalog() {
@@ -77,6 +80,20 @@ public final class StandardModelCatalog implements ModelCatalogProvider {
     models.add(catalog.potionRetrieval());
     models.add(catalog.gumChunker());
     models.add(catalog.gumParser());
+    models.add(catalog.classicNameFinder("person", "person names", 5_207_953,
+        "687a9263d96b37fced707c9f2ac0560f9edaf54658856395555901924f64dbe4"));
+    models.add(catalog.classicNameFinder("location", "locations", 5_110_658,
+        "8fe39e48633f4a86c4132d9c54b396a2d8e0460c1d71e3562dacf976984f447b"));
+    models.add(catalog.classicNameFinder("organization", "organizations", 5_297_172,
+        "0136c12afe1ac357142260c39bb879b7c9d121e41024114db5a6455b4fd5ba00"));
+    models.add(catalog.classicNameFinder("date", "dates", 5_030_307,
+        "1207030923852e1c244919d8f15d9e78c217323728fcf909029abd1703967855"));
+    models.add(catalog.classicNameFinder("money", "money amounts", 4_806_234,
+        "b80d577d7d319038457e19f814438965aee9ef5cd1f4f175418d4aece8e504b8"));
+    models.add(catalog.classicNameFinder("percentage", "percentages", 4_728_645,
+        "dbc57162ba9784ae7a851393584aa7193aa2eee6ce2ec962fa937c9fa5e08137"));
+    models.add(catalog.classicNameFinder("time", "time expressions", 4_724_357,
+        "8a815e6e6d353ee4c478f85dc19b201361e955a9820487f2cf3a2f43c9c78274"));
     models.addAll(catalog.udPipeline("de", "German", "gsd",
         15_043, "b5553223d30a0422e80a28e2ae766a92dd7181e229f0d6c73087951e84142c43",
         524_098, "32d0a7ff84fdd50f9e454340bed782d7269845bfa656e0c988cbb823dd628d6e",
@@ -247,6 +264,32 @@ public final class StandardModelCatalog implements ModelCatalogProvider {
         "en-gum-cc-by-4-parser.bin",
         "OpenNLP constituency parser trained from GUM academic and court trees; "
             + "held-out constituent F1 0.6750");
+  }
+
+  /**
+   * Creates one classic OpenNLP 1.5 English name finder entry. The model id is the entity
+   * type it recognizes, so installation publishes {@code model.name_finder.<type>.path}.
+   */
+  private CatalogModel classicNameFinder(
+      String entityType, String recognizes, long byteSize, String sha256) {
+    final String fileName = "en-ner-" + entityType + ".bin";
+    final CatalogFile file = new CatalogFile(Path.of(fileName),
+        URI.create(NER_15_ROOT + "/" + fileName), byteSize, sha256);
+    final ModelCatalogDescriptor descriptor = ModelCatalogDescriptor.newBuilder()
+        .setCatalogId("en-ner-1.5-" + entityType)
+        .setDisplayName("OpenNLP 1.5 English " + recognizes)
+        .setRole(ModelArtifactRole.MODEL_ARTIFACT_ROLE_NAME_FINDER)
+        .setModelId(entityType)
+        .setSourceUri(NER_15_SOURCE)
+        .setRevision(NER_15_REVISION)
+        .setLicenseName(APACHE_2)
+        .setLicenseUri(APACHE_2_URI)
+        .setByteSize(byteSize)
+        .addLanguages("en")
+        .setDescription("Classic maxent name finder for English " + recognizes
+            + " from the OpenNLP 1.5 model release; expects Penn-style tokenization")
+        .build();
+    return new CatalogModel(descriptor, List.of(file));
   }
 
   /** Creates one release-hosted OpenNLP model entry. */

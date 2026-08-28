@@ -49,11 +49,14 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
 
   private final OpenNlpAnalysisServiceGrpc.OpenNlpAnalysisServiceBlockingStub stub;
   private final OpenNlpAnalysisServiceGrpc.OpenNlpAnalysisServiceStub asyncStub;
+  private static final long MEBIBYTE = 1024L * 1024L;
+
   private final long timeoutNanos;
   private final long streamTimeoutNanos;
+  private final long timeoutPerMebibyteNanos;
 
   /**
-   * Creates a blocking gRPC adapter.
+   * Creates a blocking gRPC adapter whose unary deadlines do not scale with input size.
    *
    * @param channel The channel to the OpenNLP service.
    * @param timeout The deadline applied to every unary call.
@@ -61,6 +64,28 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
    * @throws IllegalArgumentException If an argument is {@code null} or a timeout is not positive.
    */
   GrpcAnalysisRpc(Channel channel, Duration timeout, Duration streamTimeout) {
+    this(channel, timeout, streamTimeout, Duration.ZERO);
+  }
+
+  /**
+   * Creates a blocking gRPC adapter.
+   *
+   * <p>Document-sized calls (analysis and formatting) carry a deadline of {@code timeout}
+   * plus {@code timeoutPerMebibyte} for every mebibyte of document text they submit, never
+   * exceeding {@code streamTimeout}, so a novel gets proportionally more time than a
+   * sentence without loosening the bound on small requests.</p>
+   *
+   * @param channel The channel to the OpenNLP service.
+   * @param timeout The base deadline applied to every unary call.
+   * @param streamTimeout The deadline applied to a whole batch AnalyzeStream call, and the
+   *     ceiling of every size-scaled unary deadline.
+   * @param timeoutPerMebibyte The extra deadline per mebibyte of submitted document text;
+   *     zero disables scaling.
+   * @throws IllegalArgumentException If an argument is {@code null}, a timeout is not
+   *     positive, or the per-mebibyte allowance is negative.
+   */
+  GrpcAnalysisRpc(Channel channel, Duration timeout, Duration streamTimeout,
+      Duration timeoutPerMebibyte) {
     if (channel == null) {
       throw new IllegalArgumentException("channel must not be null");
     }
@@ -76,10 +101,17 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
     if (streamTimeout.isZero() || streamTimeout.isNegative()) {
       throw new IllegalArgumentException("streamTimeout must be positive");
     }
+    if (timeoutPerMebibyte == null) {
+      throw new IllegalArgumentException("timeoutPerMebibyte must not be null");
+    }
+    if (timeoutPerMebibyte.isNegative()) {
+      throw new IllegalArgumentException("timeoutPerMebibyte must not be negative");
+    }
     this.stub = OpenNlpAnalysisServiceGrpc.newBlockingStub(channel);
     this.asyncStub = OpenNlpAnalysisServiceGrpc.newStub(channel);
     this.timeoutNanos = timeout.toNanos();
     this.streamTimeoutNanos = streamTimeout.toNanos();
+    this.timeoutPerMebibyteNanos = timeoutPerMebibyte.toNanos();
   }
 
   /** {@inheritDoc} */
@@ -103,13 +135,15 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
   /** {@inheritDoc} */
   @Override
   public FormatDocumentResponse formatDocument(FormatDocumentRequest request) {
-    return deadlineStub().formatDocument(request);
+    return sizedDeadlineStub(request.getDocument().getSerializedSize())
+        .formatDocument(request);
   }
 
   /** {@inheritDoc} */
   @Override
   public AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request) {
-    return deadlineStub().analyzeDocument(request);
+    return sizedDeadlineStub(request.getDocument().getRawTextBytes().size())
+        .analyzeDocument(request);
   }
 
   /** {@inheritDoc} */
@@ -176,5 +210,36 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
   /** @return A stub carrying the configured deadline. */
   private OpenNlpAnalysisServiceGrpc.OpenNlpAnalysisServiceBlockingStub deadlineStub() {
     return stub.withDeadlineAfter(timeoutNanos, TimeUnit.NANOSECONDS);
+  }
+
+  /**
+   * Returns a stub whose deadline grows with the submitted input size.
+   *
+   * @param inputBytes The bytes of document input the call submits.
+   * @return A stub carrying the size-scaled deadline.
+   */
+  private OpenNlpAnalysisServiceGrpc.OpenNlpAnalysisServiceBlockingStub sizedDeadlineStub(
+      long inputBytes) {
+    return stub.withDeadlineAfter(
+        scaledDeadlineNanos(timeoutNanos, timeoutPerMebibyteNanos, streamTimeoutNanos,
+            inputBytes),
+        TimeUnit.NANOSECONDS);
+  }
+
+  /**
+   * Computes a deadline that grows linearly with input size within a fixed ceiling.
+   *
+   * @param baseNanos The deadline for an empty input.
+   * @param perMebibyteNanos The extra deadline per mebibyte of input.
+   * @param ceilingNanos The largest deadline ever granted.
+   * @param inputBytes The input size; negative values count as empty.
+   * @return {@code min(ceiling, base + perMebibyte * inputBytes / 1 MiB)}, never below
+   *     the base unless the ceiling is smaller.
+   */
+  static long scaledDeadlineNanos(
+      long baseNanos, long perMebibyteNanos, long ceilingNanos, long inputBytes) {
+    final double allowance = perMebibyteNanos * (Math.max(0, inputBytes) / (double) MEBIBYTE);
+    final double scaled = baseNanos + allowance;
+    return (long) Math.min(ceilingNanos, scaled);
   }
 }

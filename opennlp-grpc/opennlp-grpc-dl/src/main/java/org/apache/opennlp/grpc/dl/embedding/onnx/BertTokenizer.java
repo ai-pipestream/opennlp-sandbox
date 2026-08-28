@@ -40,7 +40,7 @@ import opennlp.tools.util.StringUtil;
  * contributed to {@code opennlp-tools}; it should be removed in favor of the
  * upstream class once a release containing it is available.</p>
  */
-final class BertTokenizer {
+public final class BertTokenizer {
 
   /**
    * Maximum characters per word before the word is replaced with the unknown
@@ -64,7 +64,7 @@ final class BertTokenizer {
    * @param separatorToken      The SEP token.
    * @param unknownToken        The UNK token.
    */
-  BertTokenizer(Set<String> vocabulary, boolean lowerCase,
+  public BertTokenizer(Set<String> vocabulary, boolean lowerCase,
       String classificationToken, String separatorToken, String unknownToken) {
     if (vocabulary == null) {
       throw new IllegalArgumentException("vocabulary must not be null");
@@ -84,7 +84,7 @@ final class BertTokenizer {
    *
    * @return The wordpiece tokens.
    */
-  String[] tokenize(String text) {
+  public String[] tokenize(String text) {
     final List<String> tokens = new ArrayList<>();
     tokens.add(classificationToken);
     final String normalized = normalize(text);

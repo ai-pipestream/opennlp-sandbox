@@ -57,6 +57,19 @@ class CatalogModelBootstrapTest {
   }
 
   @Test
+  void addsVerifiedNameFinderPathsKeyedByEntityType() throws Exception {
+    final Path root = temporaryDirectory.resolve("ner-catalog");
+    final CatalogModel person = model(modelSource("person"), "person",
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_NAME_FINDER);
+    install(root, List.of(person), person);
+
+    final Map<String, String> prepared = CatalogModelBootstrap.prepare(
+        Map.of(CatalogModelStore.CATALOG_ROOT_KEY, root.toString()), List.of(person));
+
+    assertEquals(installedPath(root, person), prepared.get("model.name_finder.person.path"));
+  }
+
+  @Test
   void addsVerifiedParserAndChunkerPathsBeforeRegistryConstruction() throws Exception {
     final Path root = temporaryDirectory.resolve("catalog");
     final CatalogModel parser = model(modelSource("gum-parser"), "gum-parser",

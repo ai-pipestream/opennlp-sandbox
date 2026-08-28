@@ -148,8 +148,8 @@ public final class CatalogModelBootstrap {
 
   /**
    * Returns the startup configuration key one restart-only role publishes to, or
-   * {@code null} for roles that serve without a restart. Parser and chunker keys are
-   * per model id; the sentence detector, tokenizer, POS tagger, and lemmatizer publish
+   * {@code null} for roles that serve without a restart. Parser, chunker, and name finder
+   * keys are per model id (a name finder's model id is its entity type); the sentence detector, tokenizer, POS tagger, and lemmatizer publish
    * into the {@code model.pipeline.<lang>} set of the pack's declared language, so
    * packs for different languages coexist and route by language at request time.
    */
@@ -159,6 +159,7 @@ public final class CatalogModelBootstrap {
     return switch (descriptor.getRole()) {
       case MODEL_ARTIFACT_ROLE_PARSER -> "model.parser." + modelId + ".path";
       case MODEL_ARTIFACT_ROLE_CHUNKER -> "model.chunker." + modelId + ".path";
+      case MODEL_ARTIFACT_ROLE_NAME_FINDER -> "model.name_finder." + modelId + ".path";
       case MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR ->
           pipelineKey(descriptor, "sentence_detector");
       case MODEL_ARTIFACT_ROLE_TOKENIZER -> pipelineKey(descriptor, "tokenizer");

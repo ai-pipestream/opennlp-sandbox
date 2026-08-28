@@ -37,8 +37,39 @@ import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpAnalysisServiceGrpc;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GrpcAnalysisRpcTest {
+
+  @Test
+  void deadlinesScaleWithInputSizeUnderTheLongRunningCeiling() {
+    final long base = Duration.ofSeconds(30).toNanos();
+    final long perMebibyte = Duration.ofSeconds(120).toNanos();
+    final long ceiling = Duration.ofSeconds(1800).toNanos();
+
+    // An empty input keeps the base deadline; negative sizes count as empty.
+    assertEquals(base, GrpcAnalysisRpc.scaledDeadlineNanos(base, perMebibyte, ceiling, 0));
+    assertEquals(base, GrpcAnalysisRpc.scaledDeadlineNanos(base, perMebibyte, ceiling, -5));
+    // Pride and Prejudice (694 478 bytes) earns about 79 extra seconds.
+    final long novel = GrpcAnalysisRpc.scaledDeadlineNanos(base, perMebibyte, ceiling, 694_478);
+    assertEquals(109, Duration.ofNanos(novel).toSeconds());
+    // Scaling never exceeds the long-running ceiling.
+    assertEquals(ceiling, GrpcAnalysisRpc.scaledDeadlineNanos(
+        base, perMebibyte, ceiling, 100L * 1024 * 1024));
+    // Zero allowance disables scaling entirely.
+    assertEquals(base, GrpcAnalysisRpc.scaledDeadlineNanos(base, 0, ceiling, 694_478));
+  }
+
+  @Test
+  void rejectsANegativePerMebibyteAllowance() {
+    final ManagedChannel channel = InProcessChannelBuilder.forName("unused").build();
+    try {
+      assertThrows(IllegalArgumentException.class, () -> new GrpcAnalysisRpc(
+          channel, Duration.ofSeconds(1), Duration.ofSeconds(2), Duration.ofSeconds(-1)));
+    } finally {
+      channel.shutdownNow();
+    }
+  }
 
   @Test
   void delegatesAllUnaryGatewayCalls() throws Exception {

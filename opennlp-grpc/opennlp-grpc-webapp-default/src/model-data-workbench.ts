@@ -27,7 +27,7 @@ import { errorMessage, requiredElement } from "./ui-utils";
 
 export type ModelArtifactRole =
   "teacher" | "static" | "parser" | "chunker"
-  | "sentence-detector" | "tokenizer" | "pos-tagger" | "lemmatizer";
+  | "sentence-detector" | "tokenizer" | "pos-tagger" | "lemmatizer" | "name-finder";
 
 export interface ModelCatalogSummary {
   catalogId: string;
@@ -538,7 +538,8 @@ export function readModelCatalog(
       : model.role === "MODEL_ARTIFACT_ROLE_SENTENCE_DETECTOR" ? "sentence-detector"
       : model.role === "MODEL_ARTIFACT_ROLE_TOKENIZER" ? "tokenizer"
       : model.role === "MODEL_ARTIFACT_ROLE_POS_TAGGER" ? "pos-tagger"
-      : model.role === "MODEL_ARTIFACT_ROLE_LEMMATIZER" ? "lemmatizer" : undefined;
+      : model.role === "MODEL_ARTIFACT_ROLE_LEMMATIZER" ? "lemmatizer"
+      : model.role === "MODEL_ARTIFACT_ROLE_NAME_FINDER" ? "name-finder" : undefined;
     if (!role) {
       throw new Error(`Catalog model '${catalogId}' has an unsupported role.`);
     }
@@ -639,7 +640,7 @@ function byteLabel(bytes: number): string {
 function restartRole(role: ModelArtifactRole | undefined): boolean {
   return role === "parser" || role === "chunker"
     || role === "sentence-detector" || role === "tokenizer"
-    || role === "pos-tagger" || role === "lemmatizer";
+    || role === "pos-tagger" || role === "lemmatizer" || role === "name-finder";
 }
 
 function roleLabel(role: ModelArtifactRole): string {

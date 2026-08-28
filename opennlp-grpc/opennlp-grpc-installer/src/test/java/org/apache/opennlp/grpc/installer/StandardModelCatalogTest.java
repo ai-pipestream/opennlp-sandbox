@@ -44,8 +44,9 @@ class StandardModelCatalogTest {
         "de-ud-gsd-lemmas",
         "de-ud-gsd-pos",
         "de-ud-gsd-sentence",
-        "de-ud-gsd-tokens",
-        "es-ud-gsd-lemmas",
+        "de-ud-gsd-tokens", "en-ner-1.5-date", "en-ner-1.5-location",
+            "en-ner-1.5-money", "en-ner-1.5-organization", "en-ner-1.5-percentage",
+            "en-ner-1.5-person", "en-ner-1.5-time", "es-ud-gsd-lemmas",
         "es-ud-gsd-pos",
         "es-ud-gsd-sentence",
         "es-ud-gsd-tokens",
@@ -107,6 +108,25 @@ class StandardModelCatalogTest {
         total += file.byteSize();
       }
       assertEquals(total, model.descriptor().getByteSize());
+    }
+  }
+
+  @Test
+  void offersTheSevenClassicEnglishNameFinders() {
+    final List<CatalogModel> finders = new StandardModelCatalog().models().stream()
+        .filter(model -> model.descriptor().getRole()
+            == org.apache.opennlp.grpc.v1.ModelArtifactRole.MODEL_ARTIFACT_ROLE_NAME_FINDER)
+        .toList();
+
+    // Catalog entries list in catalog-id order.
+    assertEquals(List.of("date", "location", "money", "organization", "percentage",
+            "person", "time"),
+        finders.stream().map(model -> model.descriptor().getModelId()).toList());
+    for (CatalogModel finder : finders) {
+      assertEquals(1, finder.files().size());
+      assertTrue(finder.files().getFirst().source().toString()
+          .startsWith("https://opennlp.sourceforge.net/models-1.5/en-ner-"));
+      assertEquals("Apache-2.0", finder.descriptor().getLicenseName());
     }
   }
 

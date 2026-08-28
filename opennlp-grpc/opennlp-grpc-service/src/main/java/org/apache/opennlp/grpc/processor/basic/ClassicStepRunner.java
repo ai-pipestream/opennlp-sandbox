@@ -931,15 +931,29 @@ final class ClassicStepRunner {
       // The validator resolves and checks the id up front, so a null here is a server-side bug.
       throw AnalysisException.internal("Sentiment model '" + modelId + "' is not registered", null);
     }
-    int classifiedSentences = 0;
-    for (int i = 0; i < document.getSentencesCount(); i++) {
+    // One batched call for the whole document: a transformer backend scores thousands of
+    // sentences in a few inference calls instead of one call per sentence.
+    final int sentenceCount = document.getSentencesCount();
+    final List<String> sentenceTexts = new ArrayList<>(sentenceCount);
+    final List<String[]> sentenceTokens = new ArrayList<>(sentenceCount);
+    for (int i = 0; i < sentenceCount; i++) {
       final AnnotatedSentence sentence = document.getSentences(i);
       final AnnotationSpan span = sentence.getSentenceSpan();
-      final String sentenceText = rawText.substring(span.getStart(), span.getEnd());
-      final DocumentClassification classification =
-          model.classify(sentenceText, tokenTexts(sentence));
+      sentenceTexts.add(rawText.substring(span.getStart(), span.getEnd()));
+      sentenceTokens.add(tokenTexts(sentence));
+    }
+    final List<DocumentClassification> classifications =
+        model.classifyBatch(sentenceTexts, sentenceTokens);
+    if (classifications == null || classifications.size() != sentenceCount) {
+      throw AnalysisException.internal("Sentiment model '" + modelId + "' returned "
+          + (classifications == null ? "no" : classifications.size())
+          + " classification(s) for " + sentenceCount + " sentence(s)", null);
+    }
+    int classifiedSentences = 0;
+    for (int i = 0; i < sentenceCount; i++) {
+      final DocumentClassification classification = classifications.get(i);
       final String label = classification.getBestCategory();
-      document.setSentences(i, sentence.toBuilder()
+      document.setSentences(i, document.getSentences(i).toBuilder()
           .setSentimentLabel(label)
           .setSentimentConfidence(
               (float) classification.getCategoryScoresOrDefault(label, 0.0d))

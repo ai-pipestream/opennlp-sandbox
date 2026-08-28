@@ -28,23 +28,18 @@ import java.util.List;
 import java.util.Map;
 
 import ai.onnxruntime.OrtException;
-import opennlp.dl.InferenceOptions;
-import opennlp.dl.doccat.DocumentCategorizerDL;
-import opennlp.dl.doccat.scoring.AverageClassificationScoringStrategy;
 import opennlp.tools.util.StringUtil;
 import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
 import org.apache.opennlp.grpc.spi.model.ModelConfigSupport;
-import org.apache.opennlp.grpc.spi.model.OpenNlpDocCategorizerModel;
 import org.apache.opennlp.grpc.spi.model.DocCategorizerBackendFactory;
 
 /**
- * Built-in document categorization backend for ONNX transformer categorizers ({@code opennlp-dl}'s
- * {@link DocumentCategorizerDL}). Reads {@code model.doccat_dl.<id>.<attr>} entries; the categories
- * a model emits are read from its categories file (one category per line, line number = output
- * index).
+ * ServiceLoader factory for ONNX document categorizers served by the add-on's batched
+ * transformer classifier. Reads {@code model.doccat_dl.<id>.<attr>} entries; the categories
+ * file lists one category per line in output index order.
  */
 public final class OnnxDocCategorizerBackendFactory implements DocCategorizerBackendFactory {
 
@@ -82,7 +77,7 @@ public final class OnnxDocCategorizerBackendFactory implements DocCategorizerBac
 
   /** Resolved configuration for one ONNX document categorizer. */
   private record DlConfig(String id, String modelPath, String vocabPath, String categoriesPath,
-      String backend, int gpuDeviceId) {
+      String backend, int gpuDeviceId, boolean lowerCase) {
   }
 
   /** Parses ONNX document-categorizer configuration entries. */
@@ -141,7 +136,13 @@ public final class OnnxDocCategorizerBackendFactory implements DocCategorizerBac
             "ONNX document categorizer '" + id + "' has a non-numeric gpu_device_id: " + gpu);
       }
     }
-    return new DlConfig(id, modelPath, vocabPath, categoriesPath, backend, gpuDeviceId);
+    final String lowercase = attrs.getOrDefault("lowercase", "true").trim();
+    if (!"true".equalsIgnoreCase(lowercase) && !"false".equalsIgnoreCase(lowercase)) {
+      throw AnalysisException.invalidArgument(
+          "ONNX document categorizer '" + id + "' has a non-boolean lowercase: " + lowercase);
+    }
+    return new DlConfig(id, modelPath, vocabPath, categoriesPath, backend, gpuDeviceId,
+        Boolean.parseBoolean(lowercase));
   }
 
   /** Returns a required ONNX configuration attribute. */
@@ -160,33 +161,29 @@ public final class OnnxDocCategorizerBackendFactory implements DocCategorizerBac
     final File vocab = requireReadable(config.id(), "vocab", config.vocabPath());
     final File categoriesFile = requireReadable(config.id(), "categories", config.categoriesPath());
     try {
-      final Map<Integer, String> categories = loadCategories(categoriesFile);
-      final InferenceOptions inferenceOptions = new InferenceOptions();
-      if (BACKEND_CUDA.equals(config.backend())) {
-        inferenceOptions.setGpu(true);
-        inferenceOptions.setGpuDeviceId(config.gpuDeviceId());
+      final Map<Integer, String> categoriesByIndex = loadCategories(categoriesFile);
+      final List<String> categories = new ArrayList<>(categoriesByIndex.size());
+      for (int i = 0; i < categoriesByIndex.size(); i++) {
+        categories.add(categoriesByIndex.get(i));
       }
-      final DocumentCategorizerDL categorizer = new DocumentCategorizerDL(
-          model, vocab, categories, new AverageClassificationScoringStrategy(), inferenceOptions);
+      final OnnxDocumentClassifier classifier = new OnnxDocumentClassifier(model, vocab,
+          categories, BACKEND_CUDA.equals(config.backend()), config.gpuDeviceId(),
+          config.lowerCase());
       logger.info("Loaded ONNX document categorizer '{}' ({} categories, backend '{}') from {}",
           config.id(), categories.size(), config.backend(), config.modelPath());
-      return new OpenNlpDocCategorizerModel(config.id(), config.backend(), categorizer,
-          OpenNlpDocCategorizerModel.InputMode.RAW_TEXT);
+      return new OnnxDocCategorizerModel(config.id(), config.backend(), classifier);
     } catch (IOException e) {
       throw AnalysisException.internal(
           "Failed to load ONNX document categorizer '" + config.id() + "'", e);
     } catch (OrtException e) {
       throw AnalysisException.internal(
           "Failed to create ONNX session for document categorizer '" + config.id() + "'", e);
+    } catch (IllegalArgumentException e) {
+      throw AnalysisException.invalidArgument(
+          "ONNX document categorizer '" + config.id() + "' is invalid: " + e.getMessage());
     }
   }
 
-  /**
-   * Reads a category-per-line file, mapping each line number (0-based) to its category. A blank
-   * line is rejected rather than skipped: skipping would leave a gap in the index map, and since
-   * the line number is the model's output index, a gap silently misaligns scores to categories
-   * (and yields a null category / NPE at model load).
-   */
   private static Map<Integer, String> loadCategories(File categoriesFile) throws IOException {
     final List<String> lines = Files.readAllLines(categoriesFile.toPath(), StandardCharsets.UTF_8);
     final Map<Integer, String> categories = new HashMap<>();

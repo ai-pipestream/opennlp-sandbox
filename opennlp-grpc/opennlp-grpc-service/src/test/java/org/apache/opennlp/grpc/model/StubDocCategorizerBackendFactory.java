@@ -39,6 +39,10 @@ public final class StubDocCategorizerBackendFactory implements DocCategorizerBac
    * registry normalizes ids at registration so a mixed-case id is still found. */
   public static final String KEY_RAW_ID = "model.doccat_stub.raw_id";
 
+  /** Batched classification calls observed across every stub model, for analyzer tests. */
+  public static final java.util.concurrent.atomic.AtomicInteger BATCH_CALLS =
+      new java.util.concurrent.atomic.AtomicInteger();
+
   @Override
   public String factoryId() {
     return FACTORY_ID;
@@ -89,6 +93,13 @@ public final class StubDocCategorizerBackendFactory implements DocCategorizerBac
           .setBestCategory(category)
           .putCategoryScores(category, 1.0d)
           .build();
+    }
+
+    @Override
+    public List<DocumentClassification> classifyBatch(
+        List<String> documentTexts, List<String[]> documentTokens) {
+      BATCH_CALLS.incrementAndGet();
+      return DocCategorizerModel.super.classifyBatch(documentTexts, documentTokens);
     }
   }
 
