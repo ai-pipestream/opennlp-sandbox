@@ -1085,7 +1085,10 @@ document text internally, feeds only the inputs the model declares (so DistilBER
 without `token_type_ids` load like BERT exports), windows long inputs and averages their
 scores, and classifies a whole document's sentences in a few inference calls. They are
 reported in the catalog with `backend_id` `onnx` or `cuda`. An optional
-`lowercase=false` keeps case for cased vocabularies. They participate in `DOC_CATEGORIZE` exactly like classic models, except that, because
+`lowercase=false` keeps case for cased vocabularies. On the `cuda` backend prefer the
+fp32 export over an int8 `model_quantized.onnx`: ONNX Runtime's CUDA provider cannot run
+most quantized operators and partitions them to the CPU, which turned a 1 ms/sentence
+model into a 10 ms/sentence one in testing. They participate in `DOC_CATEGORIZE` exactly like classic models, except that, because
 they consume the raw text, they need no upstream `TOKENIZE` and run under a `DOC_CATEGORIZE`-only
 profile (classic maxent categorizers still require `TOKENIZE`).
 

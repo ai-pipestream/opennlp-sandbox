@@ -276,7 +276,7 @@ public final class StandardModelCatalog implements ModelCatalogProvider {
     final CatalogFile file = new CatalogFile(Path.of(fileName),
         URI.create(NER_15_ROOT + "/" + fileName), byteSize, sha256);
     final ModelCatalogDescriptor descriptor = ModelCatalogDescriptor.newBuilder()
-        .setCatalogId("en-ner-1.5-" + entityType)
+        .setCatalogId("en-ner-15-" + entityType)
         .setDisplayName("OpenNLP 1.5 English " + recognizes)
         .setRole(ModelArtifactRole.MODEL_ARTIFACT_ROLE_NAME_FINDER)
         .setModelId(entityType)

@@ -44,9 +44,9 @@ class StandardModelCatalogTest {
         "de-ud-gsd-lemmas",
         "de-ud-gsd-pos",
         "de-ud-gsd-sentence",
-        "de-ud-gsd-tokens", "en-ner-1.5-date", "en-ner-1.5-location",
-            "en-ner-1.5-money", "en-ner-1.5-organization", "en-ner-1.5-percentage",
-            "en-ner-1.5-person", "en-ner-1.5-time", "es-ud-gsd-lemmas",
+        "de-ud-gsd-tokens", "en-ner-15-date", "en-ner-15-location",
+            "en-ner-15-money", "en-ner-15-organization", "en-ner-15-percentage",
+            "en-ner-15-person", "en-ner-15-time", "es-ud-gsd-lemmas",
         "es-ud-gsd-pos",
         "es-ud-gsd-sentence",
         "es-ud-gsd-tokens",
@@ -127,6 +127,22 @@ class StandardModelCatalogTest {
       assertTrue(finder.files().getFirst().source().toString()
           .startsWith("https://opennlp.sourceforge.net/models-1.5/en-ner-"));
       assertEquals("Apache-2.0", finder.descriptor().getLicenseName());
+    }
+  }
+
+  @Test
+  void everyCatalogIdUsesOnlyLowercaseLettersDigitsAndHyphens() {
+    // The server's catalog store enforces this alphabet at startup; a violating entry
+    // would take the whole server down, so the catalog pins it here.
+    for (CatalogModel model : new StandardModelCatalog().models()) {
+      final String id = model.descriptor().getCatalogId();
+      assertTrue(!id.isBlank() && id.equals(id.trim()), "blank catalog id");
+      for (int i = 0; i < id.length(); i++) {
+        final char character = id.charAt(i);
+        assertTrue((character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9') || character == '-',
+            "catalog id '" + id + "' has an unsupported character '" + character + "'");
+      }
     }
   }
 
