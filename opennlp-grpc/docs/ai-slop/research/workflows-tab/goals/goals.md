@@ -6,18 +6,18 @@ Cross-tab renames (workspace, checkpoint, seal) are listed in
 
 ## P1
 
-- [ ] Drive "Automatic defaults" / "Defaults are ready" badges from state; show the
+- [x] Drive "Automatic defaults" / "Defaults are ready" badges from state; show the
       real reason on the disabled run button (`index.html:395,430`, `corpus-workflow.ts:153`).
-- [ ] Split the "no writable artifact root or teacher model" message into two
+- [x] Split the "no writable artifact root or teacher model" message into two
       states; the teacher state links to Models & data with `data-workbench-jump="models"`.
-- [ ] Degraded mode: when no teacher or artifact root exists but an embedding model
+- [x] Degraded mode: when no teacher or artifact root exists but an embedding model
       is installed, run stages 1, 4, 5, 6 only (analyze, index, search).
-- [ ] Add a "How to use" `details.help-callout` (every other tab has one) with the
+- [x] Add a "How to use" `details.help-callout` (every other tab has one) with the
       explainer drafted in `findings/journey-and-vocabulary.md` section 5.
-- [ ] Add a sample corpus button (Alice and Pride and Prejudice chapters are already
+- [x] Add a sample corpus button (Alice and Pride and Prejudice chapters are already
       bundled for the Analyze tab).
 - [ ] State next to the storage choice that exact storage cannot be saved to disk.
-- [ ] Refresh the Lifecycle picker in `onIndexChanged` (`main.ts:373-376`).
+- [x] Refresh the Lifecycle picker in `onIndexChanged` (`main.ts:373-376`).
 - [x] Rename tab and headings: "Workflows" to "Build index", "Workflow name" to
       "Index name", "Your text collection" to "Your documents", "Max corpus terms"
       to "Max vocabulary terms".

@@ -2,14 +2,14 @@
 
 ## P1
 
-- [ ] Brown out catalog cards when `installsEnabled` is false, with the reason
+- [x] Brown out catalog cards when `installsEnabled` is false, with the reason
       inline; unit test for the disabled state; set `model.catalog_root` in the
       docker demos so installs work there.
 - [x] Add `name-finder` to `roleLabel` (`model-data-workbench.ts:653`) and extend
       the role test to all 9 roles.
 - [ ] Inbound jumps: Analyze "Needs model or data" rows and the Trainer no-teacher
       state jump here and scroll to the fixing card.
-- [ ] Outbound jumps after an immediate install: Analyze with the model preselected;
+- [x] Outbound jumps after an immediate install: Analyze with the model preselected;
       Trainer after a teacher install.
 - [x] Unlock tags per card derived from `role` (feature labels, tab, immediate or
       restart), using the table in `findings/unlocks-and-tags.md`.

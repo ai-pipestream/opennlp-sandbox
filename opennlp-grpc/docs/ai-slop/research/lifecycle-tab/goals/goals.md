@@ -5,23 +5,23 @@
 - [x] Make the `flat_float` provider persistable (declare PERSISTENT, write and
       reload the array); red service test first. Until then gate checkpoint and
       read-only buttons on the capability with the reason shown.
-- [ ] Empty state: "No live indexes yet. Build one on Build index or add analyzed
+- [x] Empty state: "No live indexes yet. Build one on Build index or add analyzed
       documents on Live index search." with two `data-workbench-jump` buttons.
 - [x] Rename "Save checkpoint" to "Save to disk" and "Seal as read-only" to
       "Make read-only"; fact row "Read-only: yes/no";
       helper text "accepts no further documents, stays searchable, cannot be undone".
-- [ ] Keep read-only live indexes listed (flagged read-only) instead of filtering them
+- [x] Keep read-only live indexes listed (flagged read-only) instead of filtering them
       out (`lifecycle-workbench.ts:129`); confirmation links to Live index search.
-- [ ] Define "collection" under the heading and in a flyout
+- [x] Define "collection" under the heading and in a flyout
       (`findings/state-machine-and-vocabulary.md` section 3.3).
 - [x] Rename the panel "Vocabulary drift" to "Vocabulary coverage"; add the flyout;
       threshold label "Alert after this many out-of-vocabulary terms"; show
       "not measured" when no vocabulary artifact is set.
-- [ ] Validate the vocabulary artifact id before saving a collection: "No vocabulary
+- [x] Validate the vocabulary artifact id before saving a collection: "No vocabulary
       artifact with that id. Learn one on the Trainer tab." with a jump.
-- [ ] Tests: `test/lifecycle-workbench.test.ts` (empty state, capability gating,
+- [x] Tests: `test/lifecycle-workbench.test.ts` (empty state, capability gating,
       post-seal listing); gateway test for 412 on a non-persistent provider.
-- [ ] Correct `docs/rfc/opennlp-search-query-model.md:146` (seal sets a flag on a
+- [x] Correct `docs/rfc/opennlp-search-query-model.md:146` (seal sets a flag on a
       checkpoint; it does not produce a bundle).
 
 ## P2

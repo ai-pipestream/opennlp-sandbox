@@ -75,6 +75,14 @@ against the built image in CI or the release checklist.
 Each is one PR: help callout, empty states, jumps, tags, remaining P1 and P2
 items from that theme's `goals/goals.md`, and the tab's e2e spec.
 
+Status 2026-08-28: landed as one commit per tab. Every tab now has a help
+callout, an empty state that names where its first object comes from, and
+jumps at each dead end the audits listed. Left for later, and still unticked
+in the theme goals: per-tab Playwright specs for Models & data, Trainer and
+Lifecycle (the unit suites cover their controllers), a `ListVocabularies`
+RPC behind a vocabulary picker, state chips on the index pickers, and the
+"Download .pb" server-side formatting route.
+
 1. Analyze (`research/analyze-tab/goals`): add-to-index feedback, open-hit
    switch, size threshold shared by JSON view, copy and download, layer titles
    from `identity.standard`.

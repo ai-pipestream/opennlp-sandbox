@@ -2,16 +2,16 @@
 
 ## P1
 
-- [ ] Split the disabled-training message into "no artifact root" and "no
+- [x] Split the disabled-training message into "no artifact root" and "no
       teacher installed"; the latter links to Models & data (`data-workbench-jump="models"`)
       and disables the Distill button instead of scolding after the click.
-- [ ] Say in the help callout that a distilled model serves immediately under its
+- [x] Say in the help callout that a distilled model serves immediately under its
       artifact id, with no restart.
-- [ ] Add `license`, `languages`, `teacher_reference`, `teacher_revision` to
+- [x] Add `license`, `languages`, `teacher_reference`, `teacher_revision` to
       `StaticModelDescriptor` and fill them from the teacher's catalog entry at
       distillation time.
-- [ ] Label the `family` value as "Tokenizer: WordPiece"; fallback "tokenizer family unknown".
-- [ ] Tests: no-teacher branch, dictionary import through the UI, delete through
+- [x] Label the `family` value as "Tokenizer: WordPiece"; fallback "tokenizer family unknown".
+- [x] Tests: no-teacher branch, dictionary import through the UI, delete through
       the UI, `onModelsChanged` populating the Analyze embedding selector.
 
 ## P2

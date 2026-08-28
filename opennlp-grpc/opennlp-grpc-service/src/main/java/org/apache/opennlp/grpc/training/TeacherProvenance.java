@@ -35,7 +35,12 @@ public record TeacherProvenance(
     String reference, String revision, String licenseName, String licenseUri,
     List<String> languages) {
 
-  /** Provenance of a teacher nothing is known about beyond its reference. */
+  /**
+   * Creates the provenance of a teacher nothing is known about beyond its reference.
+   *
+   * @param reference A repository name or local path identifying the teacher.
+   * @return Provenance with empty revision, license and languages.
+   */
   public static TeacherProvenance unknown(String reference) {
     return new TeacherProvenance(reference, "", "", "", List.of());
   }

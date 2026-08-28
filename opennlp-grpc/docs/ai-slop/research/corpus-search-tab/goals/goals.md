@@ -6,14 +6,14 @@
       in `OpenNlpGrpcWebServer`; test that a POST after a 35 s idle succeeds.
 - [x] FE: branch on `TypeError` at `server-search-workbench.ts:279`, retry a search
       once, then show a plain "server did not answer" message.
-- [ ] Missing-index message with a jump to Build index; missing provider add-on
+- [x] Missing-index message with a jump to Build index; missing provider add-on
       named in the service error instead of "unknown dynamic index"
       (`OpenNlpSearchServiceImpl.java:938-942`).
 - [x] Heading "Search an existing index"; corrected bridge sentence; kicker
       names the evidence inspector.
-- [ ] "Advanced search: mix keyword and semantic clauses"; read
+- [x] "Advanced search: mix keyword and semantic clauses"; read
       `descriptor.components` and disable clauses the index cannot serve, with the reason.
-- [ ] Empty index list links to Build index; failure states link to Lifecycle and
+- [x] Empty index list links to Build index; failure states link to Lifecycle and
       Models & data.
 - [ ] Tests: empty states, failure path, compound submit path, keep-alive reuse
       in the gateway; ship a small bundle in the docker smoke so the e2e spec runs.

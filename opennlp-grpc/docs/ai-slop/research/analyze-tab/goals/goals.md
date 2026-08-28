@@ -3,17 +3,17 @@
 ## P1
 
 - [x] Sentiment polarity from ordinal labels (see `../../test-coverage/goals`).
-- [ ] "Add to server workspace" reports on this tab (`#form-status`) and offers a
+- [x] "Add to server workspace" reports on this tab (`#form-status`) and offers a
       jump to Live index search; rename to "Add to live index".
-- [ ] "Open" on a live-index hit calls `workbenchNavigation.show("analysis")`.
+- [x] "Open" on a live-index hit calls `workbenchNavigation.show("analysis")`.
 - [x] Browned-out feature chips plus the three-outcome explanation panel with
       `data-workbench-jump="models" data-workbench-focus="<step>"`.
-- [ ] One size threshold for JSON view, Copy JSON and Download .pb; warn before
+- [x] One size threshold for JSON view, Copy JSON and Download .pb; warn before
       analyzing above `capabilities.maxTextBytes` with embeddings on.
 - [x] Layer titles from `identity.standard` and qualifier (`document-shape.ts:318-326`).
 - [x] Renames: Normalization alignment, Typed annotations, Chunk groups, Phrase
       chunks (shallow parse), Passage chunking legend, Model packs, Preset.
-- [ ] Tests: the seven "not configured" error texts; heatmap, graph and chunk views
+- [x] Tests: the seven "not configured" error texts; heatmap, graph and chunk views
       in the browser; the export and import flows.
 
 ## P2

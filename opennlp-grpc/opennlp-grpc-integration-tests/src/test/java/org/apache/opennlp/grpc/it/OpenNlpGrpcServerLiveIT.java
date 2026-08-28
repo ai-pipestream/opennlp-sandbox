@@ -229,7 +229,7 @@ class OpenNlpGrpcServerLiveIT {
           URI.create(webapp.baseUri() + "/")).GET().build(),
           HttpResponse.BodyHandlers.ofString());
       assertEquals(200, page.statusCode());
-      assertTrue(page.body().contains("Server-backed semantic search"));
+      assertTrue(page.body().contains("Search, then inspect the evidence behind every score"));
       assertTrue(page.body().contains("document-window-position"));
       assertTrue(page.body().contains("Download JSON"));
 
