@@ -131,7 +131,7 @@ import {
 } from "./vocabulary-trainer";
 import { tabTargetIndex, WorkbenchNavigation } from "./workbench-navigation";
 import { loadAliceDemo, loadPrideAndPrejudiceDemo } from "./demo-data";
-import { jsonPresentation } from "./json-response";
+import { jsonPresentation, LARGE_COPY_MESSAGE, LARGE_PB_MESSAGE } from "./json-response";
 
 const sampleText =
   "Apache OpenNLP helps developers build applications that process natural language. " +
@@ -272,7 +272,19 @@ const semanticWorkbench = new SemanticWorkbench({
   },
   search: async (request) => readSearchResponse(await searchIndex(request)),
   deleteIndex: async (indexId) => { await deleteSearchIndex(indexId); },
+  onIndexed: (message, error) => {
+    setFormStatus(message, error);
+    if (!error) {
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "link-button";
+      jump.dataset.workbenchJump = "session-search";
+      jump.textContent = "Search it on Live index search";
+      formStatus.append(" ", jump);
+    }
+  },
   openDocument: (hit) => {
+    workbenchNavigation.show("analysis");
     const shape = readDocumentShape(hit.sourceDocument);
     textArea.value = shape.rawText;
     updateFormState();
@@ -547,12 +559,26 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
   if (!text || busy || !serviceAvailable) {
     return;
   }
+  const request = createAnalysisRequest(text);
+  const textBytes = new TextEncoder().encode(text).length;
+  const limit = workflowCapabilities?.maxTextBytes;
+  if (limit && textBytes > limit) {
+    setFormStatus(`This document is ${mebibytes(textBytes)} MiB; the server accepts at most `
+      + `${mebibytes(limit)} MiB per request (server.max_text_bytes). Split it or use batch analysis.`, true);
+    return;
+  }
+  if (textBytes > LARGE_EMBEDDING_WARNING_BYTES && requestsEmbeddings(request)
+      && !window.confirm(`This document is ${mebibytes(textBytes)} MiB and embeddings are on. `
+        + "The reply can reach hundreds of megabytes and take a minute; the JSON view, Copy and "
+        + "Download .pb switch off past the browser's limit. Analyze anyway?")) {
+    return;
+  }
 
   setBusy(true);
   setFormStatus("Analyzing text…");
   responseOutput.textContent = "Waiting for the service response…";
   try {
-    const response = await analyze(createAnalysisRequest(text));
+    const response = await analyze(request);
     const shape = readDocumentShape(response);
     storeResponse(response, shape);
     chunkProjectionView.render(response);
@@ -1021,6 +1047,10 @@ async function copyResponse(): Promise<void> {
   if (currentResponse === undefined) {
     return;
   }
+  if (!currentJson) {
+    setFormStatus(LARGE_COPY_MESSAGE, true);
+    return;
+  }
   try {
     await navigator.clipboard.writeText(storedJson());
     flashButtonLabel(copyButton, "Copied");
@@ -1040,6 +1070,10 @@ function downloadResponse(): void {
 /** Saves the stored response as serialized protobuf, transcoded by the gateway. */
 async function downloadResponsePb(): Promise<void> {
   if (currentResponse === undefined) {
+    return;
+  }
+  if (!currentJson) {
+    setFormStatus(LARGE_PB_MESSAGE, true);
     return;
   }
   try {
@@ -1154,6 +1188,20 @@ function storeResponse(response: unknown, shape: DocumentShapeView): void {
   copyButton.disabled = false;
   downloadButton.disabled = false;
   downloadPbButton.disabled = false;
+}
+
+/** Above this input size an analysis with embeddings asks before it runs. */
+const LARGE_EMBEDDING_WARNING_BYTES = 256 * 1024;
+
+/** Whether a request asks for document or chunk embeddings. */
+function requestsEmbeddings(request: AnalyzeRequest): boolean {
+  return Boolean(request.options?.embeddingModelId)
+    || (request.chunkEmbedConfigs?.length ?? 0) > 0;
+}
+
+/** Mebibytes with one decimal, for a size a person reads. */
+function mebibytes(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1);
 }
 
 function storedJson(): string {

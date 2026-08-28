@@ -886,7 +886,8 @@ final class AnalysisRequestValidator {
     }
     if (!embeddingProvider.isAvailable()) {
       throw AnalysisException.notFound(
-          "PIPELINE_STEP_EMBED requested but no embedding models are configured on this server");
+          "PIPELINE_STEP_EMBED requested but no embedding models are configured on this server; "
+              + "configure a model.embedder.<id>.<backend> entry");
     }
     final String modelId = resolveEmbeddingModelId(request, profile);
     if (modelId == null || modelId.isBlank()) {

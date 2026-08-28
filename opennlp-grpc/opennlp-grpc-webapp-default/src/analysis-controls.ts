@@ -381,7 +381,7 @@ export const CONFIGURATION_KEYS: Readonly<Record<string, string>> = {
   PIPELINE_STEP_SUBWORD_TOKENIZE: "model.subword.<model_id>.path",
   PIPELINE_STEP_EXPAND: "model.wordnet.<model_id>.path",
   PIPELINE_STEP_DOC_CATEGORIZE: "model.doccat.<model_id>.path",
-  PIPELINE_STEP_SENTIMENT: "model.sentiment_dl.<model_id>.path",
+  PIPELINE_STEP_SENTIMENT: "model.sentiment.<model_id>.path or model.sentiment_dl.<model_id>.path",
   PIPELINE_STEP_EMBED: "model.embedder.<model_id>.<backend>",
   PIPELINE_STEP_CHUNK: "model.embedder.<model_id>.<backend>",
   PIPELINE_STEP_SENTENCE_DETECT: "model.pipeline.<lang>.sentence_detector.path",

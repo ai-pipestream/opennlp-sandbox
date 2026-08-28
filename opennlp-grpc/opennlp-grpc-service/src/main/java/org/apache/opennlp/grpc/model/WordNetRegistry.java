@@ -178,7 +178,8 @@ public final class WordNetRegistry {
     }
     if (defaultId == null) {
       throw AnalysisException.notFound(expanders.isEmpty()
-          ? "No WordNet lexicon is configured on this server"
+          ? "PIPELINE_STEP_EXPAND requested but no WordNet lexicon is configured on this server; "
+              + "set model.wordnet.<id>.path"
           : "wordnet_lexicon_id is required when multiple lexicons are configured");
     }
     return defaultId;

@@ -87,6 +87,44 @@ describe("workspace search", () => {
       .toContain("Live indexing is disabled by the server operator");
   });
 
+  it("reports the add-to-index outcome to the tab that pressed the button", async () => {
+    const outcomes: Array<[string, boolean]> = [];
+    const index = vi.fn().mockResolvedValue({ id: "live-1", label: "Workbench index", size: 3,
+      providerId: "flat_float", modelId: "demo-embedding", backendId: "static",
+      vectorSpaceId: "demo", metric: "cosine", supportsAllHits: true, immutable: false,
+      corpusTitle: "Workbench index", provenance: "test", build: {} });
+    const workbench = new SemanticWorkbench({
+      index,
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+      onIndexed: (message, error) => outcomes.push([message, error]),
+    });
+    const button = document.getElementById("add-to-index-button") as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+
+    workbench.setDocument("Demo", {
+      rawText: "Alice followed the White Rabbit.",
+      offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+      layers: [],
+    }, { document: {
+      rawText: "Alice followed the White Rabbit.",
+      offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+      chunkEmbeddingGroups: [{ groupId: "sentence-chunks", embeddingModelIds: ["demo-embedding"] }],
+      layers: [],
+      sentences: [{ text: "Alice followed the White Rabbit." }],
+      embeddings: [{ modelId: "demo-embedding", vector: [0.1, 0.2] }],
+    } });
+    button.click();
+    await vi.waitFor(() => expect(index).toHaveBeenCalled());
+    await vi.waitFor(() => expect(outcomes.at(-1)?.[0]).toContain("Added to live index 'Workbench index'"));
+    expect(outcomes.at(-1)?.[1]).toBe(false);
+  });
+
   it("indexes the current document on the server when the first workspace query is submitted", async () => {
     const index = vi.fn().mockResolvedValue({
       ...DYNAMIC_INDEX,

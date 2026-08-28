@@ -65,6 +65,11 @@ export interface SemanticWorkbenchOptions {
     trigger: HTMLElement,
   ): void;
   selectAnnotation(layerId: string, annotationIndex: number): void;
+  /**
+   * Receives the outcome of "Add to live index", which is pressed on the Analyze tab; when
+   * absent the outcome is written to this tab's own status line.
+   */
+  onIndexed?(message: string, error: boolean): void;
 }
 
 interface CurrentDocument {
@@ -244,21 +249,31 @@ export class SemanticWorkbench {
   private async addCurrentDocument(): Promise<void> {
     const current = this.#current;
     if (!isIndexableCurrentDocument(current) || this.#busy) {
-      this.setStatus("This result has no indexed chunk embeddings. Select an embedding model and chunk strategy.", true);
+      this.reportIndexing("This result has no chunk embeddings to index. Select an embedding "
+        + "model and a chunk strategy, then analyze again.", true);
       return;
     }
     this.#busy = true;
-    this.setStatus("Sending the analyzed document to the live index.");
+    this.reportIndexing("Sending the analyzed document to the live index.", false);
     this.updateControls();
     try {
       const workspace = await this.indexCurrentDocument(current);
-      this.setStatus(`Indexed by the gRPC server. ${workspace.size ?? 0} chunks available.`);
+      this.reportIndexing(`Added to live index '${workspace.label}': ${workspace.size ?? 0} chunks `
+        + "are searchable.", false);
     } catch (error) {
-      this.setStatus(error instanceof Error ? error.message : "Server-side indexing failed.", true);
+      this.reportIndexing(error instanceof Error ? error.message : "Server-side indexing failed.", true);
     } finally {
       this.#busy = false;
       this.updateControls();
     }
+  }
+
+  /** Routes an indexing outcome to the tab whose button started it. */
+  private reportIndexing(message: string, error: boolean): void {
+    if (this.#options.onIndexed) {
+      this.#options.onIndexed(message, error);
+    }
+    this.setStatus(message, error);
   }
 
   private async clear(): Promise<void> {
