@@ -125,6 +125,61 @@ describe("workspace search", () => {
     expect(outcomes.at(-1)?.[1]).toBe(false);
   });
 
+  it("asks before deleting a live index and tells other tabs afterwards", async () => {
+    const deleteIndex = vi.fn(async () => undefined);
+    const onWorkspacesChanged = vi.fn();
+    const answers: boolean[] = [false, true];
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => [{
+        id: "live-1", label: "Notes", providerId: "flat_float", modelId: "m", backendId: "static",
+        vectorSpaceId: "s", metric: "cosine", supportsAllHits: true, immutable: false,
+        corpusTitle: "Notes", provenance: "test", build: {}, size: 2,
+      }]),
+      deleteIndex,
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+      confirmDelete: () => answers.shift() ?? false,
+      onWorkspacesChanged,
+    });
+    await workbench.initializeWorkspaces();
+    const picker = document.getElementById("workspace-index-select") as HTMLSelectElement;
+    picker.value = "live-1";
+    picker.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(document.getElementById("semantic-status")!.textContent)
+      .toContain("Searching 'Notes'"));
+    const clear = document.getElementById("clear-index-button") as HTMLButtonElement;
+
+    clear.click();
+    expect(deleteIndex).not.toHaveBeenCalled();
+
+    clear.click();
+    await vi.waitFor(() => expect(deleteIndex).toHaveBeenCalledWith("live-1"));
+    await vi.waitFor(() => expect(onWorkspacesChanged).toHaveBeenCalled());
+  });
+
+  it("shows where a first live index comes from when the server has none", async () => {
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+    });
+    await workbench.initializeWorkspaces();
+
+    const results = document.getElementById("search-results")!;
+    expect(results.textContent).toContain("No live indexes yet");
+    expect(Array.from(results.querySelectorAll<HTMLElement>("[data-workbench-jump]"))
+      .map((jump) => jump.dataset.workbenchJump)).toEqual(["analysis", "workflows"]);
+  });
+
   it("indexes the current document on the server when the first workspace query is submitted", async () => {
     const index = vi.fn().mockResolvedValue({
       ...DYNAMIC_INDEX,

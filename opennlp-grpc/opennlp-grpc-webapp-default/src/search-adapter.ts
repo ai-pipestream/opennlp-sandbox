@@ -156,10 +156,11 @@ export function createIndexDocumentsRequest(
   document: Record<string, unknown>,
   modelId: string,
   chunkGroupIds: string[],
+  displayName: string = "Workbench index",
 ): IndexDocumentsRequest {
   return {
     ...(existingIndexId ? { indexId: existingIndexId } : {}),
-    displayName: "Workbench index",
+    displayName: displayName.trim() || "Workbench index",
     ...(existingIndexId ? {} : { provider: { standard: providerStandard } }),
     documents: [document],
     embedding: { modelId },

@@ -28,6 +28,7 @@ import {
   readSearchResponse,
   readSearchProviderListing,
   supportsKeywordClauses,
+  createIndexDocumentsRequest,
 } from "../src/search-adapter";
 
 function indexDescriptor(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -186,6 +187,17 @@ describe("server search API adapter", () => {
     expect(supportsKeywordClauses(index!)).toBe(true);
     expect(supportsKeywordClauses({ ...index!, components: [index!.components![0]!] })).toBe(false);
     expect(supportsKeywordClauses({ ...index!, components: undefined })).toBe(true);
+  });
+
+  it("names a new live index from the field, falling back to the workbench default", () => {
+    const named = createIndexDocumentsRequest(undefined, "STANDARD_SEARCH_PROVIDER_FLAT_FLOAT",
+      { docId: "d" }, "m", [], "  Case notes ");
+    expect(named.displayName).toBe("Case notes");
+    const unnamed = createIndexDocumentsRequest("live-1", "STANDARD_SEARCH_PROVIDER_FLAT_FLOAT",
+      { docId: "d" }, "m", [], "   ");
+    expect(unnamed.displayName).toBe("Workbench index");
+    expect(unnamed.indexId).toBe("live-1");
+    expect(unnamed.provider).toBeUndefined();
   });
 
   it("creates a protobuf JSON search request with a document-shaped query", () => {

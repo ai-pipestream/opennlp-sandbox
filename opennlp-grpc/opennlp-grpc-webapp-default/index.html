@@ -769,11 +769,31 @@
             <select id="workspace-index-select">
               <option value="">New live index (created on first add)</option>
             </select>
+            <label for="workspace-name-input">Name for the next new index</label>
+            <input id="workspace-name-input" type="text" placeholder="Workbench index" />
             <label for="workspace-provider-select">Vector storage for the next new index</label>
             <select id="workspace-provider-select">
               <option value="STANDARD_SEARCH_PROVIDER_FLAT_FLOAT">Flat float (exact)</option>
               <option value="STANDARD_SEARCH_PROVIDER_TURBO_QUANT">TurboQuant (quantized)</option>
             </select>
+            <details class="help-callout">
+              <summary>What is a live index?</summary>
+              <p>A live index is one search index that this server builds in its own memory from
+                documents you analyze on the Analyze tab. You can search it as soon as the first
+                document is added, and you can keep adding documents to it.</p>
+              <p>A live index has three states:</p>
+              <ul>
+                <li><strong>In memory</strong>: on the server only. It is gone when the server restarts.</li>
+                <li><strong>Saved to disk</strong>: a copy is on the server's disk, and it still accepts
+                  new documents. Use <em>Save to disk</em> on the Lifecycle tab.</li>
+                <li><strong>Read-only</strong>: on disk and closed to new documents. It stays
+                  searchable here and on the Corpus search tab.</li>
+              </ul>
+              <p>Elsewhere you may see this called a live index (Elasticsearch calls the writable
+                member of a data stream the write index) or a collection (Qdrant, Weaviate, Solr). In
+                this workbench a <em>collection</em> means something else: a group of live indexes whose
+                vocabulary coverage the server watches on the Lifecycle tab.</p>
+            </details>
             <details class="help-callout">
               <summary>How to use live index search</summary>
               <ol>

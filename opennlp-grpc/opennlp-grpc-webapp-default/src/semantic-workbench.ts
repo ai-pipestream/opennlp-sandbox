@@ -70,6 +70,10 @@ export interface SemanticWorkbenchOptions {
    * absent the outcome is written to this tab's own status line.
    */
   onIndexed?(message: string, error: boolean): void;
+  /** Asks before a live index is deleted on the server; absent means no confirmation. */
+  confirmDelete?(label: string): boolean;
+  /** Runs after this tab created or deleted a live index, so other tabs can refresh. */
+  onWorkspacesChanged?(): void;
 }
 
 interface CurrentDocument {
@@ -100,6 +104,8 @@ export class SemanticWorkbench {
   readonly #clearButton = requiredElement<HTMLButtonElement>("clear-index-button");
   readonly #workspaceSelect = requiredElement<HTMLSelectElement>("workspace-index-select");
   readonly #providerSelect = requiredElement<HTMLSelectElement>("workspace-provider-select");
+  /** The name a new live index gets; absent in fixtures that mount the search form alone. */
+  readonly #nameInput = document.getElementById("workspace-name-input") as HTMLInputElement | null;
   readonly #searchForm = requiredElement<HTMLFormElement>("semantic-search-form");
   readonly #query = requiredElement<HTMLTextAreaElement>("semantic-query");
   readonly #searchButton = requiredElement<HTMLButtonElement>("search-button");
@@ -178,14 +184,16 @@ export class SemanticWorkbench {
 
   /** Loads the server's existing dynamic workspaces into the picker; call once at startup. */
   async initializeWorkspaces(): Promise<void> {
-    await this.refreshWorkspaces();
+    await this.refreshWorkspaces(true);
   }
 
   /**
-   * Repopulates the workspace picker with every searchable dynamic workspace on
-   * the server, keeping the attached one selected when it still exists.
+   * Repopulates the picker with every writable live index on the server, keeping the
+   * attached one selected when it still exists. An explicit refresh (another tab changed
+   * the indexes) also detaches an index that vanished; the quiet refresh after an add does
+   * not, since the add itself is the source of truth for that moment.
    */
-  private async refreshWorkspaces(): Promise<void> {
+  private async refreshWorkspaces(detachMissing = false): Promise<void> {
     const indexes = await this.#options.listIndexes();
     const workspaces = indexes.filter((index) => !index.immutable
       && !index.label.startsWith(HEATMAP_INDEX_PREFIX));
@@ -197,8 +205,25 @@ export class SemanticWorkbench {
       this.#workspaceSelect.add(new Option(
         `${workspace.label} · ${size} ${size === 1 ? "chunk" : "chunks"}`, workspace.id));
     }
-    this.#workspaceSelect.value =
-      workspaces.some((workspace) => workspace.id === selected) ? selected : "";
+    const stillExists = workspaces.some((workspace) => workspace.id === selected);
+    this.#workspaceSelect.value = stillExists ? selected : "";
+    if (detachMissing && this.#workspace && !stillExists) {
+      // The attached index was deleted or made read-only elsewhere; searching it would fail.
+      this.#workspace = undefined;
+      this.#workspaceDocumentRevision = -1;
+      this.updateControls();
+    }
+    if (workspaces.length === 0 && !this.#current && this.#results.childElementCount <= 1) {
+      this.renderFirstRun();
+    }
+  }
+
+  /** The first-run state: what a live index is, and the two places one comes from. */
+  private renderFirstRun(): void {
+    const message = emptyMessage("No live indexes yet. Analyze a document with an embedding "
+      + "model and press Add to live index, or build one from your own documents. ");
+    message.append(jumpButton("analysis", "Open Analyze"), " ", jumpButton("workflows", "Open Build index"));
+    this.#results.replaceChildren(message);
   }
 
   /** Refreshes the picker after an index change without surfacing discovery errors. */
@@ -280,6 +305,10 @@ export class SemanticWorkbench {
     if ((!this.#workspace && this.#heatmapWorkspaces.size === 0) || this.#busy) {
       return;
     }
+    if (this.#workspace && this.#options.confirmDelete
+        && !this.#options.confirmDelete(this.#workspace.label)) {
+      return;
+    }
     this.#busy = true;
     this.updateControls();
     try {
@@ -292,6 +321,7 @@ export class SemanticWorkbench {
       this.#results.replaceChildren(emptyMessage("No live index search results yet."));
       this.setStatus("The server deleted the live index.");
       this.refreshWorkspacesQuietly();
+      this.#options.onWorkspacesChanged?.();
     } catch (error) {
       this.setStatus(error instanceof Error ? error.message : "Could not delete the live index.", true);
     } finally {
@@ -344,9 +374,10 @@ export class SemanticWorkbench {
     }
     this.#workspace = await this.#options.index(createIndexDocumentsRequest(
       this.#workspace?.id, this.#providerSelect.value, document, current.modelId,
-      current.groupIds));
+      current.groupIds, this.#nameInput?.value ?? ""));
     this.#workspaceDocumentRevision = this.#documentRevision;
     this.refreshWorkspacesQuietly();
+    this.#options.onWorkspacesChanged?.();
     return this.#workspace;
   }
 
@@ -785,4 +816,14 @@ function sentimentLane(rows: HeatmapRow[]): DocumentHeatmapLane {
 
 function spanKey(start: number, end: number): string {
   return `${start}:${end}`;
+}
+
+/** A link-styled button that jumps to another workbench. */
+function jumpButton(target: string, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "link-button";
+  button.dataset.workbenchJump = target;
+  button.textContent = label;
+  return button;
 }

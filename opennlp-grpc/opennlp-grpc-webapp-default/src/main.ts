@@ -272,6 +272,9 @@ const semanticWorkbench = new SemanticWorkbench({
   },
   search: async (request) => readSearchResponse(await searchIndex(request)),
   deleteIndex: async (indexId) => { await deleteSearchIndex(indexId); },
+  confirmDelete: (label) => window.confirm(`Delete the live index '${label}' on the server? `
+    + "Its indexed chunks are removed; the documents on this page are kept."),
+  onWorkspacesChanged: () => void lifecycleWorkbench.initialize(),
   onIndexed: (message, error) => {
     setFormStatus(message, error);
     if (!error) {

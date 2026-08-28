@@ -119,6 +119,8 @@ describe("analysis playground markup", () => {
     expect(html).toContain('id="search-inspector"');
     expect(html).toContain('id="search-analytics" aria-label="Selected document analytics"');
     expect(html).toContain('Search the documents you analyze');
+    expect(html).toContain("<summary>What is a live index?</summary>");
+    expect(html).toContain('id="workspace-name-input"');
     expect(html).toContain('The browser renders server scores and');
     expect(html).toContain('never performs vector ranking');
     expect(html).toContain('workspace-provider-select');
