@@ -151,7 +151,8 @@ public final class OpenNlpGrpcWebApp implements Callable<Integer> {
     Duration longRunningTimeout = Duration.ofSeconds(longRunningTimeoutSeconds);
     GrpcAnalysisRpc analysisRpc = new GrpcAnalysisRpc(channel, requestTimeout,
         longRunningTimeout, Duration.ofSeconds(requestTimeoutPerMegabyteSeconds));
-    GrpcSearchRpc searchRpc = new GrpcSearchRpc(channel, requestTimeout);
+    GrpcSearchRpc searchRpc = new GrpcSearchRpc(channel, requestTimeout, longRunningTimeout,
+        Duration.ofSeconds(requestTimeoutPerMegabyteSeconds));
     GrpcVocabularyRpc vocabularyRpc = new GrpcVocabularyRpc(channel, requestTimeout);
     GrpcTrainingRpc trainingRpc = new GrpcTrainingRpc(
         channel, requestTimeout, longRunningTimeout);

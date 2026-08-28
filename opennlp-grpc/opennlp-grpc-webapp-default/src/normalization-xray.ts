@@ -88,7 +88,7 @@ export function renderNormalizationXray(container: HTMLElement, view: Normalizat
   const heading = document.createElement("div");
   heading.className = "xray-heading";
   const title = document.createElement("strong");
-  title.textContent = "Normalization X-ray";
+  title.textContent = "Normalization alignment";
   const caption = document.createElement("small");
   caption.className = "xray-caption";
   const changed = view.runs.filter((run) => !run.equal).length;

@@ -427,10 +427,15 @@ an unknown provider fails startup listing the available sink ids.
 ### Gateway deadlines scale with input size
 
 The gateway's per-RPC deadline (`--request-timeout-seconds`, default 30) covers a
-sentence, not a novel. Analysis and formatting calls therefore add
+sentence, not a novel. Analysis, formatting and indexing calls therefore add
 `--request-timeout-per-megabyte-seconds` (default 120) for every mebibyte of document text
 they submit, never exceeding `--long-running-timeout-seconds` (default 1800); pass `0` to
 disable the scaling.
+
+The gateway also keeps idle HTTP keep-alive connections open for 15 minutes instead of the
+JDK's 30 seconds, so a browser that pauses on a result does not get a bare network failure
+on its next request; set `-Dsun.net.httpserver.idleInterval=<seconds>` to choose another
+value.
 
 ## Run the optional web application
 
@@ -455,7 +460,7 @@ The Analyze workbench gives the output the full page width and provides Document
 Graph, and Protobuf JSON projections over the same response. Long source text and annotated output
 scroll vertically without a horizontal scrollbar. Selecting an annotation, graph node, or chunk
 opens details in a side drawer so the document does not collapse into a narrow column.
-The Workflows tab turns pasted documents into one guided analysis, vocabulary learning, static-model
+The Build index tab turns pasted documents into one guided analysis, vocabulary learning, static-model
 training, indexing, and search flow. It uses corpus-only vocabulary by default and can pair the
 corpus with an imported dictionary selected before the run.
 The web host loads additional static interfaces through the `WebUiExtension` ServiceLoader API.
@@ -749,7 +754,7 @@ membership, boosts shape relevancy, and ranking ties break by chunk id then docu
 Keyword and phrase components analyze query text and indexed chunk text identically (code-point
 letter-and-digit terms, lowercased), and hits carry `matched_spans` locating each match in
 `indexed_text` by UTF-16 code unit for exact highlighting. Compound queries execute on the
-dynamic workspace indexes; a keyword-only tree needs no embedding backend at all. CEL clauses
+live indexes; a keyword-only tree needs no embedding backend at all. CEL clauses
 require an evaluator on the classpath through the `CelQueryEvaluator` ServiceLoader seam; the
 core ships none, and without one those clauses report `UNIMPLEMENTED`.
 
@@ -800,7 +805,7 @@ does; flat float is in-memory only). The gateway serves all of it: `/api/v1/pers
 `/api/v1/seal-index`, `/api/v1/reindex-index`, `/api/v1/set-index-alias`,
 `/api/v1/delete-index-alias`, and `/api/v1/index-aliases`.
 
-Collections scope vocabulary drift. A collection (`SetCollection`, `GetCollection`,
+Collections scope vocabulary coverage. A collection (`SetCollection`, `GetCollection`,
 `ListCollections`, `DeleteCollection`) names its dynamic member indexes (aliases accepted,
 stored resolved), its dictionary, vocabulary, and model artifact lineage, and an optional
 drift threshold. Its term statistics are recomputed on every read from the live indexed text of

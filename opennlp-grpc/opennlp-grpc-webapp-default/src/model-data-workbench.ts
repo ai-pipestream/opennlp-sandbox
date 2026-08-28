@@ -262,7 +262,7 @@ export class ModelDataWorkbench {
           item.title = bundle.id;
           return item;
         })
-      : [listItem("No model bundles are currently loaded.")]));
+      : [listItem("No model packs are currently loaded.")]));
     this.#summary.textContent = `${ready.size} of ${PIPELINE_ORDER.length} features ready`;
   }
 

@@ -18,6 +18,7 @@
  */
 package org.apache.opennlp.grpc.search;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -163,7 +164,7 @@ class OpenNlpSearchServiceImplTest {
 
 
   @Test
-  void persistingAFlatWorkspaceReportsTheMissingCapability(@TempDir Path root) {
+  void persistingAFlatWorkspaceSucceedsThroughGrpcMethods(@TempDir Path root) {
     final DynamicSearchIndexRegistry dynamicRegistry = new DynamicSearchIndexRegistry(
         SearchProviderCatalog.discover(), new WorkspaceCheckpointStore(root));
     final EmbeddingRoute workspaceRoute = EmbeddingRoute.newBuilder()
@@ -184,8 +185,10 @@ class OpenNlpSearchServiceImplTest {
     service.persistIndex(PersistIndexRequest.newBuilder()
         .setIndexId(indexed.value.getIndex().getIndexId()).build(), persisted);
 
-    assertEquals(Status.Code.FAILED_PRECONDITION,
-        Status.fromThrowable(persisted.error).getCode());
+    assertNull(persisted.error);
+    assertTrue(persisted.value.getIndex().getPersisted());
+    assertFalse(persisted.value.getIndex().getImmutable());
+    assertTrue(Files.isDirectory(root));
   }
 
   @Test

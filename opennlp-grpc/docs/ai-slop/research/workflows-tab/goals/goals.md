@@ -18,7 +18,7 @@ Cross-tab renames (workspace, checkpoint, seal) are listed in
       bundled for the Analyze tab).
 - [ ] State next to the storage choice that exact storage cannot be saved to disk.
 - [ ] Refresh the Lifecycle picker in `onIndexChanged` (`main.ts:373-376`).
-- [ ] Rename tab and headings: "Workflows" to "Build index", "Workflow name" to
+- [x] Rename tab and headings: "Workflows" to "Build index", "Workflow name" to
       "Index name", "Your text collection" to "Your documents", "Max corpus terms"
       to "Max vocabulary terms".
 - [ ] Tests: gating states, failing-stage retention, e2e skip guard when no teacher

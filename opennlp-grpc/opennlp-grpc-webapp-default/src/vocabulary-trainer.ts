@@ -243,9 +243,9 @@ export class VocabularyTrainerWorkbench {
       this.setStatus("Learn a vocabulary and select a teacher first.", true);
       return;
     }
-    const displayName = this.#modelName.value.trim() || "Trainer static model";
+    const displayName = this.#modelName.value.trim() || "Trainer static embedding model";
     this.#progressLog.replaceChildren();
-    await this.run("The server is distilling the static model.", async () => {
+    await this.run("The server is distilling the static embedding model.", async () => {
       const model = await this.#api.trainStaticModel({
         vocabularyArtifactId,
         teacherId,

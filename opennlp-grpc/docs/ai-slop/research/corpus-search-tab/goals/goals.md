@@ -2,14 +2,14 @@
 
 ## P1
 
-- [ ] Gateway: raise `sun.net.httpserver.idleInterval` (or send `Connection: close`)
+- [x] Gateway: raise `sun.net.httpserver.idleInterval` (or send `Connection: close`)
       in `OpenNlpGrpcWebServer`; test that a POST after a 35 s idle succeeds.
-- [ ] FE: branch on `TypeError` at `server-search-workbench.ts:279`, retry a search
+- [x] FE: branch on `TypeError` at `server-search-workbench.ts:279`, retry a search
       once, then show a plain "server did not answer" message.
 - [ ] Missing-index message with a jump to Build index; missing provider add-on
       named in the service error instead of "unknown dynamic index"
       (`OpenNlpSearchServiceImpl.java:938-942`).
-- [ ] Heading "Search an existing index"; corrected bridge sentence; kicker
+- [x] Heading "Search an existing index"; corrected bridge sentence; kicker
       names the evidence inspector.
 - [ ] "Advanced search: mix keyword and semantic clauses"; read
       `descriptor.components` and disable clauses the index cannot serve, with the reason.
@@ -20,7 +20,7 @@
 
 ## P2
 
-- [ ] "Results" to "Max hits"; "Join" to "Combine clauses" with plain option labels;
+- [x] "Results" to "Max hits"; "Join" to "Combine clauses" with plain option labels;
       say "hybrid search" once; inspector labels "Embedding model used" and
       "Model checksum".
 - [ ] Re-list indexes when the tab is shown.

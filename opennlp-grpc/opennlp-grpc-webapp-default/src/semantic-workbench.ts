@@ -35,6 +35,7 @@ import {
   type SearchIndex,
   type SearchRequest,
   type SearchResponse,
+  createIndexDocumentsRequest,
 } from "./search-adapter";
 import { collapseWhitespace, ellipsizeCodePoints } from "./text-utils";
 import { emptyMessage, requiredElement } from "./ui-utils";
@@ -185,7 +186,7 @@ export class SemanticWorkbench {
       && !index.label.startsWith(HEATMAP_INDEX_PREFIX));
     const selected = this.#workspace?.id ?? this.#workspaceSelect.value;
     this.#workspaceSelect.replaceChildren(
-      new Option("New workspace (created on first add)", ""));
+      new Option("New live index (created on first add)", ""));
     for (const workspace of workspaces) {
       const size = workspace.size ?? 0;
       this.#workspaceSelect.add(new Option(
@@ -208,7 +209,7 @@ export class SemanticWorkbench {
     if (!id) {
       this.#workspace = undefined;
       this.#workspaceDocumentRevision = -1;
-      this.setStatus("Detached. The next add creates a new workspace index.");
+      this.setStatus("Nothing selected. The next add creates a new live index.");
       this.updateControls();
       return;
     }
@@ -216,17 +217,17 @@ export class SemanticWorkbench {
       const indexes = await this.#options.listIndexes();
       const workspace = indexes.find((index) => index.id === id);
       if (!workspace) {
-        throw new Error("The selected workspace no longer exists on the server.");
+        throw new Error("The selected live index no longer exists on the server.");
       }
       this.#workspace = workspace;
       // The attached workspace is searched as it stands; the current document
-      // only joins it through an explicit "Add to server workspace".
+      // only joins it through an explicit "Add to live index".
       this.#workspaceDocumentRevision = this.#documentRevision;
       const size = workspace.size ?? 0;
-      this.setStatus(`Attached to '${workspace.label}': `
+      this.setStatus(`Searching '${workspace.label}': `
         + `${size} ${size === 1 ? "chunk is" : "chunks are"} searchable.`);
     } catch (error) {
-      this.setStatus(error instanceof Error ? error.message : "Could not attach the workspace.", true);
+      this.setStatus(error instanceof Error ? error.message : "Could not select the live index.", true);
     }
     this.updateControls();
   }
@@ -247,7 +248,7 @@ export class SemanticWorkbench {
       return;
     }
     this.#busy = true;
-    this.setStatus("Sending the analyzed document shape to the gRPC workspace index.");
+    this.setStatus("Sending the analyzed document to the live index.");
     this.updateControls();
     try {
       const workspace = await this.indexCurrentDocument(current);
@@ -273,11 +274,11 @@ export class SemanticWorkbench {
       this.#workspace = undefined;
       this.#workspaceDocumentRevision = -1;
       await this.deleteHeatmapIndexes();
-      this.#results.replaceChildren(emptyMessage("No workspace search results yet."));
-      this.setStatus("The gRPC server deleted the workspace index.");
+      this.#results.replaceChildren(emptyMessage("No live index search results yet."));
+      this.setStatus("The server deleted the live index.");
       this.refreshWorkspacesQuietly();
     } catch (error) {
-      this.setStatus(error instanceof Error ? error.message : "Could not delete the workspace index.", true);
+      this.setStatus(error instanceof Error ? error.message : "Could not delete the live index.", true);
     } finally {
       this.#busy = false;
       this.updateControls();
@@ -302,9 +303,9 @@ export class SemanticWorkbench {
       }
       const workspace = this.#workspace;
       if (!workspace) {
-        throw new Error("No server workspace is available for this query.");
+        throw new Error("No live index is available for this query.");
       }
-      this.setStatus("The gRPC server is embedding and searching the workspace query.");
+      this.setStatus("The server is embedding the query and searching the live index.");
       const response = await this.#options.search(workspace.supportsAllHits
         ? createAllHitsSearchRequest(workspace.id, query)
         : createSearchRequest(workspace.id, query, Math.min(50, workspace.maxTopK ?? 50)));
@@ -314,7 +315,7 @@ export class SemanticWorkbench {
         ? "The server returned no compatible chunks."
         : `${response.hits.length} server-ranked chunks returned. Heatmap updated.`);
     } catch (error) {
-      this.setStatus(error instanceof Error ? error.message : "Workspace query failed.", true);
+      this.setStatus(error instanceof Error ? error.message : "Live index search failed.", true);
     } finally {
       this.#busy = false;
       this.updateControls();
@@ -326,15 +327,9 @@ export class SemanticWorkbench {
     if (typeof document.docId !== "string" || !document.docId.trim()) {
       document.docId = `workbench-document-${this.#nextDocumentId++}`;
     }
-    this.#workspace = await this.#options.index({
-      ...(this.#workspace ? { indexId: this.#workspace.id } : {}),
-      displayName: "Workbench index",
-      // The provider is fixed at creation; extensions inherit it by omitting it.
-      ...(this.#workspace ? {} : { provider: { standard: this.#providerSelect.value } }),
-      documents: [document],
-      embedding: { modelId: current.modelId },
-      chunkGroupIds: current.groupIds,
-    });
+    this.#workspace = await this.#options.index(createIndexDocumentsRequest(
+      this.#workspace?.id, this.#providerSelect.value, document, current.modelId,
+      current.groupIds));
     this.#workspaceDocumentRevision = this.#documentRevision;
     this.refreshWorkspacesQuietly();
     return this.#workspace;
@@ -405,7 +400,7 @@ export class SemanticWorkbench {
 
   private renderSearchResults(hits: SearchHit[]): void {
     if (hits.length === 0) {
-      this.#results.replaceChildren(emptyMessage("No compatible vectors were found in the server workspace."));
+      this.#results.replaceChildren(emptyMessage("No compatible vectors were found in the live index."));
       return;
     }
     this.#results.replaceChildren(...hits.map((hit, index) => {
@@ -501,7 +496,7 @@ export class SemanticWorkbench {
   private populateProjectionOptions(): void {
     const all = document.createElement("option");
     all.value = ALL_PROJECTIONS;
-    all.textContent = "All projections, separate lanes";
+    all.textContent = "All chunk groups, separate lanes";
     const options = this.#current?.projections.map((group) => {
       const option = document.createElement("option");
       option.value = group.id;
@@ -735,6 +730,7 @@ function projectionLane(
     id: group.id,
     title: `${group.title} (${group.strategy})`,
     complete: !response.truncated && scored === chunks.length && scored === expected,
+    scoreLabel: "cosine",
     chunks,
   };
 }
@@ -744,6 +740,7 @@ function sentimentLane(rows: HeatmapRow[]): DocumentHeatmapLane {
     id: "sentiment",
     title: "Sentence sentiment",
     complete: true,
+    scoreLabel: "polarity",
     chunks: rows.map((row, index) => ({
       id: `sentiment:${index}`,
       start: row.start,

@@ -2,19 +2,19 @@
 
 ## P1
 
-- [ ] Make the `flat_float` provider persistable (declare PERSISTENT, write and
+- [x] Make the `flat_float` provider persistable (declare PERSISTENT, write and
       reload the array); red service test first. Until then gate checkpoint and
       read-only buttons on the capability with the reason shown.
 - [ ] Empty state: "No live indexes yet. Build one on Build index or add analyzed
       documents on Live index search." with two `data-workbench-jump` buttons.
-- [ ] Rename "Save checkpoint" to "Save to disk" and "Seal as read-only" to
+- [x] Rename "Save checkpoint" to "Save to disk" and "Seal as read-only" to
       "Make read-only"; fact row "Read-only: yes/no";
       helper text "accepts no further documents, stays searchable, cannot be undone".
 - [ ] Keep read-only live indexes listed (flagged read-only) instead of filtering them
       out (`lifecycle-workbench.ts:129`); confirmation links to Live index search.
 - [ ] Define "collection" under the heading and in a flyout
       (`findings/state-machine-and-vocabulary.md` section 3.3).
-- [ ] Rename the panel "Vocabulary drift" to "Vocabulary coverage"; add the flyout;
+- [x] Rename the panel "Vocabulary drift" to "Vocabulary coverage"; add the flyout;
       threshold label "Alert after this many out-of-vocabulary terms"; show
       "not measured" when no vocabulary artifact is set.
 - [ ] Validate the vocabulary artifact id before saving a collection: "No vocabulary

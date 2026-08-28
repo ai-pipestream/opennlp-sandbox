@@ -68,7 +68,7 @@ test("builds and searches a live corpus workflow", async ({ page }, testInfo) =>
   await page.click("#workflow-run-button");
 
   await expect(page.locator("#workflow-status"))
-    .toContainText("is ready to explore", { timeout: 1_100_000 });
+    .toContainText("is built and searchable", { timeout: 1_100_000 });
   await expect(page.locator('#workflow-stages [data-state="complete"]')).toHaveCount(6);
   await expect(page.locator(".workflow-analysis-card")).toHaveCount(2);
   await expect(page.locator("#workflow-search-heatmap .heat-document")).toHaveCount(2);

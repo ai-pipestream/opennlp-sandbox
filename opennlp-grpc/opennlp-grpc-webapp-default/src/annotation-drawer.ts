@@ -225,7 +225,7 @@ export class AnnotationDrawer {
     const facts = document.createElement("dl");
     facts.className = "annotation-facts";
     addFact(facts, "Cosine score", hit.score.toFixed(4));
-    addFact(facts, "Projection", hit.chunkGroupId);
+    addFact(facts, "Chunk group", hit.chunkGroupId);
     addFact(facts, "Document span", `${hit.start}..${hit.end} (${hit.offsetEncoding})`);
     addFact(facts, "Search provider", hit.providerId);
     addFact(facts, "Index", hit.indexId);
@@ -239,7 +239,7 @@ export class AnnotationDrawer {
     addOptionalFact(facts, "License", hit.licenseName);
     addOptionalFact(facts, "License URI", hit.licenseUri);
     addOptionalFact(facts, "Corpus artifact", hit.corpusArtifactHash);
-    addOptionalFact(facts, "Bundle artifact", hit.build.bundleArtifactHash);
+    addOptionalFact(facts, "Index artifact", hit.build.bundleArtifactHash);
     addOptionalFact(facts, "Preparation", hit.build.preparationConfigHash);
 
     const source = document.createElement("p");

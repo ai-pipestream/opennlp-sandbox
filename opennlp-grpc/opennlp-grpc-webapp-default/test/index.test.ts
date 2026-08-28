@@ -27,7 +27,7 @@ describe("analysis playground markup", () => {
   it("provides labelled controls and announced status regions", () => {
     expect(html).toContain('<label for="analysis-text">');
     expect(html).toContain('<label for="profile-select">');
-    expect(html).toContain('id="model-list" aria-label="Available model bundles"');
+    expect(html).toContain('id="model-list" aria-label="Available model packs"');
     expect(html).toContain('id="service-status" role="status" aria-live="polite"');
     expect(html).toContain('id="form-status" role="status" aria-live="polite"');
     expect(html).toContain('id="response-output"');
@@ -106,7 +106,7 @@ describe("analysis playground markup", () => {
     expect(html).toContain('<label for="server-search-index">');
     expect(html).toContain('id="server-search-index-help"');
     expect(html).toContain('Pick a configured index or');
-    expect(html).toContain('data-workbench-jump="workflows">build your own workspace index</button>');
+    expect(html).toContain('data-workbench-jump="workflows">build an index from your own documents</button>');
     expect(html).toContain('<label for="server-search-query">');
     expect(html).toContain('id="server-search-status" role="status" aria-live="polite"');
     expect(html).toContain('id="server-search-results" aria-label="Server search results"');
@@ -118,7 +118,7 @@ describe("analysis playground markup", () => {
     expect(html).toContain('id="search-source-text"');
     expect(html).toContain('id="search-inspector"');
     expect(html).toContain('id="search-analytics" aria-label="Selected document analytics"');
-    expect(html).toContain('On-the-fly workspace index');
+    expect(html).toContain('Search the documents you analyze');
     expect(html).toContain('The browser renders server scores and');
     expect(html).toContain('never performs vector ranking');
     expect(html).toContain('workspace-provider-select');

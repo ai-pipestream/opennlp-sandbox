@@ -73,7 +73,7 @@ const VALUE_TYPES = new Map<string, string>([
   ["geoValues", "Geographic result"],
   ["wordTypeValues", "Word type"],
   ["entityValues", "Named entity"],
-  ["syntacticChunkValues", "Syntactic chunk"],
+  ["syntacticChunkValues", "Phrase chunk"],
   ["stemValues", "Stem"],
   ["lexicalExpansionValues", "Lexical expansion"],
   ["normalizationValues", "Normalization"],
@@ -259,7 +259,7 @@ function readLayer(
 
   return {
     id,
-    title: layerTitle(id),
+    title: layerTitle(id, optionalString(identity?.standard), optionalString(identity?.qualifier)),
     scope: stringValue(layer.scope),
     valueType: valueEntry?.[1] ?? "Unknown",
     standardIdentity: optionalString(identity?.standard),
@@ -315,7 +315,38 @@ function annotationLabel(annotation: Record<string, unknown>, index: number): st
   return `Annotation ${index + 1}`;
 }
 
-function layerTitle(id: string): string {
+const STANDARD_LAYER_PREFIX = "STANDARD_LAYER_";
+
+/** Titles for standard layers whose words do not read well when merely lower-cased. */
+const STANDARD_LAYER_TITLES: Record<string, string> = {
+  POS_TAGS: "POS tags",
+  SYNTACTIC_CHUNKS: "Phrase chunks",
+  GEO: "Geocoding",
+};
+
+/**
+ * Titles a layer from its declared standard identity, so "opennlp:pos" reads "POS tags" and
+ * the four term profiles read "Terms (stem)" rather than colliding with the stemmer's
+ * "Stems"; a layer without a standard identity is titled from its id.
+ */
+function layerTitle(id: string, standard?: string, qualifier?: string): string {
+  const standardName = standard?.startsWith(STANDARD_LAYER_PREFIX)
+    ? standard.slice(STANDARD_LAYER_PREFIX.length)
+    : undefined;
+  if (standardName && standardName !== "UNSPECIFIED") {
+    const title = STANDARD_LAYER_TITLES[standardName] ?? sentenceCase(standardName);
+    return qualifier ? `${title} (${asciiLowerCase(qualifier)})` : title;
+  }
+  return titleFromId(id);
+}
+
+/** "TERM_VECTORS" reads "Term vectors". */
+function sentenceCase(enumWords: string): string {
+  const words = splitOnCharacters(enumWords, "_").map(asciiLowerCase).join(" ");
+  return `${asciiUpperCase(words.charAt(0))}${words.slice(1)}`;
+}
+
+function titleFromId(id: string): string {
   const localName = id.includes(":") ? id.slice(id.lastIndexOf(":") + 1) : id;
   return splitOnCharacters(localName, "-_")
     .map((part) => part.length <= 3 && part === asciiUpperCase(part)

@@ -4,27 +4,27 @@ Apply in the order given; each step is one commit with the string tests updated.
 
 ## P1
 
-- [ ] "workspace" and "dynamic" out of every UI string; noun "live index",
+- [x] "workspace" and "dynamic" out of every UI string; noun "live index",
       read-only kind "read-only index"; tab "Live index search".
-- [ ] "Save checkpoint" to "Save to disk"; "Seal as read-only" to "Make read-only";
+- [x] "Save checkpoint" to "Save to disk"; "Seal as read-only" to "Make read-only";
       "Vocabulary drift" to "Vocabulary coverage"; collection defined on screen.
-- [ ] "Workflows" to "Build index"; "Explore an immutable index" to "Search an
+- [x] "Workflows" to "Build index"; "Explore an immutable index" to "Search an
       existing index"; "Compound query builder" to "Advanced search: mix keyword and
       semantic clauses".
-- [ ] Analyze: "Chunk projections" to "Chunk groups"; "Syntactic chunks" to
+- [x] Analyze: "Chunk projections" to "Chunk groups"; "Syntactic chunks" to
       "Phrase chunks (shallow parse)"; "Normalization X-ray" to "Normalization
       alignment"; "Document shape" to "Typed annotations"; "Bundles" to "Model packs";
       one name "Preset" for the profile widget.
-- [ ] "Train model" to "Distill model"; "static model" to "static embedding model".
-- [ ] Layer titles from `identity.standard` and qualifier, so `Pos` becomes
+- [x] "Train model" to "Distill model"; "static model" to "static embedding model".
+- [x] Layer titles from `identity.standard` and qualifier, so `Pos` becomes
       "POS tags" and `Stem` becomes "Terms (stem)".
-- [ ] Vitest snapshot of all user-visible strings against the decision table.
+- [x] Vitest snapshot of all user-visible strings against the decision table.
 
 ## P2
 
-- [ ] "Provider instances" to "Vector storage available on this server"; render
+- [x] "Provider instances" to "Vector storage available on this server"; render
       capability enums as words.
-- [ ] "Results" to "Max hits"; "Lexical expansion" to "Synonym expansion (WordNet)";
+- [x] "Results" to "Max hits"; "Lexical expansion" to "Synonym expansion (WordNet)";
       "Browser span" to "Span (UTF-16)"; "Required backbone steps" to "Prerequisite steps".
 - [ ] One "called X in the API" line per renamed concept in the help callouts.
 - [ ] Proto comments: replace "static and dynamic" with "read-only and live"

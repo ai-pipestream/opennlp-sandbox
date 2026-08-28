@@ -42,6 +42,7 @@ import {
   deleteSearchIndex,
   searchIndex,
   trainStaticModel,
+  NETWORK_FAILURE_MESSAGE,
 } from "../src/api";
 
 describe("API client", () => {
@@ -113,6 +114,37 @@ describe("API client", () => {
         options: { offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT" },
       }),
     });
+  });
+
+  it("retries a read once when the connection dropped, then explains a second failure", async () => {
+    let calls = 0;
+    const flaky = vi.fn(async () => {
+      calls++;
+      if (calls === 1) {
+        throw new TypeError("Failed to fetch");
+      }
+      return new Response(JSON.stringify({ indexes: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    await expect(getSearchIndexes(flaky)).resolves.toEqual({ indexes: [] });
+    expect(flaky).toHaveBeenCalledTimes(2);
+
+    const dead = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(searchIndex({ indexId: "x", query: { rawText: "q" }, topK: 1 }, dead))
+      .rejects.toThrow(NETWORK_FAILURE_MESSAGE);
+    expect(dead).toHaveBeenCalledTimes(2);
+  });
+
+  it("never retries a mutating request after a network failure", async () => {
+    const dead = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(deleteSearchIndex("x", dead)).rejects.toThrow(NETWORK_FAILURE_MESSAGE);
+    expect(dead).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces a useful server error", async () => {

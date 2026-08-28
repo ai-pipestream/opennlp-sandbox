@@ -56,7 +56,7 @@ export const FEATURE_NAMES: Readonly<Record<string, string>> = {
   PIPELINE_STEP_DOC_CATEGORIZE: "Document categories",
   PIPELINE_STEP_SENTIMENT: "Sentence sentiment",
   PIPELINE_STEP_PARSE: "Constituency parses",
-  PIPELINE_STEP_SYNTACTIC_CHUNK: "Syntactic chunks",
+  PIPELINE_STEP_SYNTACTIC_CHUNK: "Phrase chunks (shallow parse)",
   PIPELINE_STEP_EMBED: "Document embeddings",
 };
 

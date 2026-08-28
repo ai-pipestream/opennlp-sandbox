@@ -250,11 +250,44 @@ class DynamicSearchIndexRegistryTest {
 
 
   @Test
-  void persistRequiresAPersistentProviderInstance(@TempDir Path root) {
+  void persistsAndRestoresAFlatFloatWorkspaceAcrossRegistries(@TempDir Path root) {
+    final SearchProviderCatalog catalog = SearchProviderCatalog.discover();
     final DynamicSearchIndexRegistry registry = new DynamicSearchIndexRegistry(
-        SearchProviderCatalog.discover(), new WorkspaceCheckpointStore(root));
+        catalog, new WorkspaceCheckpointStore(root));
     final String indexId =
         registry.index(request(null, "doc-1", "alpha", 1, 0)).getIndex().getIndexId();
+
+    final SearchIndexDescriptor persisted = registry.persist(indexId);
+    assertTrue(persisted.getPersisted());
+    assertFalse(persisted.getImmutable());
+    registry.close();
+
+    final DynamicSearchIndexRegistry restored =
+        new DynamicSearchIndexRegistry(catalog, new WorkspaceCheckpointStore(root));
+    final SearchIndexDescriptor descriptor = restored.descriptors().getFirst();
+    assertEquals(indexId, descriptor.getIndexId());
+    assertTrue(descriptor.getPersisted());
+    // Exact storage scores identically after a restart: full-precision rows were written.
+    final List<SearchResult> hits = restored.require(indexId).search(new float[] {1, 0}, 1);
+    assertEquals("doc-1", hits.getFirst().record().documentId());
+    assertEquals(1.0, hits.getFirst().score(), 1e-9);
+
+    final var extended = restored.index(request(indexId, "doc-2", "beta", 0, 1));
+    assertEquals(2, extended.getIndex().getSize());
+    assertEquals(2, restored.require(indexId).search(new float[] {1, 0}, 2).size());
+    assertTrue(restored.seal(indexId).getImmutable());
+  }
+
+  @Test
+  void persistRequiresAPersistentProviderInstance(@TempDir Path root) {
+    final DynamicSearchIndexRegistry registry = new DynamicSearchIndexRegistry(
+        SearchProviderCatalog.fromConfiguration(Map.of(), List.of(
+            new FlatFloatSearchIndexProviderFactory(), new VolatileVectorProviderFactory())),
+        new WorkspaceCheckpointStore(root));
+    final String indexId = registry.index(request(null, "doc-1", "alpha", 1, 0).toBuilder()
+        .setProvider(SearchProviderSelector.newBuilder()
+            .setCustom(VolatileVectorProviderFactory.PROVIDER_ID))
+        .build()).getIndex().getIndexId();
 
     final AnalysisException failure =
         assertThrows(AnalysisException.class, () -> registry.persist(indexId));
@@ -319,5 +352,29 @@ class DynamicSearchIndexRegistryTest {
       request.setIndexId(indexId);
     }
     return request.build();
+  }
+
+  /** An exact vector provider that declares no persistence, so checkpoints must refuse it. */
+  static final class VolatileVectorProviderFactory
+      implements org.apache.opennlp.grpc.spi.search.SearchIndexProviderFactory {
+
+    static final String PROVIDER_ID = "exact_volatile";
+
+    @Override
+    public String providerId() {
+      return PROVIDER_ID;
+    }
+
+    @Override
+    public Set<org.apache.opennlp.grpc.v1.SearchProviderCapability> capabilities() {
+      return Set.of(
+          org.apache.opennlp.grpc.v1.SearchProviderCapability.SEARCH_PROVIDER_CAPABILITY_VECTOR,
+          org.apache.opennlp.grpc.v1.SearchProviderCapability.SEARCH_PROVIDER_CAPABILITY_LIVE);
+    }
+
+    @Override
+    public opennlp.embeddings.index.VectorIndex createLiveVectorIndex(int dimension) {
+      return new opennlp.embeddings.index.FlatFloatIndex(dimension);
+    }
   }
 }

@@ -2,14 +2,14 @@
 
 ## P1
 
-- [ ] Tab label "Live index search"; "workspace" and "dynamic" out of every string; heading "Search the
+- [x] Tab label "Live index search"; "workspace" and "dynamic" out of every string; heading "Search the
       documents you analyze"; new bridge paragraph with jumps to Lifecycle and
       Corpus search (`findings/what-is-a-workspace.md` section 5).
 - [ ] "What is a live index?" `details.help-callout` above the existing how-to
       (text from `findings/what-is-a-workspace.md` section 5.2 with the noun swapped).
 - [ ] First-run empty state with a primary jump to Analyze ("Analyze a document
       and add it to a workspace") and a secondary jump to Workflows.
-- [ ] Rename "Clear workspace index" to "Delete this live index" and confirm before
+- [x] Rename "Clear workspace index" to "Delete this live index" and confirm before
       deleting; test the delete path.
 - [ ] Let the user name a live index; default to the document title instead of
       the constant "Workbench index" (`semantic-workbench.ts:331`).

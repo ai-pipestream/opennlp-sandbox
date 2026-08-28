@@ -43,6 +43,24 @@ final class OpenNlpGrpcWebServer implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(OpenNlpGrpcWebServer.class);
   private static final String TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 
+  /**
+   * System property the JDK HTTP server reads, once, for how long an idle keep-alive
+   * connection stays open, in seconds. Its default of 30 is shorter than a person reading
+   * a result: a browser that reuses a connection the server has just closed reports a bare
+   * network failure ("Failed to fetch") instead of a status, so the gateway raises it
+   * before the first server is created. An operator who sets the property explicitly wins.
+   */
+  static final String IDLE_INTERVAL_PROPERTY = "sun.net.httpserver.idleInterval";
+
+  /** Idle seconds a keep-alive connection survives unless the operator chose otherwise. */
+  static final long IDLE_INTERVAL_SECONDS = 900;
+
+  static {
+    if (System.getProperty(IDLE_INTERVAL_PROPERTY) == null) {
+      System.setProperty(IDLE_INTERVAL_PROPERTY, Long.toString(IDLE_INTERVAL_SECONDS));
+    }
+  }
+
   private final HttpServer server;
   private final ExecutorService executor;
   private final CountDownLatch terminated = new CountDownLatch(1);

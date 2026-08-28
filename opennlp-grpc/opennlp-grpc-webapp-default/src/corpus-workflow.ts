@@ -157,7 +157,7 @@ export class CorpusWorkflowWorkbench {
       !this.#ready);
     } catch (error) {
       this.#ready = false;
-      this.setStatus(errorMessage(error, "Could not load workflow resources."), true);
+      this.setStatus(errorMessage(error, "Could not load build resources."), true);
     }
     this.updateControls();
   }
@@ -178,7 +178,7 @@ export class CorpusWorkflowWorkbench {
     this.#vocabulary = undefined;
     this.resetStages();
     this.updateControls();
-    const displayName = this.#name.value.trim() || "Text workflow";
+    const displayName = this.#name.value.trim() || "Text index";
     try {
       this.activate("analyze", `Analyzing ${documents.length} ${plural(documents.length, "document")}`);
       const analyzed = await this.analyzeDocuments(documents);
@@ -193,7 +193,7 @@ export class CorpusWorkflowWorkbench {
           displayName: `${displayName} vocabulary`,
           minFrequency: positiveInteger(this.#minFrequency.value, 1),
           maxTerms: positiveInteger(this.#maxTerms.value, 10_000),
-          provenanceSummary: "Learned from text pasted into the Workflows workbench",
+          provenanceSummary: "Learned from text pasted into the Build index workbench",
         },
         documents,
       });
@@ -205,7 +205,7 @@ export class CorpusWorkflowWorkbench {
         teacherId: this.#teacher.value,
         displayName: `${displayName} embeddings`,
         pcaDims: nonNegativeInteger(this.#pcaDims.value, 0),
-        provenanceSummary: "Distilled through the Workflows workbench",
+        provenanceSummary: "Distilled through the Build index workbench",
       }, (progress) => this.setStageDetail("train", progress));
       this.complete("train", `${this.#model.dimension} dimensional model serving`);
       this.#callbacks.onModelTrained(this.#model);
@@ -214,7 +214,7 @@ export class CorpusWorkflowWorkbench {
       const embedded = await this.analyzeDocuments(documents, this.#model.artifactId);
       this.complete("embed", `${embedded.length} embedded ${plural(embedded.length, "document")}`);
 
-      this.activate("index", "Publishing a live workspace index");
+      this.activate("index", "Building the searchable index");
       this.#index = await this.#api.index({
         displayName,
         provider: { standard: this.#provider.value || FLAT_FLOAT_PROVIDER },
@@ -227,12 +227,12 @@ export class CorpusWorkflowWorkbench {
       await this.runSearch(query);
       this.renderArtifacts();
       this.selectResultView("search");
-      this.setStatus(`Workflow '${displayName}' is ready to explore.`);
+      this.setStatus(`Index '${displayName}' is built and searchable.`);
     } catch (error) {
       if (this.#activeStage) {
         this.fail(this.#activeStage, errorMessage(error, "Stage failed."));
       }
-      this.setStatus(errorMessage(error, "The workflow did not complete."), true);
+      this.setStatus(errorMessage(error, "The build did not complete."), true);
     } finally {
       this.#busy = false;
       this.#activeStage = undefined;
@@ -285,7 +285,7 @@ export class CorpusWorkflowWorkbench {
   private async runSearch(query: string): Promise<void> {
     const index = this.#index;
     if (!index) {
-      throw new Error("The workflow index is not available.");
+      throw new Error("The built index is not available.");
     }
     this.activate("search", "Embedding the query and scoring indexed chunks");
     const result = await this.#api.search(index.supportsAllHits
@@ -477,7 +477,7 @@ export class CorpusWorkflowWorkbench {
   private stageElement(stage: WorkflowStage): HTMLElement {
     const entry = document.querySelector<HTMLElement>(`[data-workflow-stage="${stage}"]`);
     if (!entry) {
-      throw new Error(`Missing workflow stage '${stage}'.`);
+      throw new Error(`Missing build stage '${stage}'.`);
     }
     return entry;
   }
@@ -485,7 +485,7 @@ export class CorpusWorkflowWorkbench {
   private updateControls(): void {
     const documents = workflowDocuments(this.#corpus.value);
     this.#corpusStats.textContent = documents.length === 0
-      ? "Add text to preview the workflow batch."
+      ? "Add text to preview the documents."
       : `${documents.length} ${plural(documents.length, "document")} ready · `
         + `${formatInteger(new TextEncoder().encode(this.#corpus.value).byteLength)} UTF-8 bytes`;
     this.#runButton.disabled = !this.#ready || this.#busy || documents.length === 0

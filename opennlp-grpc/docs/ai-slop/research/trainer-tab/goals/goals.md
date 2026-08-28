@@ -16,7 +16,7 @@
 
 ## P2
 
-- [ ] Rename: "Train model" to "Distill model"; "3 · Train a static model" to
+- [x] Rename: "Train model" to "Distill model"; "3 · Train a static model" to
       "3 · Distill a static embedding model"; "static model" to "static embedding model"
       everywhere; "Download TSV" to "Export vocabulary TSV"; "Min frequency" to
       "Min term frequency (total occurrences)".

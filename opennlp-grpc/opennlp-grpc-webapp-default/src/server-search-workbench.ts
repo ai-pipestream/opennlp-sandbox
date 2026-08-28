@@ -143,7 +143,7 @@ export class ServerSearchWorkbench {
       if (this.#indexes.length === 0) {
         this.#indexSelect.add(new Option("No server indexes configured", ""));
         this.setStatus("The service is available, but it did not report a configured search index.");
-        this.#indexDescription.textContent = "An operator must configure an immutable index bundle at startup.";
+        this.#indexDescription.textContent = "No index exists yet. Build one on the Build index tab, or ask the operator to configure a read-only index.";
         return;
       }
       for (const index of this.#indexes) {
@@ -239,7 +239,7 @@ export class ServerSearchWorkbench {
         request = createCompoundSearchRequest(index.id,
           buildQueryNode(this.#clauses, joinMode(this.#builderJoin.value)), topK);
       } catch (error) {
-        this.setStatus(errorMessage(error, "The compound query is invalid."), true);
+        this.setStatus(errorMessage(error, "The advanced search clauses are invalid."), true);
         return;
       }
     } else {
@@ -257,7 +257,7 @@ export class ServerSearchWorkbench {
     this.#busy = true;
     this.#selectionGeneration++;
     this.setStatus(compound
-      ? `Executing the compound query against ${index.label}.`
+      ? `Running the advanced search against ${index.label}.`
       : `Searching ${index.label}.`);
     this.updateControls();
     try {
@@ -488,10 +488,10 @@ export class ServerSearchWorkbench {
       addFact(this.#facts, "Corpus artifact", hit.corpusArtifactHash);
     }
     if (hit.build.bundleArtifactHash) {
-      addFact(this.#facts, "Index bundle", hit.build.bundleArtifactHash);
+      addFact(this.#facts, "Index artifact", hit.build.bundleArtifactHash);
     }
     if (hit.build.bundleFormatVersion !== undefined) {
-      addFact(this.#facts, "Bundle format", String(hit.build.bundleFormatVersion));
+      addFact(this.#facts, "Index format", String(hit.build.bundleFormatVersion));
     }
     if (hit.build.builderId) {
       const builder = [hit.build.builderId, hit.build.builderVersion].filter(Boolean).join(" ");

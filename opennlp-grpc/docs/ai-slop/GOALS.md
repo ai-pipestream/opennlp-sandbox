@@ -14,6 +14,13 @@ reactor root) and `npm test` in `opennlp-grpc-webapp-default` passes.
 
 One PR. Everything here touches every tab and must land exactly once.
 
+Status 2026-08-28: landed. Terminology pass with the retired-vocabulary vitest;
+proto vocabulary vitest and the request-fixture round trip through the gateway
+parser (the static service validators are still to be wired into that test);
+ordinal sentiment polarity; scaled `index-documents` deadline; gateway idle
+interval raised with a one-shot front-end retry; `flat_float` persists and
+restores. `FlatFloatIndex.write/read` lives upstream in opennlp-embeddings.
+
 1. Terminology, one commit: the decision table in
    `research/industry-terminology/README.md`, P1 rows. Adds a vitest that
    snapshots every user-visible string against that table.

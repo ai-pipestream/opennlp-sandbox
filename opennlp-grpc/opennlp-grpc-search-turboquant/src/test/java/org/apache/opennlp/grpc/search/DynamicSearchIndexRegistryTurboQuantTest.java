@@ -358,7 +358,8 @@ class DynamicSearchIndexRegistryTurboQuantTest {
     try (var input = Files.newInputStream(descriptor)) {
       properties.load(input);
     }
-    properties.setProperty("provider.instance", FlatFloatSearchIndexProviderFactory.PROVIDER_ID);
+    // The keyword-only provider declares neither vector nor persistent capabilities.
+    properties.setProperty("provider.instance", TermsSearchIndexProviderFactory.PROVIDER_ID);
     try (var output = Files.newOutputStream(descriptor)) {
       properties.store(output, "tampered provider capability");
     }

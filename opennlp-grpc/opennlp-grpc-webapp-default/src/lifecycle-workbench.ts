@@ -133,8 +133,8 @@ export class LifecycleWorkbench {
       this.renderModels(models);
       this.renderCollectionOptions(collections);
       this.setStatus(this.#indexes.length === 0
-        ? "Index documents in Workspace search to create a dynamic workspace first."
-        : `${this.#indexes.length} dynamic ${this.#indexes.length === 1 ? "workspace" : "workspaces"} available.`);
+        ? "No live indexes yet. Build one on the Build index tab, or add analyzed documents on Live index search."
+        : `${this.#indexes.length} live ${this.#indexes.length === 1 ? "index" : "indexes"} available.`);
     } catch (error) {
       this.setStatus(errorMessage(error, "Could not load the lifecycle catalog."), true);
     }
@@ -145,7 +145,7 @@ export class LifecycleWorkbench {
     const selected = this.#indexSelect.value;
     this.#indexSelect.replaceChildren();
     if (this.#indexes.length === 0) {
-      this.#indexSelect.add(new Option("No dynamic workspaces", ""));
+      this.#indexSelect.add(new Option("No live indexes", ""));
       this.#indexSelect.disabled = true;
     } else {
       for (const index of this.#indexes) {
@@ -177,13 +177,13 @@ export class LifecycleWorkbench {
     addFact(this.#indexFacts, "Embedding model", index.modelId);
     addFact(this.#indexFacts, "Vector space", ellipsizeCodePoints(index.vectorSpaceId, 24));
     addFact(this.#indexFacts, "Chunks", formatInteger(index.size ?? 0));
-    addFact(this.#indexFacts, "Sealed", index.immutable ? "yes" : "no");
+    addFact(this.#indexFacts, "Read-only", index.immutable ? "yes" : "no");
   }
 
   private renderProviders(providers: SearchProviderInstance[]): void {
     this.#providerList.replaceChildren();
     if (providers.length === 0) {
-      this.#providerList.append(emptyMessage("No provider instances reported."));
+      this.#providerList.append(emptyMessage("No vector storage reported."));
     }
     const keepSource = this.#reindexProvider.value;
     this.#reindexProvider.replaceChildren(new Option("Keep the current vector storage", ""));
@@ -257,7 +257,7 @@ export class LifecycleWorkbench {
   private async persistSelected(seal: boolean): Promise<void> {
     const index = this.selectedIndex();
     if (!index) {
-      this.report(this.#workspaceStatus, "Select a dynamic workspace first.", true);
+      this.report(this.#workspaceStatus, "Select a live index first.", true);
       return;
     }
     await this.run(this.#workspaceStatus, async () => {
@@ -265,8 +265,8 @@ export class LifecycleWorkbench {
         ? await this.#api.seal(index.id)
         : await this.#api.persist(index.id);
       this.report(this.#workspaceStatus, seal
-        ? `Sealed '${index.label}': it is now read-only and saved to disk.`
-        : `Saved a checkpoint of '${index.label}' (${formatInteger(updated?.size ?? 0)} chunks); `
+        ? `Made '${index.label}' read-only and saved it to disk.`
+        : `Saved '${index.label}' to disk (${formatInteger(updated?.size ?? 0)} chunks); `
           + "it now survives a server restart.");
       await this.refresh();
     });
@@ -276,7 +276,7 @@ export class LifecycleWorkbench {
     const index = this.selectedIndex();
     const alias = this.#aliasInput.value.trim();
     if (!index || !alias) {
-      this.report(this.#aliasStatus, "Select a workspace and enter an alias name.", true);
+      this.report(this.#aliasStatus, "Select a live index and enter an alias name.", true);
       return;
     }
     await this.run(this.#aliasStatus, async () => {
@@ -292,7 +292,7 @@ export class LifecycleWorkbench {
     const modelId = this.#reindexModel.value;
     if (!index || !modelId) {
       this.report(this.#rebuildStatus,
-        "Select a workspace and a trained model to rebuild it with.", true);
+        "Select a live index and a distilled model to rebuild it with.", true);
       return;
     }
     const provider = this.#reindexProvider.value;
@@ -467,7 +467,7 @@ export class LifecycleWorkbench {
     }
     const entry = document.createElement("div");
     const description = event.kind === "drift"
-      ? `Drift threshold crossed: ${formatInteger(event.collection.drift.newTerms)} new terms.`
+      ? `Coverage alert: ${formatInteger(event.collection.drift.newTerms)} new terms.`
       : event.kind === "index-persisted"
         ? `Index persisted: ${event.indexId ?? "unknown"}.`
         : `Model published: ${event.modelArtifactId ?? "unknown"}.`;

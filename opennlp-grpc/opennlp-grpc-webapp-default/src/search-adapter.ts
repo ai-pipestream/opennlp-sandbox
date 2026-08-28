@@ -17,6 +17,7 @@
  * under the License.
  */
 
+import type { IndexDocumentsRequest } from "./api";
 import { toBrowserSpan } from "./offsets";
 import { asciiLowerCase } from "./text-utils";
 
@@ -125,6 +126,28 @@ export function createSearchRequest(indexId: string, query: string, topK: number
 /** Builds an exhaustive search request without assigning a sentinel top-k value. */
 export function createAllHitsSearchRequest(indexId: string, query: string): SearchRequest {
   return { indexId, query: { rawText: query }, allHits: true };
+}
+
+/**
+ * Builds the request that adds one analyzed document to a live index. A new index names
+ * its vector storage; an extension of an existing index inherits the storage it was created
+ * with by omitting the provider.
+ */
+export function createIndexDocumentsRequest(
+  existingIndexId: string | undefined,
+  providerStandard: string,
+  document: Record<string, unknown>,
+  modelId: string,
+  chunkGroupIds: string[],
+): IndexDocumentsRequest {
+  return {
+    ...(existingIndexId ? { indexId: existingIndexId } : {}),
+    displayName: "Workbench index",
+    ...(existingIndexId ? {} : { provider: { standard: providerStandard } }),
+    documents: [document],
+    embedding: { modelId },
+    chunkGroupIds,
+  };
 }
 
 /** Builds a compound search request from a protobuf JSON QueryNode tree. */

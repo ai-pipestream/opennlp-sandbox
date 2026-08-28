@@ -174,6 +174,8 @@ export function searchIndex(request: SearchRequest, fetcher: Fetcher = fetch): P
       body: JSON.stringify(request),
     },
     fetcher,
+    // A search is a read: retrying it after a dropped connection cannot duplicate anything.
+    true,
   );
 }
 
@@ -531,8 +533,40 @@ function postJson(path: string, body: unknown, fetcher: Fetcher): Promise<unknow
   );
 }
 
-async function requestJson(path: string, init: RequestInit | undefined, fetcher: Fetcher): Promise<unknown> {
-  const response = await fetcher(path, init ?? { headers: { accept: "application/json" } });
+/** What the user reads when the browser could not reach the gateway at all. */
+export const NETWORK_FAILURE_MESSAGE =
+  "The server did not answer. Check the service status light and try again.";
+
+/**
+ * Fetches JSON, retrying once when the connection dropped before any response arrived.
+ *
+ * Reads (GET, or a POST the caller marks safe) are retried because the gateway closes idle
+ * keep-alive connections and a browser reusing one gets a network error, not a status. A
+ * mutating request is never retried; it fails with the plain network message instead.
+ */
+async function requestJson(
+  path: string,
+  init: RequestInit | undefined,
+  fetcher: Fetcher,
+  retrySafe: boolean = init === undefined || init.method === undefined || init.method === "GET",
+): Promise<unknown> {
+  const request = init ?? { headers: { accept: "application/json" } };
+  let response: Response;
+  try {
+    response = await fetcher(path, request);
+  } catch (error) {
+    if (!isNetworkFailure(error)) {
+      throw error;
+    }
+    if (!retrySafe) {
+      throw new Error(NETWORK_FAILURE_MESSAGE);
+    }
+    try {
+      response = await fetcher(path, request);
+    } catch (retryError) {
+      throw isNetworkFailure(retryError) ? new Error(NETWORK_FAILURE_MESSAGE) : retryError;
+    }
+  }
   if (!response.ok) {
     throw await responseError(response);
   }
@@ -541,6 +575,11 @@ async function requestJson(path: string, init: RequestInit | undefined, fetcher:
   } catch {
     throw new Error(`The service returned invalid JSON for ${path}.`);
   }
+}
+
+/** A fetch rejection before any response is a TypeError in every browser. */
+function isNetworkFailure(error: unknown): boolean {
+  return error instanceof TypeError;
 }
 
 async function responseError(response: Response): Promise<Error> {

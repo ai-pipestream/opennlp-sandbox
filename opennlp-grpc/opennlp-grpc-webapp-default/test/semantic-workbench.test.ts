@@ -340,7 +340,7 @@ describe("workspace search", () => {
     picker.value = "workspace-one";
     picker.dispatchEvent(new Event("change", { bubbles: true }));
     await vi.waitFor(() => expect(document.getElementById("semantic-status")?.textContent)
-      .toContain("Attached to 'Workbench index'"));
+      .toContain("Searching 'Workbench index'"));
 
     const query = document.getElementById("semantic-query") as HTMLTextAreaElement;
     expect(query.disabled).toBe(false);

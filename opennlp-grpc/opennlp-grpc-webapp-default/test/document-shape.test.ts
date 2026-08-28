@@ -181,17 +181,42 @@ describe("document shape reader", () => {
     const shape = readDocumentShape({
       document: {
         rawText: "Text",
-        layers: { layers: [{
-          id: "opennlp:CHUNK_group-values",
-          identity: { standard: "STANDARD_LAYER_ENTITIES" },
-          stringValues: { annotations: [] },
-        }] },
+        layers: { layers: [
+          {
+            id: "opennlp:CHUNK_group-values",
+            identity: { standard: "STANDARD_LAYER_ENTITIES" },
+            stringValues: { annotations: [] },
+          },
+          { id: "custom:CHUNK_group-values", stringValues: { annotations: [] } },
+        ] },
       },
     });
 
-    // Long all-caps parts are title-cased; short ones (NFC, UD) stay acronyms.
-    expect(shape.layers[0]?.title).toBe("Chunk Group Values");
+    // A declared standard identity names the layer; only an undeclared one falls back to
+    // its id, where long all-caps parts are title-cased and short ones (NFC, UD) stay acronyms.
+    expect(shape.layers[0]?.title).toBe("Entities");
     expect(layerAccent(shape.layers[0]!)).toBe("violet");
+    expect(shape.layers[1]?.title).toBe("Chunk Group Values");
+  });
+
+  it("titles layers from their standard identity and qualifier instead of their id", () => {
+    const shape = readDocumentShape({
+      document: {
+        rawText: "Text",
+        layers: { layers: [
+          { id: "opennlp:pos", identity: { standard: "STANDARD_LAYER_POS_TAGS" }, stringValues: { annotations: [] } },
+          { id: "opennlp:terms:stem", identity: { standard: "STANDARD_LAYER_TERMS", qualifier: "stem" }, stringValues: { annotations: [] } },
+          { id: "opennlp:stems", identity: { standard: "STANDARD_LAYER_STEMS" }, stringValues: { annotations: [] } },
+          { id: "opennlp:chunks", identity: { standard: "STANDARD_LAYER_SYNTACTIC_CHUNKS" }, stringValues: { annotations: [] } },
+          { id: "opennlp:tv", identity: { standard: "STANDARD_LAYER_TERM_VECTORS" }, stringValues: { annotations: [] } },
+          { id: "opennlp:mystery", identity: { standard: "STANDARD_LAYER_UNSPECIFIED" }, stringValues: { annotations: [] } },
+        ] },
+      },
+    });
+
+    expect(shape.layers.map((layer) => layer.title)).toEqual([
+      "POS tags", "Terms (stem)", "Stems", "Phrase chunks", "Term vectors", "Mystery",
+    ]);
   });
 
   it("builds one combined projection across overlapping typed layers", () => {

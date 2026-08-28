@@ -192,10 +192,10 @@ export class AnalysisControls {
     this.#profile.replaceChildren(
       new Option("All available features", "max", true, true),
       new Option("Choose features", "custom"),
-      new Option("Server automatic", "automatic"),
+      new Option("Server default profile", "automatic"),
     );
     for (const option of options) {
-      this.#profile.add(new Option(`Profile: ${option.label}`, `profile:${option.id}`));
+      this.#profile.add(new Option(`Server profile: ${option.label}`, `profile:${option.id}`));
     }
   }
 
@@ -242,9 +242,9 @@ export class AnalysisControls {
         }
       }
     } else if (this.#profile.value === "automatic") {
-      labels.push("Server automatic profile");
+      labels.push("Server default profile");
     } else {
-      labels.push(`Named ${withoutPrefix(this.#profile.value, "profile:")} profile`);
+      labels.push(`Server profile '${withoutPrefix(this.#profile.value, "profile:")}'`);
     }
     if (this.#sentenceChunks.checked) {
       labels.push("Sentence chunks");

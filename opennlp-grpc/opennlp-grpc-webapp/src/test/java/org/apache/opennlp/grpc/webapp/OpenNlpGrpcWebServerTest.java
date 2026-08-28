@@ -56,6 +56,16 @@ class OpenNlpGrpcWebServerTest {
   private static final String SEARCH_DOCUMENT_ID = "passage-1";
 
   @Test
+  void keepsIdleKeepAliveConnectionsWellPastAHumanPause() throws Exception {
+    // The JDK server reads the property once, when it first starts; the gateway sets it
+    // before that, so a browser reusing a pooled connection after a pause is still served.
+    assertEquals(Long.toString(OpenNlpGrpcWebServer.IDLE_INTERVAL_SECONDS),
+        System.getProperty(OpenNlpGrpcWebServer.IDLE_INTERVAL_PROPERTY));
+    assertTrue(OpenNlpGrpcWebServer.IDLE_INTERVAL_SECONDS >= 600,
+        "ten minutes is the least a reader pauses for");
+  }
+
+  @Test
   void servesHealthApiAndSpiAssetsOverHttp() throws Exception {
     WebUiExtensionRegistry registry = new WebUiExtensionRegistry(List.of(testExtension()));
     try (OpenNlpGrpcWebServer server = new OpenNlpGrpcWebServer(

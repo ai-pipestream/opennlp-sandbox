@@ -263,7 +263,7 @@ const semanticWorkbench = new SemanticWorkbench({
     const response = await indexDocuments(request) as Record<string, unknown>;
     const index = readSearchIndexes({ indexes: response.index ? [response.index] : [] })[0];
     if (!index) {
-      throw new Error("The server returned an invalid dynamic index descriptor.");
+      throw new Error("The server returned an invalid live index descriptor.");
     }
     return index;
   },
@@ -333,7 +333,7 @@ const corpusWorkflow = new CorpusWorkflowWorkbench({
     const response = await indexDocuments(request) as Record<string, unknown>;
     const index = readSearchIndexes({ indexes: response.index ? [response.index] : [] })[0];
     if (!index) {
-      throw new Error("The server returned an invalid workflow index descriptor.");
+      throw new Error("The server returned an invalid built index descriptor.");
     }
     return index;
   },
@@ -365,7 +365,7 @@ const corpusWorkflow = new CorpusWorkflowWorkbench({
     chunkProjectionView.render(response);
     renderDocumentShape(shape);
     renderXray(response);
-    semanticWorkbench.setDocument("Workflow document", shape, response);
+    semanticWorkbench.setDocument("Built index document", shape, response);
     selectResultTab("document");
     workbenchNavigation.show("analysis");
     revealAnalysisResult();
@@ -413,7 +413,7 @@ void initialize();
 async function initialize(): Promise<void> {
   void initializeToolNavigation();
   setServiceState("loading", "Connecting");
-  setFormStatus("Checking service capabilities and model bundles.");
+  setFormStatus("Checking service capabilities and model packs.");
 
   try {
     await getHealth();
@@ -431,7 +431,7 @@ async function initialize(): Promise<void> {
   setServiceState("ready", "Connected");
   void serverSearchWorkbench.initialize();
   void semanticWorkbench.initializeWorkspaces().catch(() => {
-    // The picker keeps its "new workspace" default when discovery is unavailable.
+    // The picker keeps its "new live index" default when discovery is unavailable.
   });
   const [infoResult, bundlesResult] = await Promise.allSettled([getServiceInfo(), getModelBundles()]);
   const serviceInfo = infoResult.status === "fulfilled" ? infoResult.value : undefined;
@@ -632,7 +632,7 @@ function renderDocumentShape(shape: DocumentShapeView): void {
   }
   if (shape.layers.length === 0) {
     annotatedText.textContent = shape.rawText;
-    annotationDrawer.showMessage("This analysis returned no document-shape layers.");
+    annotationDrawer.showMessage("This analysis returned no annotation layers.");
     return;
   }
 
@@ -671,7 +671,7 @@ function renderDocumentShape(shape: DocumentShapeView): void {
   const allCount = document.createElement("small");
   allCount.textContent = String(summary.annotationCount);
   allButton.append(allName, allCount);
-  allButton.title = "Combined projection of every returned annotation layer";
+  allButton.title = "Every returned annotation layer combined";
   allButton.addEventListener("click", () => selectAllLayers(shape));
   layerList.append(allButton);
 

@@ -229,7 +229,7 @@ describe("corpus workflow", () => {
     (document.getElementById("workflow-run-button") as HTMLButtonElement).click();
 
     await vi.waitFor(() => expect(document.getElementById("workflow-status")?.textContent)
-      .toContain("ready to explore"));
+      .toContain("is built and searchable"));
     expect(order).toEqual([
       "analyze", "analyze", "vocabulary", "train", "embed", "embed", "index", "search",
     ]);
