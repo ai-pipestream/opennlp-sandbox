@@ -55,7 +55,13 @@ final class OpenNlpGrpcWebServer implements AutoCloseable {
   /** Idle seconds a keep-alive connection survives unless the operator chose otherwise. */
   static final long IDLE_INTERVAL_SECONDS = 900;
 
-  static {
+  /**
+   * Raises the keep-alive idle interval unless the operator set it. This runs from the
+   * constructor rather than a static initializer on purpose: a native image may simulate
+   * a static initializer at build time, and a property written then never reaches the
+   * running process.
+   */
+  static void applyKeepAliveDefault() {
     if (System.getProperty(IDLE_INTERVAL_PROPERTY) == null) {
       System.setProperty(IDLE_INTERVAL_PROPERTY, Long.toString(IDLE_INTERVAL_SECONDS));
     }
@@ -109,6 +115,7 @@ final class OpenNlpGrpcWebServer implements AutoCloseable {
       throw new IllegalArgumentException(
           "maxRequestBytes must be between 1 and " + (Integer.MAX_VALUE - 1));
     }
+    applyKeepAliveDefault();
     this.server = HttpServer.create(address, 0);
     this.executor = Executors.newVirtualThreadPerTaskExecutor();
     server.setExecutor(executor);

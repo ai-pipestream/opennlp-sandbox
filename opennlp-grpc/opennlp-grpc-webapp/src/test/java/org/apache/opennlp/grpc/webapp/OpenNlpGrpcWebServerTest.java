@@ -58,9 +58,17 @@ class OpenNlpGrpcWebServerTest {
   @Test
   void keepsIdleKeepAliveConnectionsWellPastAHumanPause() throws Exception {
     // The JDK server reads the property once, when it first starts; the gateway sets it
-    // before that, so a browser reusing a pooled connection after a pause is still served.
-    assertEquals(Long.toString(OpenNlpGrpcWebServer.IDLE_INTERVAL_SECONDS),
-        System.getProperty(OpenNlpGrpcWebServer.IDLE_INTERVAL_PROPERTY));
+    // at run time before creating its first server (not in a static initializer, which a
+    // native image may run at build time), so a browser reusing a pooled connection after
+    // a pause is still served.
+    System.clearProperty(OpenNlpGrpcWebServer.IDLE_INTERVAL_PROPERTY);
+    try (OpenNlpGrpcWebServer server = new OpenNlpGrpcWebServer(
+        new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+        new TestAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(),
+        new EmptyTrainingRpc(), new WebUiExtensionRegistry(List.of()), 128)) {
+      assertEquals(Long.toString(OpenNlpGrpcWebServer.IDLE_INTERVAL_SECONDS),
+          System.getProperty(OpenNlpGrpcWebServer.IDLE_INTERVAL_PROPERTY));
+    }
     assertTrue(OpenNlpGrpcWebServer.IDLE_INTERVAL_SECONDS >= 600,
         "ten minutes is the least a reader pauses for");
   }
