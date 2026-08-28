@@ -932,9 +932,14 @@
               <li>Paste corpus documents and learn a vocabulary; the minimum frequency controls
                 which corpus terms survive.</li>
               <li>Distill the vocabulary against an operator-approved teacher model. The result is
-                a static embedding model this server serves immediately: select it on the Analyze
-                tab, index with it, and search with it.</li>
+                a static embedding model this server serves immediately, with no restart: select it
+                on the Analyze tab, index with it, and search with it.</li>
             </ol>
+            <p>Distillation is not gradient training. There are no epochs, no learning rate and no
+              loss curve: the server runs each vocabulary row through the teacher once, reduces the
+              result with PCA, and reweights the rows by frequency. Three things share the word
+              vocabulary here: the teacher's own subword vocabulary, the vocabulary learned from
+              your corpus in step 2, and the rows of the distilled model, which are the same terms.</p>
             <p class="help-code">
               From code this is <code>OpenNlpVocabularyService</code> and
               <code>OpenNlpModelTrainingService</code>, or the gateway's

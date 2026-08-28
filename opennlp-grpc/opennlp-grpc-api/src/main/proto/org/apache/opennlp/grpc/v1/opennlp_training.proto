@@ -406,6 +406,16 @@ message StaticModelDescriptor {
   uint64 byte_size = 11;
   string provenance_summary = 12;
   google.protobuf.Timestamp created_at = 13;
+  // Where the teacher came from, recorded at distillation so the model carries its own
+  // lineage even if the teacher is later re-pinned or removed: a repository or path.
+  string teacher_reference = 14;
+  // The teacher's pinned revision, when the teacher came from the catalog.
+  string teacher_revision = 15;
+  // The license inherited from the teacher, as an SPDX identifier; empty when unknown.
+  string license_name = 16;
+  string license_uri = 17;
+  // Languages the teacher declares; empty when unknown.
+  repeated string languages = 18;
 }
 
 message ListStaticModelsRequest {}

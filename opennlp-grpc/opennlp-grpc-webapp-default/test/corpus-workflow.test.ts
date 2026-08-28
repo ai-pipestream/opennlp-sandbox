@@ -40,6 +40,9 @@ const MODEL: TrainedModelSummary = {
   artifactHash: "model-hash",
   byteSize: 12_000,
   createdAt: "2026-08-26T12:00:00Z",
+  teacherReference: "minishlab/potion-base-8M",
+  licenseName: "MIT",
+  languages: ["en"],
 };
 
 const INDEX: SearchIndex = {

@@ -414,7 +414,10 @@ public final class CatalogModelStore {
     } else if (descriptor.getRole()
         == ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER) {
       trainingStore.registerCatalogTeacher(
-          descriptor.getModelId(), descriptor.getDisplayName(), directory);
+          descriptor.getModelId(), descriptor.getDisplayName(), directory,
+          new TeacherProvenance(descriptor.getSourceUri(), descriptor.getRevision(),
+              descriptor.getLicenseName(), descriptor.getLicenseUri(),
+              descriptor.getLanguagesList()));
     } else if (!requiresRestart(descriptor.getRole())) {
       throw new IllegalArgumentException("Unsupported catalog model role " + descriptor.getRole());
     }

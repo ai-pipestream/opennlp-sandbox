@@ -64,6 +64,11 @@ export interface TrainedModelSummary {
   byteSize: number;
   /** ISO-8601 creation time from the server, or empty when not reported. */
   createdAt: string;
+  /** Where the teacher came from, as the server recorded it at distillation. */
+  teacherReference: string;
+  /** The license inherited from the teacher, empty when the server did not know it. */
+  licenseName: string;
+  languages: string[];
 }
 
 export interface TrainerApi {
@@ -123,6 +128,7 @@ export class VocabularyTrainerWorkbench {
   readonly #modelList = requiredElement<HTMLElement>("trainer-model-list");
 
   #writesEnabled = false;
+  #hasTeacher = false;
   #busy = false;
 
   constructor(api: TrainerApi, callbacks: TrainerCallbacks) {
@@ -156,13 +162,18 @@ export class VocabularyTrainerWorkbench {
         title: teacher.reference,
       })), "No teachers configured");
       this.renderModels(models);
+      this.#hasTeacher = teachers.teachers.length > 0;
       if (!this.#writesEnabled) {
-        this.setStatus(
-          "Training is disabled: the server has no vocabulary artifact root or no teachers.",
-          true,
-        );
-      } else if (teachers.teachers.length === 0) {
-        this.setStatus("No teachers are configured; add training.teacher entries.", true);
+        this.setStatus("Learning and distilling are off on this server: it has no writable "
+          + "artifact root (vocabulary.artifact_root).", true);
+      } else if (!this.#hasTeacher) {
+        this.setStatus("No teacher model is installed, so nothing can be distilled yet. ", true);
+        const jump = document.createElement("button");
+        jump.type = "button";
+        jump.className = "link-button";
+        jump.dataset.workbenchJump = "models";
+        jump.textContent = "Install a teacher on Models & data";
+        this.#status.append(jump);
       } else {
         this.setStatus("Paste corpus text to learn a vocabulary. A dictionary is optional.");
       }
@@ -286,9 +297,11 @@ export class VocabularyTrainerWorkbench {
       name.textContent = model.displayName;
       const facts = document.createElement("small");
       const created = timestampLabel(model.createdAt);
-      facts.textContent = `dim ${model.dimension} · ${formatInteger(model.termCount)} terms `
-        + `· ${model.family || "unknown tokenizer"} · teacher ${model.teacherId}`
-        + (created ? ` · trained ${created}` : "");
+      facts.textContent = `${model.dimension}-dim · ${formatInteger(model.termCount)} terms `
+        + `· tokenizer ${model.family || "unknown"} · distilled from ${model.teacherId}`
+        + (model.licenseName ? ` · ${model.licenseName}` : " · license not recorded")
+        + (model.languages.length > 0 ? ` · ${model.languages.join(", ")}` : "")
+        + (created ? ` · distilled ${created}` : "");
       const shortId = document.createElement("code");
       shortId.textContent = ellipsizeCodePoints(model.artifactId, 20);
       shortId.title = model.artifactId;
@@ -354,7 +367,8 @@ export class VocabularyTrainerWorkbench {
     this.#downloadTsvButton.title = vocabularySelected
       ? ""
       : "Learn and select a vocabulary first; the TSV export needs one.";
-    this.#trainButton.disabled = !enabled;
+    this.#trainButton.disabled = !enabled || !this.#hasTeacher;
+    this.#trainButton.title = this.#hasTeacher ? "" : "Install a teacher model first.";
   }
 
   private renderCorpusStats(): void {
@@ -449,6 +463,10 @@ export function readTrainedModel(value: unknown): TrainedModelSummary {
     artifactHash: typeof model.artifactHash === "string" ? model.artifactHash : "",
     byteSize: asCount(model.byteSize),
     createdAt: typeof model.createdAt === "string" ? model.createdAt : "",
+    teacherReference: typeof model.teacherReference === "string" ? model.teacherReference : "",
+    licenseName: typeof model.licenseName === "string" ? model.licenseName : "",
+    languages: Array.isArray(model.languages)
+      ? model.languages.filter((item): item is string => typeof item === "string") : [],
   };
 }
 

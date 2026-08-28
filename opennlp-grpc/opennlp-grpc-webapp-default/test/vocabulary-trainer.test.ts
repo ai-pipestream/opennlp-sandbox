@@ -47,6 +47,9 @@ const MODEL: TrainedModelSummary = {
   artifactHash: "abc",
   byteSize: 31_000_000,
   createdAt: "2026-08-20T14:00:00Z",
+  teacherReference: "minishlab/potion-base-8M",
+  licenseName: "MIT",
+  languages: ["en"],
 };
 
 describe("trainer readers", () => {
@@ -80,6 +83,7 @@ describe("trainer readers", () => {
       artifactId: "static-model-1", displayName: "m", dimension: 3, termCount: 12, teacherId: "mini",
       family: "wordpiece", vocabularySize: 30_522, explainedVarianceRatio: 0.97,
       artifactHash: "abc", byteSize: 31_000_000, createdAt: "2026-08-20T14:00:00Z",
+      teacherReference: "", licenseName: "", languages: [],
     }]);
     expect(() => readTrainedModel({})).toThrow(/invalid static model/);
     expect(readImportedDictionary({ artifactId: "dictionary-1", entryCount: 2 }))
@@ -190,7 +194,8 @@ describe("trainer workbench", () => {
 
     const row = document.querySelector(".trainer-model-row")!;
     expect(row.querySelector("strong")?.textContent).toBe("Legal static model");
-    expect(row.textContent).toContain("trained 2026-08-20 14:00 UTC");
+    expect(row.textContent).toContain("distilled 2026-08-20 14:00 UTC");
+    expect(row.textContent).toContain("· MIT · en");
     expect(row.querySelector("code")?.textContent).toBe("static-model-1");
     const use = [...row.querySelectorAll("button")]
       .find((button) => button.textContent === "Use in Analyze")!;
@@ -214,6 +219,23 @@ describe("trainer workbench", () => {
       .toContain("23 UTF-8 bytes");
   });
 
+  it("disables distilling and points at the catalog when no teacher is installed", async () => {
+    const api = stubApi({
+      listDictionaryFormats: vi.fn(async () => ({ formats: [], writesEnabled: true })),
+      listTeachers: vi.fn(async () => ({ teachers: [], writesEnabled: true })),
+      listStaticModels: vi.fn(async () => []),
+    });
+    const trainer = new VocabularyTrainerWorkbench(api, { onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn() });
+
+    await trainer.initialize();
+
+    const status = document.getElementById("trainer-status")!;
+    expect(status.textContent).toContain("No teacher model is installed");
+    expect(status.querySelector<HTMLElement>("[data-workbench-jump]")?.dataset.workbenchJump).toBe("models");
+    expect((document.getElementById("trainer-train-button") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.getElementById("trainer-learn-button") as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("disables training when the server has no artifact root", async () => {
     const api = stubApi({
       listDictionaryFormats: vi.fn(async () => ({ formats: [], writesEnabled: false })),
@@ -224,7 +246,7 @@ describe("trainer workbench", () => {
 
     await trainer.initialize();
 
-    expect(document.getElementById("trainer-status")?.textContent).toContain("disabled");
+    expect(document.getElementById("trainer-status")?.textContent).toContain("artifact root");
     expect((document.getElementById("trainer-train-button") as HTMLButtonElement).disabled)
       .toBe(true);
   });

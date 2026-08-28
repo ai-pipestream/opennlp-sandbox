@@ -122,6 +122,30 @@ class CatalogModelStoreTest {
   }
 
   @Test
+  void aModelDistilledFromACatalogTeacherRecordsTheTeachersLicenseAndOrigin() throws Exception {
+    final Path source = Files.createDirectories(temporaryDirectory.resolve("lineage-source"));
+    Files.writeString(source.resolve("tokenizer.json"), "{}");
+    Files.write(Files.createDirectories(source.resolve("onnx")).resolve("model.onnx"),
+        new byte[] {1, 2, 3, 4});
+    final CatalogModel teacher = testModel(source,
+        ModelArtifactRole.MODEL_ARTIFACT_ROLE_DISTILLATION_TEACHER, "lineage-teacher");
+    final TrainedModelEmbeddingProvider registry = registry();
+    final StaticModelArtifactStore training = trainingStore(registry);
+    final CatalogModelStore store = new CatalogModelStore(
+        temporaryDirectory.resolve("lineage-catalog"), List.of(teacher), training, registry,
+        copyingInstaller(source));
+    store.install(request(teacher), ignored -> { }, () -> false);
+
+    final TeacherProvenance provenance = training.teacherProvenance("lineage-teacher");
+
+    assertEquals(teacher.descriptor().getSourceUri(), provenance.reference());
+    assertEquals(teacher.descriptor().getRevision(), provenance.revision());
+    assertEquals(teacher.descriptor().getLicenseName(), provenance.licenseName());
+    assertEquals(teacher.descriptor().getLicenseUri(), provenance.licenseUri());
+    assertEquals(teacher.descriptor().getLanguagesList(), provenance.languages());
+  }
+
+  @Test
   void parserAndChunkerInstallationsWaitForAValidatedRestart() throws Exception {
     for (ModelArtifactRole role : List.of(
         ModelArtifactRole.MODEL_ARTIFACT_ROLE_PARSER,
