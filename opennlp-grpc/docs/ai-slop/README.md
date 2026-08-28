@@ -27,6 +27,8 @@ Themes:
 | `test-coverage` | Coverage map and the drift bugs it let through |
 | `roadmap` | Adjacent research tracks and how the themes relate to them |
 
+Phased execution order with acceptance criteria: `GOALS.md`.
+
 Nothing here is normative until it is lifted into `README.md`, `docs/rfc`, or
 the code. Prose rules: no em dashes, cite code as `path:line`, separate fact
 from recommendation, give each recommendation a priority (P1 to P3).
