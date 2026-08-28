@@ -76,13 +76,25 @@ build() {
     "-J-Xmx${xmx}"
 }
 
-echo "== Building the gateway binary (takes about a minute)"
-build webapp.jar org.apache.opennlp.grpc.webapp.OpenNlpGrpcWebApp \
-  opennlp-grpc-webapp webapp 24g
+# Optional first argument selects what to build: all (default), gateway, or
+# server. Front-end iteration only needs the one-minute gateway build.
+target="${1:-all}"
+case "${target}" in
+  all|gateway|server) ;;
+  *) echo "usage: $0 [all|gateway|server]" >&2; exit 2 ;;
+esac
 
-echo "== Building the server binary (takes about 45 minutes)"
-build server.jar org.apache.opennlp.grpc.server.OpenNlpGrpcServer \
-  opennlp-grpc-server server 64g
+if [ "${target}" != server ]; then
+  echo "== Building the gateway binary (takes about a minute)"
+  build webapp.jar org.apache.opennlp.grpc.webapp.OpenNlpGrpcWebApp \
+    opennlp-grpc-webapp webapp 24g
+fi
+
+if [ "${target}" != gateway ]; then
+  echo "== Building the server binary (takes about 45 minutes)"
+  build server.jar org.apache.opennlp.grpc.server.OpenNlpGrpcServer \
+    opennlp-grpc-server server 64g
+fi
 
 echo "== Done: ${OUT}/opennlp-grpc-server and ${OUT}/opennlp-grpc-webapp"
 echo "Build the runtime image with:"
