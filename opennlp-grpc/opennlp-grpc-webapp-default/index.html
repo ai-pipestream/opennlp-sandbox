@@ -394,9 +394,28 @@
                 static embedding model, build a live index, and search it. Every stage stays visible.
               </p>
             </div>
-            <span class="workflow-default-badge">Automatic defaults</span>
+            <span id="workflow-mode-badge" class="workflow-default-badge">Checking this server</span>
           </header>
 
+          <details class="help-callout">
+            <summary>What this tab builds</summary>
+            <p>An <strong>index</strong> is a searchable copy of your documents. The server splits each
+              document into chunks, turns each chunk into a vector with an embedding model, and keeps
+              the vectors so it can rank them against a question.</p>
+            <p>With a teacher model installed, this tab builds one from scratch in six steps: it reads
+              your documents, collects the words they use into a <strong>vocabulary</strong>, distils a
+              small <strong>embedding model</strong> for exactly that vocabulary from the teacher,
+              re-reads the documents through the new model, loads the result into a
+              <strong>live index</strong> in server memory, and runs your first search against it.
+              Without a teacher it still analyzes, indexes and searches, embedding with a model the
+              server already has.</p>
+            <p>A live index lives in memory and is gone when the server restarts unless you save it on
+              the <button type="button" class="link-button" data-workbench-jump="lifecycle">Lifecycle</button>
+              tab. The vocabulary and the distilled model are written to the server's artifact store
+              and stay there. The index is listed on
+              <button type="button" class="link-button" data-workbench-jump="session-search">Live index search</button>
+              and on Lifecycle as soon as it is built.</p>
+          </details>
           <div class="workflow-builder">
             <section class="workflow-composer" aria-labelledby="workflow-input-heading">
               <div class="workflow-section-heading">
@@ -404,6 +423,8 @@
                 <h4 id="workflow-input-heading">Your documents</h4>
               </div>
               <label for="workflow-corpus">Documents (blank line separates documents)</label>
+              <button id="workflow-sample-button" type="button" class="secondary-button">Load sample
+                documents</button>
               <textarea id="workflow-corpus" rows="10"
                 placeholder="Paste one or more documents here. Separate documents with a blank line."></textarea>
               <p id="workflow-corpus-stats" class="trainer-corpus-stats" aria-live="polite">
@@ -429,7 +450,7 @@
               <details class="workflow-options">
                 <summary>
                   <span><strong>Configure the build</strong><small>Dictionary, teacher, vector storage, and limits</small></span>
-                  <span class="workflow-option-summary">Defaults are ready</span>
+                  <span id="workflow-option-summary" class="workflow-option-summary">Checking this server</span>
                 </summary>
                 <div class="workflow-option-grid">
                   <label for="workflow-dictionary-select">

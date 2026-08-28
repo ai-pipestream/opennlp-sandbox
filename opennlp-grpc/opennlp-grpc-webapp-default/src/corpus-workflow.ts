@@ -80,7 +80,18 @@ export interface CorpusWorkflowCallbacks {
   onModelTrained(model: TrainedModelSummary): void;
   onOpenAnalysis(response: unknown, shape: DocumentShapeView): void;
   onIndexChanged(index: SearchIndex): void;
+  /**
+   * The embedding model an analyze-and-index build uses when the server has no teacher to
+   * distill one from the pasted text; undefined when none is loaded.
+   */
+  defaultEmbeddingModel(): { id: string; label: string } | undefined;
 }
+
+/**
+ * What the tab can do on this server: a full build distils a model from the pasted text,
+ * an index-only build embeds with an installed model, and an unavailable tab explains why.
+ */
+export type BuildMode = "full" | "index-only" | "unavailable";
 
 interface AnalyzedDocument {
   id: string;
@@ -119,7 +130,11 @@ export class CorpusWorkflowWorkbench {
     document.querySelectorAll<HTMLButtonElement>("[data-workflow-result-tab]"));
 
   #ready = false;
+  #mode: BuildMode = "unavailable";
   #busy = false;
+  /** The state badges in the tab header and drawer; absent in unit fixtures. */
+  readonly #modeBadge = document.getElementById("workflow-mode-badge");
+  readonly #optionSummary = document.getElementById("workflow-option-summary");
   #index?: SearchIndex;
   #model?: TrainedModelSummary;
   #vocabulary?: LearnedVocabularySummary;
@@ -150,16 +165,72 @@ export class CorpusWorkflowWorkbench {
       this.populateDictionaries(dictionaries);
       this.populateTeachers(teachers.teachers);
       this.populateProviders(providers);
-      this.#ready = teachers.writesEnabled && teachers.teachers.length > 0;
-      this.setStatus(this.#ready
-        ? "Ready. Paste text and keep the defaults, or open the configuration drawer."
-        : "Training is unavailable because this server has no writable artifact root or teacher model.",
-      !this.#ready);
+      this.chooseMode(teachers.writesEnabled, teachers.teachers.length > 0);
     } catch (error) {
       this.#ready = false;
+      this.#mode = "unavailable";
       this.setStatus(errorMessage(error, "Could not load build resources."), true);
     }
+    this.renderMode();
     this.updateControls();
+  }
+
+  /** The build the server can run, for tests and for the header badge. */
+  mode(): BuildMode {
+    return this.#mode;
+  }
+
+  /**
+   * Picks the build the server can run. A teacher plus a writable artifact root gives the
+   * full six stages; an installed embedding model alone still analyzes, indexes and
+   * searches; with neither the tab says which of the two is missing and where to get it.
+   */
+  private chooseMode(writesEnabled: boolean, hasTeacher: boolean): void {
+    const fallback = this.#callbacks.defaultEmbeddingModel();
+    if (writesEnabled && hasTeacher) {
+      this.#mode = "full";
+      this.#ready = true;
+      this.setStatus("Ready. Paste text and keep the defaults, or open the configuration drawer.");
+      return;
+    }
+    const missing = !hasTeacher
+      ? "no teacher model is installed"
+      : "this server has no writable artifact root (vocabulary.artifact_root)";
+    if (fallback) {
+      this.#mode = "index-only";
+      this.#ready = true;
+      this.setStatus(`Ready in analyze-and-index mode: ${missing}, so documents are embedded `
+        + `with '${fallback.label}' instead of a model distilled from your text.`);
+    } else {
+      this.#mode = "unavailable";
+      this.#ready = false;
+      this.setStatus(`Nothing can be built here: ${missing}, and no embedding model is loaded `
+        + "either.", true);
+    }
+    if (!hasTeacher) {
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "link-button";
+      jump.dataset.workbenchJump = "models";
+      jump.textContent = "Install a teacher on Models & data";
+      this.#status.append(" ", jump);
+    }
+  }
+
+  /** Writes the mode into the header badge and the drawer summary. */
+  private renderMode(): void {
+    const labels: Record<BuildMode, [badge: string, summary: string]> = {
+      full: ["Automatic defaults", "Defaults are ready"],
+      "index-only": ["Analyze and index only", "No teacher: distillation is skipped"],
+      unavailable: ["Unavailable on this server", "Nothing can be built"],
+    };
+    const [badge, summary] = labels[this.#mode];
+    if (this.#modeBadge) {
+      this.#modeBadge.textContent = badge;
+    }
+    if (this.#optionSummary) {
+      this.#optionSummary.textContent = summary;
+    }
   }
 
   private async run(): Promise<void> {
@@ -185,6 +256,10 @@ export class CorpusWorkflowWorkbench {
       this.complete("analyze", `${documents.length} ${plural(documents.length, "document")} analyzed`);
       this.renderAnalysis(analyzed);
 
+      if (this.#mode === "index-only") {
+        await this.indexWithInstalledModel(documents, displayName, query);
+        return;
+      }
       this.activate("vocabulary", "Learning terms from the pasted corpus");
       const dictionaryArtifactId = this.#dictionary.value;
       this.#vocabulary = await this.#api.learnVocabulary({
@@ -261,6 +336,41 @@ export class CorpusWorkflowWorkbench {
       this.#activeStage = undefined;
       this.updateControls();
     }
+  }
+
+  /**
+   * The analyze-and-index build: the vocabulary and distillation stages are marked
+   * skipped, the documents are embedded with the installed model, and the index is built
+   * and searched exactly as in a full build.
+   */
+  private async indexWithInstalledModel(
+    documents: Array<{ docId: string; rawText: string }>,
+    displayName: string,
+    query: string,
+  ): Promise<void> {
+    const model = this.#callbacks.defaultEmbeddingModel();
+    if (!model) {
+      throw new Error("No embedding model is loaded on this server.");
+    }
+    this.setStage("vocabulary", "skipped", "Skipped: no teacher to distill from");
+    this.setStage("train", "skipped", `Skipped: embedding with '${model.label}'`);
+    this.activate("embed", `Embedding sentence chunks with '${model.label}'`);
+    const embedded = await this.analyzeDocuments(documents, model.id);
+    this.complete("embed", `${embedded.length} embedded ${plural(embedded.length, "document")}`);
+    this.activate("index", "Building the searchable index");
+    this.#index = await this.#api.index({
+      displayName,
+      provider: { standard: this.#provider.value || FLAT_FLOAT_PROVIDER },
+      documents: embedded.map((document) => indexDocument(document.response)),
+      embedding: { modelId: model.id },
+    });
+    this.complete("index", `${formatInteger(this.#index.size ?? 0)} searchable chunks`);
+    this.#callbacks.onIndexChanged(this.#index);
+    await this.runSearch(query);
+    this.#artifacts.replaceChildren(
+      artifact("Embedding model", model.id), artifact("Index", this.#index.id));
+    this.selectResultView("search");
+    this.setStatus(`Index '${displayName}' is built and searchable.`);
   }
 
   private async analyzeDocuments(
@@ -490,6 +600,11 @@ export class CorpusWorkflowWorkbench {
         + `${formatInteger(new TextEncoder().encode(this.#corpus.value).byteLength)} UTF-8 bytes`;
     this.#runButton.disabled = !this.#ready || this.#busy || documents.length === 0
       || !this.#query.value.trim();
+    this.#runButton.title = !this.#ready
+      ? "Nothing can be built on this server; the status above says what is missing."
+      : documents.length === 0
+        ? "Paste at least one document first."
+        : !this.#query.value.trim() ? "Enter the first search to run once the index is built." : "";
     this.#searchButton.disabled = this.#busy || !this.#index || !this.#query.value.trim();
   }
 

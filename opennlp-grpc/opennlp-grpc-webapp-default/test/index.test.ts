@@ -127,6 +127,9 @@ describe("analysis playground markup", () => {
 
   it("provides a guided corpus-to-search workflow with visible stage status", () => {
     expect(html).toContain('id="workflows-workbench"');
+    expect(html).toContain("<summary>What this tab builds</summary>");
+    expect(html).toContain('id="workflow-sample-button"');
+    expect(html).toContain('id="workflow-mode-badge"');
     expect(html).toContain('id="workflow-corpus"');
     expect(html).toContain('id="workflow-teacher-select"');
     expect(html).toContain('id="workflow-query"');

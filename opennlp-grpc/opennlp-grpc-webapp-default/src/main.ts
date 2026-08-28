@@ -111,7 +111,7 @@ import {
   readSearchResponse,
 } from "./search-adapter";
 import { ServerSearchWorkbench } from "./server-search-workbench";
-import { asciiLowerCase, formatInteger } from "./text-utils";
+import { asciiLowerCase, collapseWhitespace, formatInteger } from "./text-utils";
 import {
   activeUiExtension,
   extensionInitials,
@@ -377,6 +377,14 @@ const corpusWorkflow = new CorpusWorkflowWorkbench({
     trainedEmbeddingModels.set(model.artifactId, `${model.displayName} (trained)`);
     publishRuntimeEmbeddingModels();
   },
+  defaultEmbeddingModel: () => {
+    const configured = workflowCapabilities?.embeddingModels[0];
+    if (configured) {
+      return { id: configured.id, label: configured.label };
+    }
+    const runtime = [...catalogEmbeddingModels, ...trainedEmbeddingModels][0];
+    return runtime ? { id: runtime[0], label: runtime[1] } : undefined;
+  },
   onOpenAnalysis: (response, shape) => {
     textArea.value = shape.rawText;
     updateFormState();
@@ -392,9 +400,17 @@ const corpusWorkflow = new CorpusWorkflowWorkbench({
   onIndexChanged: () => {
     void serverSearchWorkbench.initialize();
     void semanticWorkbench.initializeWorkspaces();
+    void lifecycleWorkbench.initialize();
   },
 });
 void corpusWorkflow.initialize();
+document.getElementById("workflow-sample-button")?.addEventListener("click", () => {
+  void loadAliceDemo().then((novel) => {
+    const corpus = requiredElement<HTMLTextAreaElement>("workflow-corpus");
+    corpus.value = sampleDocuments(novel, 6);
+    corpus.dispatchEvent(new Event("input", { bubbles: true }));
+  }, (error) => setFormStatus(errorMessage(error, "The sample could not be loaded."), true));
+});
 
 textArea.addEventListener("input", updateFormState);
 sampleButton.addEventListener("click", () => {
@@ -1247,4 +1263,25 @@ function discoverServiceName(value: unknown): string {
     }
   }
   return "OpenNLP gRPC";
+}
+
+/**
+ * The first paragraphs of a novel as blank-line separated documents, enough to build a
+ * small index in seconds without pasting anything.
+ */
+function sampleDocuments(novel: string, paragraphs: number): string {
+  const chosen: string[] = [];
+  let start = 0;
+  while (chosen.length < paragraphs && start < novel.length) {
+    let end = novel.indexOf("\n\n", start);
+    if (end < 0) {
+      end = novel.length;
+    }
+    const paragraph = collapseWhitespace(novel.slice(start, end));
+    if (paragraph.length > 120) {
+      chosen.push(paragraph);
+    }
+    start = end + 2;
+  }
+  return chosen.join("\n\n");
 }

@@ -129,6 +129,8 @@ describe("corpus workflow", () => {
       <input id="workflow-query" value="rights and liberty" />
       <button id="workflow-run-button"></button>
       <form id="workflow-search-form"><button id="workflow-search-button"></button></form>
+      <span id="workflow-mode-badge"></span>
+      <span id="workflow-option-summary"></span>
       <ol id="workflow-stages">
         ${["analyze", "vocabulary", "train", "embed", "index", "search"].map((stage) =>
           `<li data-workflow-stage="${stage}"><span class="workflow-stage-status"></span></li>`).join("")}
@@ -193,6 +195,102 @@ describe("corpus workflow", () => {
     };
   }
 
+  function callbacks(defaultModel?: { id: string; label: string }) {
+    return {
+      createAnalysisRequest: (document: { docId: string; rawText: string }, modelId?: string) => ({
+        document,
+        ...(modelId ? {
+          chunkEmbedConfigs: [{
+            configId: "workflow-sentences",
+            resultSetName: "Workflow sentence chunks",
+            chunking: {
+              strategy: { standard: "STANDARD_CHUNKING_STRATEGY_SENTENCE" },
+              cleanText: true,
+              preserveUrls: true,
+            },
+            embeddingModelIds: [modelId],
+          }],
+        } : {}),
+      }),
+      onModelTrained: vi.fn(),
+      onOpenAnalysis: vi.fn(),
+      onIndexChanged: vi.fn(),
+      defaultEmbeddingModel: () => defaultModel,
+    };
+  }
+
+  it("says which of the two prerequisites is missing and where to get a teacher", async () => {
+    const order: string[] = [];
+    const workflowApi = api(order);
+    workflowApi.listTeachers = vi.fn(async () => ({ teachers: [], writesEnabled: false }));
+    const workflow = new CorpusWorkflowWorkbench(workflowApi, callbacks());
+    await workflow.initialize();
+
+    expect(workflow.mode()).toBe("unavailable");
+    const status = document.getElementById("workflow-status")!;
+    expect(status.textContent).toContain("no teacher model is installed");
+    expect(status.textContent).toContain("no embedding model is loaded");
+    expect(status.classList.contains("is-error")).toBe(true);
+    expect(status.querySelector<HTMLElement>("[data-workbench-jump]")?.dataset.workbenchJump).toBe("models");
+    expect(document.getElementById("workflow-mode-badge")!.textContent).toBe("Unavailable on this server");
+    const run = document.getElementById("workflow-run-button") as HTMLButtonElement;
+    (document.getElementById("workflow-corpus") as HTMLTextAreaElement).value = "One document.";
+    document.getElementById("workflow-corpus")!.dispatchEvent(new Event("input"));
+    expect(run.disabled).toBe(true);
+    expect(run.title).toContain("Nothing can be built");
+  });
+
+  it("analyzes, indexes and searches with an installed model when no teacher exists", async () => {
+    const order: string[] = [];
+    const workflowApi = api(order);
+    workflowApi.listTeachers = vi.fn(async () => ({ teachers: [], writesEnabled: true }));
+    const workflow = new CorpusWorkflowWorkbench(workflowApi,
+      callbacks({ id: "minilm", label: "MiniLM (catalog)" }));
+    await workflow.initialize();
+    expect(workflow.mode()).toBe("index-only");
+    expect(document.getElementById("workflow-status")!.textContent)
+      .toContain("embedded with 'MiniLM (catalog)'");
+    expect(document.getElementById("workflow-option-summary")!.textContent)
+      .toContain("distillation is skipped");
+
+    (document.getElementById("workflow-corpus") as HTMLTextAreaElement).value =
+      "Liberty is precious.\n\nRights are protected.";
+    document.getElementById("workflow-corpus")!.dispatchEvent(new Event("input"));
+    document.getElementById("workflow-run-button")!.click();
+    await vi.waitFor(() => expect(document.getElementById("workflow-status")!.textContent)
+      .toContain("is built and searchable"));
+
+    expect(workflowApi.learnVocabulary).not.toHaveBeenCalled();
+    expect(workflowApi.trainStaticModel).not.toHaveBeenCalled();
+    expect(workflowApi.index).toHaveBeenCalledWith(
+      expect.objectContaining({ embedding: { modelId: "minilm" } }));
+    const stage = (name: string) => document.querySelector<HTMLElement>(
+      `[data-workflow-stage="${name}"]`)!.dataset.state;
+    expect([stage("analyze"), stage("vocabulary"), stage("train"), stage("embed"), stage("index"), stage("search")])
+      .toEqual(["complete", "skipped", "skipped", "complete", "complete", "complete"]);
+  });
+
+  it("keeps completed stages when a later stage fails", async () => {
+    const order: string[] = [];
+    const workflowApi = api(order);
+    workflowApi.index = vi.fn(async () => {
+      throw new Error("Search provider instance 'terms' cannot hold vectors");
+    });
+    const workflow = new CorpusWorkflowWorkbench(workflowApi, callbacks());
+    await workflow.initialize();
+    (document.getElementById("workflow-corpus") as HTMLTextAreaElement).value = "One document.";
+    document.getElementById("workflow-corpus")!.dispatchEvent(new Event("input"));
+    document.getElementById("workflow-run-button")!.click();
+    await vi.waitFor(() => expect(document.getElementById("workflow-status")!.textContent)
+      .toContain("cannot hold vectors"));
+
+    const stage = (name: string) => document.querySelector<HTMLElement>(
+      `[data-workflow-stage="${name}"]`)!.dataset.state;
+    expect([stage("analyze"), stage("vocabulary"), stage("train"), stage("embed"), stage("index")])
+      .toEqual(["complete", "complete", "complete", "complete", "error"]);
+    expect(document.getElementById("workflow-status")!.classList.contains("is-error")).toBe(true);
+  });
+
   it("runs the guided corpus-to-search pipeline and renders both result views", async () => {
     const order: string[] = [];
     const workflowApi = api(order);
@@ -217,6 +315,7 @@ describe("corpus workflow", () => {
       onModelTrained,
       onOpenAnalysis,
       onIndexChanged: vi.fn(),
+      defaultEmbeddingModel: () => undefined,
     });
     await workflow.initialize();
     (document.getElementById("workflow-corpus") as HTMLTextAreaElement).value =
@@ -268,6 +367,7 @@ describe("corpus workflow", () => {
         } : {}),
       }),
       onModelTrained: vi.fn(), onOpenAnalysis: vi.fn(), onIndexChanged: vi.fn(),
+      defaultEmbeddingModel: () => undefined,
     });
     await workflow.initialize();
     const corpus = document.getElementById("workflow-corpus") as HTMLTextAreaElement;
