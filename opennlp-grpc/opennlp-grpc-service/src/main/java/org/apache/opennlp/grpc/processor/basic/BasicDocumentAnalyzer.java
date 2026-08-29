@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import opennlp.tools.sentdetect.NewlineSentenceDetector;
@@ -36,6 +37,8 @@ import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.processor.DocumentAnalysisSession;
 import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
 import org.apache.opennlp.grpc.processor.PipelineStepPolicy;
+import org.apache.opennlp.grpc.processor.ProgressiveAnalysisListener;
+import org.apache.opennlp.grpc.processor.ProgressiveDocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.profile.ProfileResolver;
 import org.apache.opennlp.grpc.v1.AnalysisProfile;
@@ -66,7 +69,7 @@ import org.apache.opennlp.grpc.v1.StandardTokenizerEngine;
  * converts every span to the client-requested {@link OffsetEncoding} (default UTF-8
  * bytes).
  */
-public class BasicDocumentAnalyzer implements DocumentAnalyzer {
+public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
 
   private static final NewlineSentenceDetector NEWLINE_SENTENCE_DETECTOR =
       new NewlineSentenceDetector();
@@ -191,6 +194,37 @@ public class BasicDocumentAnalyzer implements DocumentAnalyzer {
     final PreparedAnalysis prepared = prepare(request);
     validator.validateDocument(request, rawText);
     return analyzeWithCleanup(request, prepared, rawText);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void analyzeProgressively(
+      AnalyzeDocumentRequest request,
+      Executor branchExecutor,
+      ProgressiveAnalysisListener listener) {
+    ensureOpen();
+    if (request == null) {
+      throw new IllegalArgumentException("request must not be null");
+    }
+    if (branchExecutor == null) {
+      throw new IllegalArgumentException("branchExecutor must not be null");
+    }
+    if (listener == null) {
+      throw new IllegalArgumentException("listener must not be null");
+    }
+    final String rawText = requiredRawText(request);
+    final PreparedAnalysis prepared = prepare(request);
+    validator.validateDocument(request, rawText);
+    ProgressiveAnalysisCoordinator.start(
+        request,
+        prepared.effectiveSteps(),
+        branchExecutor,
+        embeddingProvider,
+        listener,
+        (branchRequest, steps) -> analyzeWithCleanup(
+            branchRequest,
+            new PreparedAnalysis(prepared.profile(), Set.copyOf(steps)),
+            rawText));
   }
 
   /** {@inheritDoc} */

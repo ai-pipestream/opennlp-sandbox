@@ -32,8 +32,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import io.grpc.Status;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import org.apache.opennlp.grpc.spi.embedding.EmbeddingBatchResult;
 import org.apache.opennlp.grpc.embedding.EmbeddingBackendSelections;
@@ -43,9 +46,15 @@ import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.processor.DocumentAnalysisSession;
 import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
 import org.apache.opennlp.grpc.processor.PipelineStepPolicy;
+import org.apache.opennlp.grpc.processor.ProgressiveAnalysisListener;
+import org.apache.opennlp.grpc.processor.ProgressiveDocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
+import org.apache.opennlp.grpc.v1.AnalysisLayerBatch;
+import org.apache.opennlp.grpc.v1.AnalysisStarted;
+import org.apache.opennlp.grpc.v1.AnalysisStepFailure;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
 import org.apache.opennlp.grpc.v1.EmbedTextRequest;
@@ -55,6 +64,7 @@ import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesRequest;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpAnalysisServiceGrpc;
+import org.apache.opennlp.grpc.v1.PipelineStep;
 import org.apache.opennlp.grpc.v1.StandardLayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +97,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
       .toList();
 
   private final DocumentAnalyzer documentAnalyzer;
+  private final ProgressiveDocumentAnalyzer progressiveDocumentAnalyzer;
   private final ProfileRegistry profileRegistry;
   private final ModelBundleCache modelBundleCache;
   private final String opennlpVersion;
@@ -183,6 +194,8 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
     }
     this.analysisStreamWindow = analysisStreamWindow;
     this.maxTextBytes = maxTextBytes;
+    this.progressiveDocumentAnalyzer = delegate instanceof ProgressiveDocumentAnalyzer progressive
+        ? progressive : null;
     this.documentAnalyzer = limitText(delegate, maxTextBytes);
   }
 
@@ -222,6 +235,207 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
       logger.error("Unexpected error handling AnalyzeDocument", e);
       responseObserver.onError(Status.INTERNAL
           .withDescription("Internal server error").withCause(e).asRuntimeException());
+    }
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void analyzeDocumentProgressive(
+      AnalyzeDocumentRequest request,
+      StreamObserver<AnalyzeDocumentEvent> responseObserver) {
+    final ProgressiveResponseWriter writer = new ProgressiveResponseWriter(responseObserver);
+    final ProgressiveAnalysisListener listener = new ProgressiveAnalysisListener() {
+      private final AtomicLong sequence = new AtomicLong();
+
+      @Override
+      public void onStarted(AnalysisStarted started) {
+        writer.next(AnalyzeDocumentEvent.newBuilder()
+            .setSequence(sequence.incrementAndGet())
+            .setStarted(started)
+            .build());
+      }
+
+      @Override
+      public void onLayersReady(AnalysisLayerBatch layers) {
+        writer.next(AnalyzeDocumentEvent.newBuilder()
+            .setSequence(sequence.incrementAndGet())
+            .setLayersReady(layers)
+            .build());
+      }
+
+      @Override
+      public void onStepFailed(PipelineStep step, RuntimeException failure) {
+        final Status status = statusFor(failure, "Progressive analysis branch failed");
+        writer.next(AnalyzeDocumentEvent.newBuilder()
+            .setSequence(sequence.incrementAndGet())
+            .setStepFailed(AnalysisStepFailure.newBuilder()
+                .setStep(step)
+                .setCode(GrpcStatusMapper.toWireCode(status))
+                .setMessage(clientMessage(failure))
+                .build())
+            .build());
+      }
+
+      @Override
+      public void onComplete(AnalyzeDocumentResponse response) {
+        writer.next(AnalyzeDocumentEvent.newBuilder()
+            .setSequence(sequence.incrementAndGet())
+            .setComplete(response)
+            .build());
+        writer.complete();
+      }
+
+      @Override
+      public void onError(RuntimeException failure) {
+        writer.error(statusFor(failure, "Progressive analysis failed")
+            .withDescription(clientMessage(failure))
+            .withCause(failure)
+            .asRuntimeException());
+      }
+
+      @Override
+      public boolean isCancelled() {
+        return writer.isCancelled();
+      }
+    };
+
+    try {
+      if (request != null && request.hasDocument()) {
+        validateText(request.getDocument().getRawText(), maxTextBytes);
+      }
+      if (progressiveDocumentAnalyzer != null) {
+        progressiveDocumentAnalyzer.analyzeProgressively(request, analysisExecutor, listener);
+      } else {
+        analysisExecutor.execute(() -> analyzeProgressiveFallback(request, listener));
+      }
+    } catch (RuntimeException e) {
+      listener.onError(e);
+    }
+  }
+
+  /** Runs a unary analyzer behind the progressive contract when it has no branch support. */
+  private void analyzeProgressiveFallback(
+      AnalyzeDocumentRequest request, ProgressiveAnalysisListener listener) {
+    try {
+      listener.onStarted(AnalysisStarted.newBuilder()
+          .setDocument(request.getDocument())
+          .build());
+      final AnalyzeDocumentResponse response = documentAnalyzer.analyze(request);
+      if (response.getDocument().hasLayers()) {
+        listener.onLayersReady(AnalysisLayerBatch.newBuilder()
+            .setStep(PipelineStep.PIPELINE_STEP_UNSPECIFIED)
+            .addAllLayers(response.getDocument().getLayers().getLayersList())
+            .addAllDiagnostics(response.getDiagnosticsList())
+            .build());
+      }
+      listener.onComplete(response);
+    } catch (RuntimeException e) {
+      listener.onError(e);
+    }
+  }
+
+  /** Maps a progressive failure and keeps unexpected details server-side. */
+  private static Status statusFor(RuntimeException failure, String operation) {
+    if (failure instanceof AnalysisException analysisFailure) {
+      final Status status = GrpcStatusMapper.toStatus(analysisFailure);
+      if (status.getCode() == Status.Code.INTERNAL
+          || status.getCode() == Status.Code.UNAVAILABLE) {
+        logger.error(operation, failure);
+      }
+      return status;
+    }
+    logger.error(operation, failure);
+    return Status.INTERNAL;
+  }
+
+  /** Returns the client-visible failure text without exposing unexpected internals. */
+  private static String clientMessage(RuntimeException failure) {
+    return failure instanceof AnalysisException ? failure.getMessage() : "Internal server error";
+  }
+
+  /** Serializes progressive writes and waits for outbound transport capacity. */
+  private static final class ProgressiveResponseWriter {
+
+    private static final long READY_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
+
+    private final StreamObserver<AnalyzeDocumentEvent> responseObserver;
+    private final ServerCallStreamObserver<AnalyzeDocumentEvent> serverObserver;
+    private final Object readyLock = new Object();
+    private boolean terminal;
+
+    private ProgressiveResponseWriter(StreamObserver<AnalyzeDocumentEvent> responseObserver) {
+      this.responseObserver = Objects.requireNonNull(responseObserver, "responseObserver");
+      if (responseObserver instanceof ServerCallStreamObserver<AnalyzeDocumentEvent> observer) {
+        serverObserver = observer;
+        observer.setOnReadyHandler(() -> {
+          synchronized (readyLock) {
+            readyLock.notifyAll();
+          }
+        });
+        observer.setOnCancelHandler(() -> {
+          synchronized (readyLock) {
+            readyLock.notifyAll();
+          }
+        });
+      } else {
+        serverObserver = null;
+      }
+    }
+
+    /** Writes one event after transport readiness is available. */
+    private synchronized void next(AnalyzeDocumentEvent event) {
+      if (terminal || isCancelled()) {
+        return;
+      }
+      awaitReady();
+      if (!terminal && !isCancelled()) {
+        responseObserver.onNext(event);
+      }
+    }
+
+    /** Completes the response once. */
+    private synchronized void complete() {
+      if (!terminal && !isCancelled()) {
+        terminal = true;
+        responseObserver.onCompleted();
+      }
+    }
+
+    /** Fails the response once. */
+    private synchronized void error(RuntimeException failure) {
+      if (!terminal && !isCancelled()) {
+        terminal = true;
+        responseObserver.onError(failure);
+      }
+    }
+
+    /** Returns whether the transport has been cancelled. */
+    private boolean isCancelled() {
+      return serverObserver != null && serverObserver.isCancelled();
+    }
+
+    /** Blocks the virtual coordinator while the client is not draining events. */
+    private void awaitReady() {
+      if (serverObserver == null || serverObserver.isReady()) {
+        return;
+      }
+      final long deadline = System.nanoTime() + READY_TIMEOUT_NANOS;
+      synchronized (readyLock) {
+        while (!serverObserver.isReady() && !serverObserver.isCancelled()) {
+          final long remaining = deadline - System.nanoTime();
+          if (remaining <= 0) {
+            throw AnalysisException.resourceExhausted(
+                "Progressive analysis client did not drain responses");
+          }
+          try {
+            TimeUnit.NANOSECONDS.timedWait(readyLock, remaining);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw AnalysisException.unavailable(
+                "Interrupted while waiting for progressive response capacity", e);
+          }
+        }
+      }
     }
   }
 

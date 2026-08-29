@@ -45,6 +45,7 @@ import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
+import org.apache.opennlp.grpc.v1.AnalysisProfile;
 import org.apache.opennlp.grpc.v1.ComponentType;
 import org.apache.opennlp.grpc.v1.ConfiguredResource;
 import org.apache.opennlp.grpc.v1.GetServiceInfoRequest;
@@ -52,6 +53,7 @@ import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesRequest;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
+import org.apache.opennlp.grpc.v1.PipelineStep;
 import org.apache.opennlp.grpc.v1.StandardLayer;
 import org.apache.opennlp.grpc.v1.StandardResource;
 import org.junit.jupiter.api.Test;
@@ -177,6 +179,12 @@ class OpenNlpAnalysisServiceImplTest {
             .setDocId("doc-progressive")
             .setRawText("Hello world. A second sentence.")
             .build())
+        .setProfile(AnalysisProfile.newBuilder()
+            .addSteps(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT)
+            .addSteps(PipelineStep.PIPELINE_STEP_TOKENIZE)
+            .addSteps(PipelineStep.PIPELINE_STEP_POS_TAG)
+            .addSteps(PipelineStep.PIPELINE_STEP_LEMMATIZE)
+            .build())
         .build();
     final ListCapturingObserver<AnalyzeDocumentEvent> observer =
         new ListCapturingObserver<>();
@@ -204,6 +212,10 @@ class OpenNlpAnalysisServiceImplTest {
           .findFirst()
           .orElseThrow();
       assertTrue(backboneIndex < completeIndex);
+      assertTrue(observer.values.stream()
+          .filter(event -> event.hasLayersReady())
+          .flatMap(event -> event.getLayersReady().getLayersList().stream())
+          .anyMatch(layer -> layer.getId().equals("opennlp:pos")));
       assertEquals(analyzer.analyze(request).getDocument(),
           observer.values.getLast().getComplete().getDocument());
     }
