@@ -46,7 +46,8 @@ test("grades every pipeline step and counts the ready ones", async ({ page }) =>
   }
   // The classic English pipeline ships in every build, so a server that answers at all has
   // sentence detection ready.
-  await expect(page.locator('[data-feature-step="sentences"]')).toHaveClass(/is-ready/);
+  await expect(page.locator('[data-feature-step="PIPELINE_STEP_SENTENCE_DETECT"]'))
+    .toHaveClass(/is-ready/);
 });
 
 test("lists the catalog with each card in one install state", async ({ page }) => {
@@ -54,15 +55,29 @@ test("lists the catalog with each card in one install state", async ({ page }) =
   const models = Array.isArray(catalog.models) ? catalog.models : [];
   test.skip(models.length === 0, "This build publishes no standard model catalog.");
 
-  const cards = page.locator("#resource-model-catalog .catalog-model-card[data-catalog-id]");
-  await expect(cards).toHaveCount(models.length);
+  // Per-language model packs fold their members into one card, so there are fewer cards
+  // than catalog entries, never more; every single-model card names a catalog id.
+  const cards = page.locator("#resource-model-catalog .catalog-model-card");
+  await expect(cards.first()).toBeVisible();
+  const singles = page.locator("#resource-model-catalog .catalog-model-card[data-catalog-id]");
+  const packs = page.locator("#resource-model-catalog .catalog-pack-card");
+  expect(await singles.count() + await packs.count()).toBe(await cards.count());
+  expect(await cards.count()).toBeLessThanOrEqual(models.length);
+  const catalogIds = new Set(models.map((model: { catalogId: string }) => model.catalogId));
+  for (const id of await singles.evaluateAll((elements) =>
+    elements.map((element) => (element as HTMLElement).dataset.catalogId ?? ""))) {
+    expect(catalogIds.has(id), `card for unknown catalog id ${id}`).toBe(true);
+  }
   for (const card of await cards.all()) {
     const states = await Promise.all([
       card.locator(".catalog-installed-state").count(),
       card.locator(".catalog-installs-off").count(),
-      card.locator("[data-catalog-install]").count(),
+      card.locator("[data-catalog-install], [data-pack-install]").count(),
     ]);
     expect(states.filter((count) => count > 0)).toHaveLength(1);
+  }
+  // Single-model cards carry the unlock and format tags; pack cards list their members instead.
+  for (const card of await singles.all()) {
     await expect(card.locator(".catalog-tags")).toBeVisible();
   }
 });

@@ -61,14 +61,32 @@ test("saves, aliases, collects and makes a live index read-only", async ({ page 
   const modelId = await embeddingModelId(page.request);
   test.skip(!modelId, "The server serves no embedding model, so no live index can be built.");
 
+  // A live index takes analyzed documents that already carry chunk embeddings, exactly as
+  // the Analyze tab hands them over, so the document is analyzed first.
+  const analyzed = await page.request.post("/api/v1/analyze", {
+    data: {
+      document: {
+        docId: `${RUN}-1`,
+        rawText: "Courts protect civil rights. Elected governments write public policy.",
+      },
+      options: { offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT", embeddingModelId: modelId },
+      profile: {
+        steps: ["PIPELINE_STEP_SENTENCE_DETECT", "PIPELINE_STEP_TOKENIZE", "PIPELINE_STEP_EMBED"],
+      },
+      chunkEmbedConfigs: [{
+        configId: "sentence-chunks",
+        resultSetName: "Sentence chunks",
+        chunking: { strategy: { standard: "STANDARD_CHUNKING_STRATEGY_SENTENCE" }, cleanText: true },
+        embeddingModelIds: [modelId],
+      }],
+    },
+  });
+  expect(analyzed.ok(), await analyzed.text()).toBeTruthy();
   const created = await page.request.post("/api/v1/index-documents", {
     data: {
       displayName: `Lifecycle ${RUN}`,
       provider: { standard: "STANDARD_SEARCH_PROVIDER_FLAT_FLOAT" },
-      documents: [{
-        docId: `${RUN}-1`,
-        rawText: "Courts protect civil rights. Elected governments write public policy.",
-      }],
+      documents: [(await analyzed.json()).document],
       embedding: { modelId },
       chunkGroupIds: ["sentence-chunks"],
     },
