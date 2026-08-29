@@ -8956,6 +8956,228 @@
    "allDeclaredMethods": true,
    "allDeclaredFields": true,
    "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.CatalogFileDescriptor$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.CatalogFileDescriptor",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.CatalogFileDescriptorOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.DocumentSinkItem$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.DocumentSinkItem",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.DocumentSinkItemOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.DocumentSinkSummary$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.DocumentSinkSummary",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.DocumentSinkSummaryOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.FormatDocumentRequest$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.FormatDocumentRequest",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.FormatDocumentRequestOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.FormatDocumentResponse$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.FormatDocumentResponse",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.FormatDocumentResponseOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListDictionariesRequest$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListDictionariesRequest",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListDictionariesRequestOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListDictionariesResponse$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListDictionariesResponse",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListDictionariesResponseOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListOutputFormatsRequest$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListOutputFormatsRequest",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListOutputFormatsRequestOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListOutputFormatsResponse$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListOutputFormatsResponse",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListOutputFormatsResponseOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListVocabulariesRequest$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListVocabulariesRequest",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListVocabulariesRequestOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListVocabulariesResponse$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListVocabulariesResponse",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ListVocabulariesResponseOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.ModelArtifactFormat",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.OutputFormatDescriptor$Builder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.OutputFormatDescriptor",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
+  },
+  {
+   "type": "org.apache.opennlp.grpc.v1.OutputFormatDescriptorOrBuilder",
+   "allDeclaredMethods": true,
+   "allDeclaredFields": true,
+   "allDeclaredConstructors": true
   }
  ],
  "resources": [
