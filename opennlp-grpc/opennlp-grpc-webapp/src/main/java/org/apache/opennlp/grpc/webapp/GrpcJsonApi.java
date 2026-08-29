@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -29,6 +30,7 @@ import com.google.protobuf.util.JsonFormat;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.CollectionEvent;
@@ -627,6 +629,51 @@ final class GrpcJsonApi {
           analysisRpc.analyzeStream(frames);
       while (responses.hasNext()) {
         sink.update(printer.print(responses.next()));
+        streamed = true;
+      }
+      return null;
+    } catch (StatusRuntimeException exception) {
+      final Status status = exception.getStatus();
+      String message = status.getDescription();
+      if (message == null || message.isBlank()) {
+        message = status.getCode().name();
+      }
+      if (!streamed) {
+        return error(GrpcHttpStatusMapper.toHttpStatus(status.getCode()),
+            status.getCode(), message);
+      }
+      sink.update(errorJson(status.getCode(), message));
+      return null;
+    } catch (InvalidProtocolBufferException exception) {
+      final String message = "Could not encode the service response";
+      if (!streamed) {
+        return error(500, Status.Code.INTERNAL, message);
+      }
+      sink.update(errorJson(Status.Code.INTERNAL, message));
+      return null;
+    }
+  }
+
+  /**
+   * Analyzes one document and writes each ordered progressive event as an NDJSON line.
+   *
+   * @param body Protobuf JSON for one AnalyzeDocumentRequest.
+   * @param sink Receives one protobuf JSON line per event.
+   * @return A buffered failure, or {@code null} after streaming.
+   * @throws IOException If writing to the sink fails.
+   */
+  WebHttpResponse analyzeProgressively(byte[] body, JsonLineSink sink) throws IOException {
+    final AnalyzeDocumentRequest.Builder request = AnalyzeDocumentRequest.newBuilder();
+    final WebHttpResponse parseFailure = merge(body, request);
+    if (parseFailure != null) {
+      return parseFailure;
+    }
+    boolean streamed = false;
+    try {
+      final Iterator<AnalyzeDocumentEvent> events =
+          analysisRpc.analyzeProgressively(request.build());
+      while (events.hasNext()) {
+        sink.update(printer.print(events.next()));
         streamed = true;
       }
       return null;

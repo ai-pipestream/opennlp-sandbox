@@ -21,6 +21,7 @@ import "./style.css";
 
 import {
   analyze,
+  analyzeProgressively,
   analyzeToProtobuf,
   analyzeStream,
   decodeAnalyzeResponsePb,
@@ -94,6 +95,11 @@ import {
   pageForDocumentOffset,
 } from "./document-window";
 import { readNormalizationXray, renderNormalizationXray } from "./normalization-xray";
+import {
+  applyProgressiveEvent,
+  emptyProgressiveAnalysis,
+  type ProgressiveAnalysisState,
+} from "./progressive-analysis";
 import { isTermVectorLayer, renderTermVectorStack } from "./term-vector-stack";
 import { SemanticWorkbench, type ResultViewName } from "./semantic-workbench";
 import { initThemeToggle } from "./theme-toggle";
@@ -609,10 +615,29 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
   }
 
   setBusy(true);
-  setFormStatus("Analyzing text…");
-  responseOutput.textContent = "Waiting for the service response…";
+  setFormStatus("Starting progressive analysis…");
+  responseOutput.textContent = "Waiting for the first analysis layers…";
+  currentJson = "";
+  currentResponse = undefined;
+  currentRequest = request;
+  copyButton.disabled = true;
+  downloadButton.disabled = true;
+  downloadPbButton.disabled = true;
   try {
-    const response = await analyze(request);
+    let progressive = emptyProgressiveAnalysis();
+    let revealed = false;
+    const response = await analyzeProgressively(request, (streamEvent) => {
+      progressive = applyProgressiveEvent(progressive, streamEvent);
+      if (progressive.complete) {
+        return;
+      }
+      renderProgressiveState(progressive, request);
+      if (!revealed) {
+        selectResultTab("document");
+        revealAnalysisResult();
+        revealed = true;
+      }
+    });
     const shape = readDocumentShape(response);
     storeResponse(response, shape);
     currentRequest = request;
@@ -635,6 +660,39 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
     setFormStatus(errorMessage(error, "Analysis failed. Please try again."), true);
   } finally {
     setBusy(false);
+  }
+}
+
+/** Renders the currently available layer set without serializing a partial JSON reply. */
+function renderProgressiveState(
+  state: ProgressiveAnalysisState,
+  request: AnalyzeRequest,
+): void {
+  const shape = readDocumentShape(state.response);
+  const changed = new Set(state.updatedLayerIds);
+  currentResponse = state.response;
+  currentRequest = request;
+  renderDocumentShape(shape);
+  if (state.sequence === 1 || changed.has("opennlp:chunk-groups")) {
+    chunkProjectionView.render(state.response);
+  }
+  if (state.sequence === 1 || changed.has("opennlp:normalization")) {
+    renderXray(state.response);
+  }
+  if (state.sequence === 1 || changed.has("opennlp:language")) {
+    renderLanguageSummary(state.response);
+  }
+  const summary = summarizeDocumentShape(shape);
+  responseOutput.textContent = `Streaming progressive results: ${summary.layerCount} `
+    + `${summary.layerCount === 1 ? "layer" : "layers"} ready.`;
+  if (state.failures.length > 0) {
+    setFormStatus(state.failures[state.failures.length - 1]!, true);
+  } else if (state.lastStep) {
+    const step = state.lastStep.startsWith("PIPELINE_STEP_")
+      ? state.lastStep.slice("PIPELINE_STEP_".length) : state.lastStep;
+    setFormStatus(`${step.split("_").join(" ")} ready; other analysis continues.`);
+  } else {
+    setFormStatus("Document accepted; analysis branches are running.");
   }
 }
 

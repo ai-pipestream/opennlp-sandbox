@@ -29,6 +29,7 @@ import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
@@ -144,6 +145,13 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
   public AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request) {
     return sizedDeadlineStub(request.getDocument().getRawTextBytes().size())
         .analyzeDocument(request);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public Iterator<AnalyzeDocumentEvent> analyzeProgressively(AnalyzeDocumentRequest request) {
+    return sizedDeadlineStub(request.getDocument().getRawTextBytes().size())
+        .analyzeDocumentProgressive(request);
   }
 
   /** {@inheritDoc} */

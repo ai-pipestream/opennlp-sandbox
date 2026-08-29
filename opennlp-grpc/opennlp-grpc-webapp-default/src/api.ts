@@ -325,6 +325,42 @@ export async function analyzeStream(
   }
 }
 
+/**
+ * Streams one document analysis and resolves with the terminal canonical response.
+ * Every earlier event reaches {@code onEvent} immediately so the caller can render
+ * completed layers while independent branches continue.
+ */
+export async function analyzeProgressively(
+  request: AnalyzeRequest,
+  onEvent: (event: Record<string, unknown>) => void,
+  fetcher: Fetcher = fetch,
+): Promise<Record<string, unknown>> {
+  const response = await fetcher("/api/v1/analyze-progressive", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  let complete: Record<string, unknown> | undefined;
+  for await (const line of ndjsonLines(response)) {
+    const event = JSON.parse(line) as Record<string, unknown>;
+    if (typeof event.code === "string" && !event.sequence) {
+      throw new Error(typeof event.message === "string" && event.message
+        ? event.message : event.code);
+    }
+    onEvent(event);
+    if (event.complete && typeof event.complete === "object") {
+      complete = event.complete as Record<string, unknown>;
+    }
+  }
+  if (!complete) {
+    throw new Error("The progressive analysis stream ended without a final response.");
+  }
+  return complete;
+}
+
 export function getDictionaryFormats(fetcher: Fetcher = fetch): Promise<unknown> {
   return requestJson("/api/v1/dictionary-formats", undefined, fetcher);
 }

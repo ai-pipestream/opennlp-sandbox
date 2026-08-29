@@ -20,6 +20,7 @@ package org.apache.opennlp.grpc.webapp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
 import io.grpc.ManagedChannel;
@@ -29,7 +30,9 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
+import org.apache.opennlp.grpc.v1.AnalysisStarted;
 import org.apache.opennlp.grpc.v1.GetServiceInfoRequest;
 import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesRequest;
@@ -90,6 +93,15 @@ class GrpcAnalysisRpcTest {
               .setDocId("rpc")
               .setRawText("Hello"))
           .build()).getDocument().getDocId());
+      final Iterator<AnalyzeDocumentEvent> progressive = rpc.analyzeProgressively(
+          AnalyzeDocumentRequest.newBuilder()
+              .setDocument(OpenNlpDocument.newBuilder()
+                  .setDocId("progressive")
+                  .setRawText("Hello"))
+              .build());
+      assertEquals(AnalyzeDocumentEvent.UpdateCase.STARTED,
+          progressive.next().getUpdateCase());
+      assertEquals("progressive", progressive.next().getComplete().getDocument().getDocId());
     } finally {
       channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
       server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -153,6 +165,20 @@ class GrpcAnalysisRpcTest {
       }
       observer.onNext(AnalyzeDocumentResponse.newBuilder()
           .setDocument(document)
+          .build());
+      observer.onCompleted();
+    }
+
+    @Override
+    public void analyzeDocumentProgressive(
+        AnalyzeDocumentRequest request, StreamObserver<AnalyzeDocumentEvent> observer) {
+      observer.onNext(AnalyzeDocumentEvent.newBuilder()
+          .setSequence(1)
+          .setStarted(AnalysisStarted.newBuilder().setDocument(request.getDocument()))
+          .build());
+      observer.onNext(AnalyzeDocumentEvent.newBuilder()
+          .setSequence(2)
+          .setComplete(AnalyzeDocumentResponse.newBuilder().setDocument(request.getDocument()))
           .build());
       observer.onCompleted();
     }

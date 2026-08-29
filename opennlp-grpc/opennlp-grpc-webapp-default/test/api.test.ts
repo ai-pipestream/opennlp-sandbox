@@ -21,6 +21,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   analyze,
+  analyzeProgressively,
   analyzeToProtobuf,
   decodeAnalyzeResponsePb,
   deleteStaticModel,
@@ -186,6 +187,41 @@ describe("server-side protobuf analysis", () => {
 
     await expect(analyzeToProtobuf({ document: { rawText: "Hello" } }, fetcher))
       .rejects.toThrow("Document too large");
+  });
+});
+
+describe("progressive analysis", () => {
+  it("delivers NDJSON events as each network chunk completes", async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      '{"sequence":"1","started":{"document":{"rawText":"Hello"}}}\n'
+        + '{"sequence":"2","layersReady":{"step":"PIPELINE_STEP_TOKENIZE",',
+      '"layers":[{"id":"opennlp:tokens"}]}}\n'
+        + '{"sequence":"3","complete":{"document":{"rawText":"Hello"}}}\n',
+    ];
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("/api/v1/analyze-progressive");
+      expect(init?.body).toBe('{"document":{"rawText":"Hello"}}');
+      return new Response(new ReadableStream({
+        start(controller) {
+          for (const chunk of chunks) {
+            controller.enqueue(encoder.encode(chunk));
+          }
+          controller.close();
+        },
+      }), { status: 200 });
+    });
+    const events: Record<string, unknown>[] = [];
+
+    const response = await analyzeProgressively(
+      { document: { rawText: "Hello" } },
+      (event) => events.push(event),
+      fetcher,
+    );
+
+    expect(events).toHaveLength(3);
+    expect(events[1]).toHaveProperty("layersReady.layers.0.id", "opennlp:tokens");
+    expect(response).toEqual({ document: { rawText: "Hello" } });
   });
 });
 

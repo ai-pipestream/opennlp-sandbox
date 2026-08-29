@@ -21,7 +21,9 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
+import org.apache.opennlp.grpc.v1.AnalysisStarted;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeStreamResponse;
 import org.apache.opennlp.grpc.v1.FormatDocumentRequest;
@@ -56,6 +58,28 @@ interface AnalysisRpc {
    * @return The analysis response.
    */
   AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request);
+
+  /**
+   * Analyzes one document and returns ordered partial results as they become ready.
+   * Implementations without progressive support retain compatibility by publishing a
+   * start event followed by their unary response.
+   *
+   * @param request The analysis request.
+   * @return The ordered progressive events; iteration blocks on the stream.
+   */
+  default Iterator<AnalyzeDocumentEvent> analyzeProgressively(AnalyzeDocumentRequest request) {
+    final AnalyzeDocumentResponse response = analyze(request);
+    return List.of(
+        AnalyzeDocumentEvent.newBuilder()
+            .setSequence(1)
+            .setStarted(AnalysisStarted.newBuilder().setDocument(request.getDocument()))
+            .build(),
+        AnalyzeDocumentEvent.newBuilder()
+            .setSequence(2)
+            .setComplete(response)
+            .build())
+        .iterator();
+  }
 
   /**
    * Analyzes a batch of documents over one AnalyzeStream call: every frame is sent,
