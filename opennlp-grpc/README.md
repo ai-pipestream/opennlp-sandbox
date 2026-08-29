@@ -559,17 +559,19 @@ dictionary imports and vocabulary builds, so multiple client streams cannot mult
 working sets without an explicit operator choice. Values are validated against fixed safety
 ceilings at startup.
 
-The five RPCs form one explicit artifact flow:
+The six RPCs form one explicit artifact flow:
 
 1. `ListDictionaryFormats` returns built-in and extension formats plus the effective limits.
 2. `ListDictionaries` returns the imported dictionary artifacts available for vocabulary learning.
-3. `ImportDictionary` accepts a start frame followed by bounded encoded byte frames. The built-ins
+3. `ListVocabularies` returns the learned vocabulary artifacts, in artifact-id order, that a
+   distillation or a collection's coverage watch can name.
+4. `ImportDictionary` accepts a start frame followed by bounded encoded byte frames. The built-ins
    accept UTF-8 headword-and-definition TSV, one UTF-8 headword per line, and OpenNLP dictionary
    XML. The server publishes a normalized, hashed dictionary artifact atomically.
-4. `LearnVocabulary` accepts a start frame followed by `OpenNlpDocument` values. Each document's
+5. `LearnVocabulary` accepts a start frame followed by `OpenNlpDocument` values. Each document's
    `raw_text` contributes corpus counts. An optional imported dictionary preserves required
    headwords alongside those corpus terms.
-5. `DownloadVocabulary` streams the exact hashed UTF-8 `term<TAB>count<TAB>source` artifact. The
+6. `DownloadVocabulary` streams the exact hashed UTF-8 `term<TAB>count<TAB>source` artifact. The
    downloaded table can be supplied to the OpenNLP embeddings `DistillModel` workflow as its terms
    input.
 

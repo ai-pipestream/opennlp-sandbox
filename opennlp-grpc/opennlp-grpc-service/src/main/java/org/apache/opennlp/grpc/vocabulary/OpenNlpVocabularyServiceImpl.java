@@ -40,6 +40,8 @@ import org.apache.opennlp.grpc.v1.ListDictionaryFormatsRequest;
 import org.apache.opennlp.grpc.v1.ListDictionaryFormatsResponse;
 import org.apache.opennlp.grpc.v1.ListDictionariesRequest;
 import org.apache.opennlp.grpc.v1.ListDictionariesResponse;
+import org.apache.opennlp.grpc.v1.ListVocabulariesRequest;
+import org.apache.opennlp.grpc.v1.ListVocabulariesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.OpenNlpVocabularyServiceGrpc;
 import org.apache.opennlp.grpc.v1.VocabularyArtifactChunk;
@@ -106,6 +108,17 @@ public final class OpenNlpVocabularyServiceImpl
       StreamObserver<ListDictionariesResponse> responseObserver) {
     responseObserver.onNext(ListDictionariesResponse.newBuilder()
         .addAllDictionaries(store.listDictionaries())
+        .build());
+    responseObserver.onCompleted();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void listVocabularies(
+      ListVocabulariesRequest request,
+      StreamObserver<ListVocabulariesResponse> responseObserver) {
+    responseObserver.onNext(ListVocabulariesResponse.newBuilder()
+        .addAllVocabularies(store.listVocabularies())
         .build());
     responseObserver.onCompleted();
   }

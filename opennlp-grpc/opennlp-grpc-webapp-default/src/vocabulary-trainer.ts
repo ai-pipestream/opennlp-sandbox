@@ -45,6 +45,14 @@ export interface DictionaryArtifactSummary {
   entryCount: number;
 }
 
+export interface VocabularyArtifactSummary {
+  artifactId: string;
+  displayName: string;
+  termCount: number;
+  /** The dictionary the vocabulary was seeded from, when it had one. */
+  dictionaryArtifactId?: string;
+}
+
 export interface TeacherOption {
   id: string;
   label: string;
@@ -73,6 +81,8 @@ export interface TrainedModelSummary {
 
 export interface TrainerApi {
   listDictionaryFormats(): Promise<{ formats: DictionaryFormatOption[]; writesEnabled: boolean }>;
+  listDictionaries(): Promise<DictionaryArtifactSummary[]>;
+  listVocabularies(): Promise<VocabularyArtifactSummary[]>;
   importDictionary(upload: ImportDictionaryUpload): Promise<{ artifactId: string; displayName: string; entryCount: number }>;
   learnVocabulary(upload: LearnVocabularyUpload): Promise<{
     artifactId: string; displayName: string; termCount: number;
@@ -146,10 +156,12 @@ export class VocabularyTrainerWorkbench {
   /** Loads formats, teachers, and existing models; call once at startup. */
   async initialize(): Promise<void> {
     try {
-      const [formats, teachers, models] = await Promise.all([
+      const [formats, teachers, models, dictionaries, vocabularies] = await Promise.all([
         this.#api.listDictionaryFormats(),
         this.#api.listTeachers(),
         this.#api.listStaticModels(),
+        this.#api.listDictionaries(),
+        this.#api.listVocabularies(),
       ]);
       this.#writesEnabled = formats.writesEnabled && teachers.writesEnabled;
       populate(this.#formatSelect, formats.formats.map((format) => ({
@@ -177,11 +189,38 @@ export class VocabularyTrainerWorkbench {
       } else {
         this.setStatus("Paste corpus text to learn a vocabulary. A dictionary is optional.");
       }
-      this.#dictionarySelect.replaceChildren(new Option("Corpus terms only", ""));
-      this.#dictionarySelect.disabled = false;
+      this.renderDictionaryOptions(dictionaries);
+      this.renderVocabularyOptions(vocabularies);
       this.updateControls();
     } catch (error) {
       this.setStatus(message(error, "Could not load the trainer catalog."), true);
+    }
+  }
+
+  /** Offers every dictionary already on the server behind the corpus-only default. */
+  private renderDictionaryOptions(dictionaries: DictionaryArtifactSummary[]): void {
+    const selected = this.#dictionarySelect.value;
+    this.#dictionarySelect.replaceChildren(new Option("Corpus terms only", ""));
+    for (const dictionary of dictionaries) {
+      this.#dictionarySelect.add(new Option(
+        `${dictionary.displayName} (${dictionary.entryCount} entries)`, dictionary.artifactId));
+    }
+    this.#dictionarySelect.value = selected;
+    if (this.#dictionarySelect.selectedIndex < 0) {
+      this.#dictionarySelect.value = "";
+    }
+    this.#dictionarySelect.disabled = false;
+  }
+
+  /** Offers every vocabulary already on the server, so a restart does not hide them. */
+  private renderVocabularyOptions(vocabularies: VocabularyArtifactSummary[]): void {
+    const selected = this.#vocabularySelect.value;
+    populate(this.#vocabularySelect, vocabularies.map((vocabulary) => ({
+      value: vocabulary.artifactId,
+      label: `${vocabulary.displayName} (${vocabulary.termCount} terms)`,
+    })), "No vocabularies learned yet");
+    if (vocabularies.some((vocabulary) => vocabulary.artifactId === selected)) {
+      this.#vocabularySelect.value = selected;
     }
   }
 
@@ -420,6 +459,24 @@ export function readDictionaries(value: unknown): DictionaryArtifactSummary[] {
       displayName: typeof dictionary.displayName === "string" && dictionary.displayName
         ? dictionary.displayName : dictionary.artifactId,
       entryCount: asCount(dictionary.entryCount),
+    }];
+  });
+}
+
+/** Reads learned vocabulary artifacts available for distillation or a collection watch. */
+export function readVocabularies(value: unknown): VocabularyArtifactSummary[] {
+  return asArray(asRecord(value).vocabularies).flatMap((entry) => {
+    const vocabulary = asRecord(entry);
+    if (typeof vocabulary.artifactId !== "string" || !vocabulary.artifactId) {
+      return [];
+    }
+    return [{
+      artifactId: vocabulary.artifactId,
+      displayName: typeof vocabulary.displayName === "string" && vocabulary.displayName
+        ? vocabulary.displayName : vocabulary.artifactId,
+      termCount: asCount(vocabulary.termCount),
+      ...(typeof vocabulary.dictionaryArtifactId === "string" && vocabulary.dictionaryArtifactId
+        ? { dictionaryArtifactId: vocabulary.dictionaryArtifactId } : {}),
     }];
   });
 }

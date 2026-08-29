@@ -28,7 +28,11 @@ import {
 } from "./search-adapter";
 import { ellipsizeCodePoints, formatInteger } from "./text-utils";
 import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
-import type { TrainedModelSummary } from "./vocabulary-trainer";
+import type {
+  DictionaryArtifactSummary,
+  TrainedModelSummary,
+  VocabularyArtifactSummary,
+} from "./vocabulary-trainer";
 
 export interface LifecycleApi {
   listIndexes(): Promise<SearchIndex[]>;
@@ -40,6 +44,8 @@ export interface LifecycleApi {
   setAlias(alias: string, indexId: string): Promise<void>;
   deleteAlias(alias: string): Promise<void>;
   listStaticModels(): Promise<TrainedModelSummary[]>;
+  listDictionaries(): Promise<DictionaryArtifactSummary[]>;
+  listVocabularies(): Promise<VocabularyArtifactSummary[]>;
   listCollections(): Promise<CollectionView[]>;
   getCollection(collectionId: string): Promise<CollectionView | undefined>;
   setCollection(request: SetCollectionRequest): Promise<CollectionView | undefined>;
@@ -84,8 +90,8 @@ export class LifecycleWorkbench {
   readonly #collectionId = requiredElement<HTMLInputElement>("collection-id");
   readonly #collectionName = requiredElement<HTMLInputElement>("collection-name");
   readonly #collectionMembers = requiredElement<HTMLSelectElement>("collection-members");
-  readonly #collectionVocabulary = requiredElement<HTMLInputElement>("collection-vocabulary-id");
-  readonly #collectionDictionary = requiredElement<HTMLInputElement>("collection-dictionary-id");
+  readonly #collectionVocabulary = requiredElement<HTMLSelectElement>("collection-vocabulary-id");
+  readonly #collectionDictionary = requiredElement<HTMLSelectElement>("collection-dictionary-id");
   readonly #collectionModel = requiredElement<HTMLSelectElement>("collection-model-id");
   readonly #collectionThreshold = requiredElement<HTMLInputElement>("collection-threshold");
   readonly #collectionSaveButton = requiredElement<HTMLButtonElement>("collection-save-button");
@@ -128,13 +134,16 @@ export class LifecycleWorkbench {
 
   private async refresh(): Promise<void> {
     try {
-      const [indexes, providers, aliases, models, collections] = await Promise.all([
-        this.#api.listIndexes(),
-        this.#api.listProviders(),
-        this.#api.listAliases(),
-        this.#api.listStaticModels(),
-        this.#api.listCollections(),
-      ]);
+      const [indexes, providers, aliases, models, collections, dictionaries, vocabularies] =
+        await Promise.all([
+          this.#api.listIndexes(),
+          this.#api.listProviders(),
+          this.#api.listAliases(),
+          this.#api.listStaticModels(),
+          this.#api.listCollections(),
+          this.#api.listDictionaries(),
+          this.#api.listVocabularies(),
+        ]);
       // Read-only indexes stay listed: they are still searchable, can be aliased, and a
       // person who just made one read-only should not watch it vanish.
       this.#indexes = indexes.filter((index) => !index.label.startsWith(SCRATCH_INDEX_PREFIX));
@@ -144,6 +153,16 @@ export class LifecycleWorkbench {
       this.renderAvailability();
       this.renderAliases(aliases);
       this.renderModels(models);
+      this.renderArtifactOptions(this.#collectionDictionary, "No dictionary",
+        dictionaries.map((dictionary) => ({
+          value: dictionary.artifactId,
+          label: `${dictionary.displayName} (${dictionary.entryCount} entries)`,
+        })));
+      this.renderArtifactOptions(this.#collectionVocabulary, "No vocabulary (coverage not measured)",
+        vocabularies.map((vocabulary) => ({
+          value: vocabulary.artifactId,
+          label: `${vocabulary.displayName} (${vocabulary.termCount} terms)`,
+        })));
       this.renderCollectionOptions(collections);
       if (this.#indexes.length === 0) {
         this.setStatus("No live indexes yet. Build one from your documents, or analyze a document "
@@ -157,6 +176,20 @@ export class LifecycleWorkbench {
       this.setStatus(errorMessage(error, "Could not load the lifecycle catalog."), true);
     }
     this.updateControls();
+  }
+
+  /** Fills one artifact picker from the server's list, keeping the current choice. */
+  private renderArtifactOptions(
+    select: HTMLSelectElement,
+    noneLabel: string,
+    options: Array<{ value: string; label: string }>,
+  ): void {
+    const selected = select.value;
+    select.replaceChildren(new Option(noneLabel, ""));
+    for (const option of options) {
+      select.add(new Option(option.label, option.value));
+    }
+    selectArtifact(select, selected);
   }
 
   private renderIndexOptions(): void {
@@ -384,8 +417,8 @@ export class LifecycleWorkbench {
   private fillEditor(collection: CollectionView): void {
     this.#collectionId.value = collection.id;
     this.#collectionName.value = collection.displayName;
-    this.#collectionVocabulary.value = collection.vocabularyArtifactId ?? "";
-    this.#collectionDictionary.value = collection.dictionaryArtifactId ?? "";
+    selectArtifact(this.#collectionVocabulary, collection.vocabularyArtifactId ?? "");
+    selectArtifact(this.#collectionDictionary, collection.dictionaryArtifactId ?? "");
     this.#collectionModel.value = collection.modelArtifactId ?? "";
     if (this.#collectionModel.selectedIndex < 0) {
       this.#collectionModel.value = "";
@@ -427,7 +460,7 @@ export class LifecycleWorkbench {
         this.startWatch(collection.id);
       }
     }, (message) => {
-      // A typo in the free-text vocabulary id is the usual cause; say where ids come from.
+      // The picked vocabulary was deleted since the list loaded; say where a new one comes from.
       if (message.includes("vocabulary")) {
         this.#collectionStatus.append(" ", jumpButton("trainer", "Learn a vocabulary on the Trainer tab"));
       }
@@ -642,4 +675,22 @@ function jumpButton(target: string, label: string): HTMLButtonElement {
   button.dataset.workbenchJump = target;
   button.textContent = label;
   return button;
+}
+
+/**
+ * Selects one artifact id in a picker. An id the server no longer lists, which a saved
+ * collection can still carry, is kept as its own option so opening the collection does not
+ * silently drop it.
+ */
+function selectArtifact(select: HTMLSelectElement, artifactId: string): void {
+  select.value = artifactId;
+  if (select.selectedIndex >= 0) {
+    return;
+  }
+  if (!artifactId) {
+    select.value = "";
+    return;
+  }
+  select.add(new Option(`${artifactId} (not on this server)`, artifactId));
+  select.value = artifactId;
 }

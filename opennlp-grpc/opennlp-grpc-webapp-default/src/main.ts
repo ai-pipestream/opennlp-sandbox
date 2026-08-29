@@ -31,6 +31,7 @@ import {
   getCollection,
   getCollections,
   getDictionaries,
+  getVocabularies,
   getDictionaryFormats,
   getHealth,
   getIndexAliases,
@@ -122,6 +123,7 @@ import { errorMessage, flashButtonLabel, requiredElement } from "./ui-utils";
 import {
   readDictionaryFormats,
   readDictionaries,
+  readVocabularies,
   readImportedDictionary,
   readLearnedVocabulary,
   readStaticModels,
@@ -225,6 +227,8 @@ workbenchNavigation.onFocus("models", (step) => modelDataWorkbench.focus(step));
 
 const vocabularyTrainer = new VocabularyTrainerWorkbench({
   listDictionaryFormats: async () => readDictionaryFormats(await getDictionaryFormats()),
+  listDictionaries: async () => readDictionaries(await getDictionaries()),
+  listVocabularies: async () => readVocabularies(await getVocabularies()),
   importDictionary: async (upload) => readImportedDictionary(await importDictionary(upload)),
   learnVocabulary: async (upload) => readLearnedVocabulary(await learnVocabulary(upload)),
   downloadVocabulary: (artifactId) => downloadVocabularyTsv(artifactId),
@@ -315,6 +319,8 @@ const lifecycleWorkbench = new LifecycleWorkbench({
   setAlias: async (alias, indexId) => { await setIndexAlias(alias, indexId); },
   deleteAlias: async (alias) => { await deleteIndexAlias(alias); },
   listStaticModels: async () => readStaticModels(await getStaticModels()),
+  listDictionaries: async () => readDictionaries(await getDictionaries()),
+  listVocabularies: async () => readVocabularies(await getVocabularies()),
   listCollections: async () => readCollections(await getCollections()),
   getCollection: async (collectionId) => readCollectionResponse(await getCollection(collectionId)),
   setCollection: async (request) => readCollectionResponse(await setCollection(request)),

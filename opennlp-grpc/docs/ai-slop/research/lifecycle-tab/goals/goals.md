@@ -27,8 +27,9 @@
 ## P2
 
 - [ ] Tooltips for every control (`findings/state-machine-and-vocabulary.md` section 4).
-- [ ] Dictionary artifact field becomes a select fed by `/api/v1/dictionaries`.
-- [ ] `ListVocabularies` RPC and gateway route, then a vocabulary artifact picker.
+- [x] Dictionary artifact field becomes a select fed by `/api/v1/dictionaries`.
+- [x] `ListVocabularies` RPC and gateway route (`/api/v1/vocabularies`), then a vocabulary
+      artifact picker; a saved id the server no longer lists stays selectable, flagged.
 - [ ] Jumps: rebuild empty state to Trainer, post-rebuild to Workspace search,
       alias list note "use this name anywhere an index id is accepted".
 - [x] Detect HTTP 501 (dynamic indexing disabled) at load and brown out the panel.

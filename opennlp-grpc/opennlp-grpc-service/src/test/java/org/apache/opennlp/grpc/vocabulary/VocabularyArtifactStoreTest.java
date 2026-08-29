@@ -67,6 +67,7 @@ class VocabularyArtifactStoreTest {
             document("Liberty and due process matter.")));
 
     assertEquals(4, vocabulary.getTermCount());
+    assertEquals(List.of(vocabulary), store.listVocabularies());
     assertEquals(2, vocabulary.getDictionaryTermCount());
     assertEquals(2, vocabulary.getCorpusTermCount());
     assertEquals(64, vocabulary.getArtifactHash().length());

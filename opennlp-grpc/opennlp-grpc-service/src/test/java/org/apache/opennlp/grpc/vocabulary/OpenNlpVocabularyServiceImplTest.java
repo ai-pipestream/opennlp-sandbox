@@ -39,6 +39,8 @@ import org.apache.opennlp.grpc.v1.ListDictionaryFormatsRequest;
 import org.apache.opennlp.grpc.v1.ListDictionaryFormatsResponse;
 import org.apache.opennlp.grpc.v1.ListDictionariesRequest;
 import org.apache.opennlp.grpc.v1.ListDictionariesResponse;
+import org.apache.opennlp.grpc.v1.ListVocabulariesRequest;
+import org.apache.opennlp.grpc.v1.ListVocabulariesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.StandardDictionaryFormat;
 import org.apache.opennlp.grpc.v1.VocabularyArtifactChunk;
@@ -109,6 +111,10 @@ class OpenNlpVocabularyServiceImplTest {
 
     assertNull(learned.error);
     assertTrue(learned.completed);
+    final CapturingObserver<ListVocabulariesResponse> vocabularies = new CapturingObserver<>();
+    service.listVocabularies(ListVocabulariesRequest.getDefaultInstance(), vocabularies);
+    assertEquals(List.of(learned.values.getFirst()),
+        vocabularies.values.getFirst().getVocabulariesList());
     final CapturingObserver<VocabularyArtifactChunk> downloaded = new CapturingObserver<>();
     service.downloadVocabulary(DownloadVocabularyRequest.newBuilder()
         .setArtifactId(learned.values.getFirst().getArtifactId()).build(), downloaded);

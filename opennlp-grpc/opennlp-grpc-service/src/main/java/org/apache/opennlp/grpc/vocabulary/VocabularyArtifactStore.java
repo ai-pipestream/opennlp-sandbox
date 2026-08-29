@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -405,6 +406,17 @@ public final class VocabularyArtifactStore {
    */
   public List<DictionaryArtifactDescriptor> listDictionaries() {
     return List.copyOf(dictionaries.values());
+  }
+
+  /**
+   * Lists learned vocabularies available for distillation or a collection watch.
+   *
+   * @return Published vocabularies in ascending artifact-id order.
+   */
+  public List<VocabularyArtifactDescriptor> listVocabularies() {
+    return vocabularies.values().stream()
+        .sorted(Comparator.comparing(VocabularyArtifactDescriptor::getArtifactId))
+        .toList();
   }
 
   /**

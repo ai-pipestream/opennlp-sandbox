@@ -40,6 +40,11 @@ service OpenNlpVocabularyService {
   rpc ListDictionaries(ListDictionariesRequest)
       returns (ListDictionariesResponse);
 
+  // Lists learned vocabulary artifacts that can seed a distillation or anchor a
+  // collection's vocabulary coverage watch.
+  rpc ListVocabularies(ListVocabulariesRequest)
+      returns (ListVocabulariesResponse);
+
   // Imports one encoded dictionary. The first frame must be start and every
   // later frame must carry data. The server bounds bytes and parsed entries.
   rpc ImportDictionary(stream ImportDictionaryRequest)
@@ -101,6 +106,13 @@ message ListDictionariesRequest {}
 
 message ListDictionariesResponse {
   repeated DictionaryArtifactDescriptor dictionaries = 1;
+}
+
+message ListVocabulariesRequest {}
+
+message ListVocabulariesResponse {
+  // Published vocabularies in ascending artifact-id order.
+  repeated VocabularyArtifactDescriptor vocabularies = 1;
 }
 
 // Metadata sent exactly once before dictionary bytes.

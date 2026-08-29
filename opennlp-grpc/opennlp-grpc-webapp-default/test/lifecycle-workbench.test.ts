@@ -59,6 +59,8 @@ function api(overrides: Partial<LifecycleApi> = {}): LifecycleApi {
     setAlias: vi.fn(async () => undefined),
     deleteAlias: vi.fn(async () => undefined),
     listStaticModels: vi.fn(async () => []),
+    listDictionaries: vi.fn(async () => []),
+    listVocabularies: vi.fn(async () => []),
     listCollections: vi.fn(async () => []),
     getCollection: vi.fn(async () => undefined),
     setCollection: vi.fn(async () => undefined),
@@ -147,15 +149,19 @@ describe("lifecycle workbench", () => {
     mount();
     const service = api({
       listIndexes: vi.fn(async () => [index("a", false)]),
+      // Listed when the tab loaded, deleted on the server before the save.
+      listVocabularies: vi.fn(async () => [
+        { artifactId: "vocabulary-stale", displayName: "Stale vocabulary", termCount: 3 },
+      ]),
       setCollection: vi.fn(async () => {
-        throw new Error("Unknown vocabulary artifact 'vocabulary-typo'");
+        throw new Error("Unknown vocabulary artifact 'vocabulary-stale'");
       }),
     });
     const workbench = new LifecycleWorkbench(service);
     await workbench.initialize();
     (document.getElementById("collection-id") as HTMLInputElement).value = "legal";
     (document.getElementById("collection-name") as HTMLInputElement).value = "Legal";
-    (document.getElementById("collection-vocabulary-id") as HTMLInputElement).value = "vocabulary-typo";
+    (document.getElementById("collection-vocabulary-id") as HTMLSelectElement).value = "vocabulary-stale";
 
     document.getElementById("collection-save-button")!.click();
     await vi.waitFor(() => expect(service.setCollection).toHaveBeenCalled());
@@ -163,5 +169,32 @@ describe("lifecycle workbench", () => {
     const status = document.getElementById("collection-status")!;
     await vi.waitFor(() => expect(status.textContent).toContain("Unknown vocabulary artifact"));
     expect(status.querySelector<HTMLElement>("[data-workbench-jump]")?.dataset.workbenchJump).toBe("trainer");
+  });
+  it("fills the artifact pickers from the server and keeps a saved id it no longer lists", async () => {
+    mount();
+    const workbench = new LifecycleWorkbench(api({
+      listDictionaries: vi.fn(async () => [
+        { artifactId: "dictionary-legal", displayName: "Legal dictionary", entryCount: 80 },
+      ]),
+      listVocabularies: vi.fn(async () => [
+        { artifactId: "vocabulary-legal", displayName: "Legal vocabulary", termCount: 4812 },
+      ]),
+      listCollections: vi.fn(async () => [collection("vocabulary-gone")]),
+      getCollection: vi.fn(async () => collection("vocabulary-gone")),
+    }));
+    await workbench.initialize();
+
+    const vocabularies = document.getElementById("collection-vocabulary-id") as HTMLSelectElement;
+    expect(Array.from(vocabularies.options).map((option) => option.textContent))
+      .toEqual(["No vocabulary (coverage not measured)", "Legal vocabulary (4812 terms)"]);
+    const dictionaries = document.getElementById("collection-dictionary-id") as HTMLSelectElement;
+    expect(Array.from(dictionaries.options).map((option) => option.value))
+      .toEqual(["", "dictionary-legal"]);
+
+    const picker = document.getElementById("collection-select") as HTMLSelectElement;
+    picker.value = "legal";
+    picker.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(vocabularies.value).toBe("vocabulary-gone"));
+    expect(vocabularies.selectedOptions[0]?.textContent).toBe("vocabulary-gone (not on this server)");
   });
 });

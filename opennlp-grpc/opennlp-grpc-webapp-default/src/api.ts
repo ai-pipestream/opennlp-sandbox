@@ -165,6 +165,11 @@ export function getDictionaries(fetcher: Fetcher = fetch): Promise<unknown> {
   return requestJson("/api/v1/dictionaries", undefined, fetcher);
 }
 
+/** Lists learned vocabulary artifacts that can seed a distillation or a collection watch. */
+export function getVocabularies(fetcher: Fetcher = fetch): Promise<unknown> {
+  return requestJson("/api/v1/vocabularies", undefined, fetcher);
+}
+
 export function searchIndex(request: SearchRequest, fetcher: Fetcher = fetch): Promise<unknown> {
   return requestJson(
     "/api/v1/search",

@@ -144,6 +144,8 @@ describe("trainer workbench", () => {
         termCount: 5, dictionaryTermCount: 2, corpusTermCount: 3,
       })),
       downloadVocabulary: vi.fn(async () => "liberty\t3\tcorpus\n"),
+      listDictionaries: vi.fn(async () => []),
+      listVocabularies: vi.fn(async () => []),
       listTeachers: vi.fn(async () => ({
         teachers: [{ id: "mini", label: "Mini", reference: "org/mini" }],
         writesEnabled: true,
@@ -366,5 +368,27 @@ describe("trainer workbench", () => {
       expect(document.getElementById("trainer-status")?.textContent)
         .toContain("Unknown teacher 'other'");
     });
+  });
+  it("lists the dictionaries and vocabularies already on the server at startup", async () => {
+    const workbench = new VocabularyTrainerWorkbench(stubApi({
+      listDictionaries: vi.fn(async () => [
+        { artifactId: "dictionary-legal", displayName: "Legal dictionary", entryCount: 80 },
+      ]),
+      listVocabularies: vi.fn(async () => [
+        { artifactId: "vocabulary-legal", displayName: "Legal vocabulary", termCount: 4812 },
+      ]),
+    }), { onModelsChanged: vi.fn(), onUseInAnalyze: vi.fn() });
+    await workbench.initialize();
+
+    const dictionaries = document.getElementById("trainer-dictionary-select") as HTMLSelectElement;
+    expect(Array.from(dictionaries.options).map((option) => option.textContent))
+      .toEqual(["Corpus terms only", "Legal dictionary (80 entries)"]);
+    const vocabularies = document.getElementById("trainer-vocabulary-select") as HTMLSelectElement;
+    expect(Array.from(vocabularies.options).map((option) => option.textContent))
+      .toEqual(["Legal vocabulary (4812 terms)"]);
+    expect(vocabularies.disabled).toBe(false);
+    // A vocabulary learned on an earlier run is exportable without learning it again.
+    expect((document.getElementById("trainer-download-tsv-button") as HTMLButtonElement).disabled)
+      .toBe(false);
   });
 });

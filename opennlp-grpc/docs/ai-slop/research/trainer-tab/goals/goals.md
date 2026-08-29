@@ -35,8 +35,8 @@
       from Lifecycle's drift panel back to step 2 here.
 - [ ] Progress: elapsed time and a cancel affordance during distillation;
       replace the generic "TrainStaticModel failed" with the server message.
-- [ ] Reload dictionaries and vocabularies on refresh (`/api/v1/dictionaries`
-      exists; a `ListVocabularies` RPC does not).
+- [x] Reload dictionaries and vocabularies on refresh (`/api/v1/dictionaries` and the new
+      `/api/v1/vocabularies`), so artifacts from earlier runs are offered at startup.
 - [ ] Tests: TSV save path, `copyText` failure, `boundedInt` and `asRatio` edges,
       the busy guard.
 
