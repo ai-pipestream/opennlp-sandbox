@@ -23,7 +23,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,6 +34,7 @@ import io.grpc.stub.StreamObserver;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
 import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
+import org.apache.opennlp.grpc.processor.basic.BasicDocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.testing.StubSentenceDetectorBackendFactory;
 import org.apache.opennlp.grpc.testing.StubTokenizerBackendFactory;
@@ -40,6 +43,7 @@ import org.apache.opennlp.grpc.v1.FormatDocumentResponse;
 import org.apache.opennlp.grpc.v1.ListOutputFormatsRequest;
 import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.ComponentType;
 import org.apache.opennlp.grpc.v1.ConfiguredResource;
@@ -163,6 +167,46 @@ class OpenNlpAnalysisServiceImplTest {
     assertNotNull(observer.value);
     assertTrue(observer.completed);
     assertNull(observer.error);
+  }
+
+  @Test
+  void progressiveAnalysisPublishesBackboneLayersBeforeTheCanonicalResponse()
+      throws InterruptedException {
+    final AnalyzeDocumentRequest request = AnalyzeDocumentRequest.newBuilder()
+        .setDocument(OpenNlpDocument.newBuilder()
+            .setDocId("doc-progressive")
+            .setRawText("Hello world. A second sentence.")
+            .build())
+        .build();
+    final ListCapturingObserver<AnalyzeDocumentEvent> observer =
+        new ListCapturingObserver<>();
+
+    try (BasicDocumentAnalyzer analyzer = new BasicDocumentAnalyzer(Map.of())) {
+      serviceWith(analyzer).analyzeDocumentProgressive(request, observer);
+
+      assertTrue(observer.await(), "progressive analysis did not terminate");
+      assertNull(observer.error);
+      assertTrue(observer.completed);
+      assertTrue(observer.values.size() >= 3);
+      assertEquals(AnalyzeDocumentEvent.UpdateCase.STARTED,
+          observer.values.getFirst().getUpdateCase());
+      assertEquals(AnalyzeDocumentEvent.UpdateCase.COMPLETE,
+          observer.values.getLast().getUpdateCase());
+      for (int i = 0; i < observer.values.size(); i++) {
+        assertEquals(i + 1L, observer.values.get(i).getSequence());
+      }
+      final int completeIndex = observer.values.size() - 1;
+      final int backboneIndex = observer.values.stream()
+          .filter(event -> event.hasLayersReady())
+          .filter(event -> event.getLayersReady().getLayersList().stream()
+              .anyMatch(layer -> layer.getId().equals("opennlp:tokens")))
+          .mapToInt(observer.values::indexOf)
+          .findFirst()
+          .orElseThrow();
+      assertTrue(backboneIndex < completeIndex);
+      assertEquals(analyzer.analyze(request).getDocument(),
+          observer.values.getLast().getComplete().getDocument());
+    }
   }
 
   @Test
@@ -375,6 +419,35 @@ class OpenNlpAnalysisServiceImplTest {
     @Override
     public void onCompleted() {
       this.completed = true;
+    }
+  }
+
+  /** Captures every callback from an asynchronous response stream. */
+  private static final class ListCapturingObserver<T> implements StreamObserver<T> {
+    private final List<T> values = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final CountDownLatch terminal = new CountDownLatch(1);
+    private volatile Throwable error;
+    private volatile boolean completed;
+
+    @Override
+    public void onNext(T value) {
+      values.add(value);
+    }
+
+    @Override
+    public void onError(Throwable error) {
+      this.error = error;
+      terminal.countDown();
+    }
+
+    @Override
+    public void onCompleted() {
+      completed = true;
+      terminal.countDown();
+    }
+
+    private boolean await() throws InterruptedException {
+      return terminal.await(10, TimeUnit.SECONDS);
     }
   }
 }
