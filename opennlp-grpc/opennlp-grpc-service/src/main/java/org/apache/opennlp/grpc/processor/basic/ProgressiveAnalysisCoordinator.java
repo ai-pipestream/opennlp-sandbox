@@ -288,14 +288,17 @@ final class ProgressiveAnalysisCoordinator {
       Set<PipelineStep> owned,
       BranchKind kind) {
     final EnumSet<PipelineStep> run = EnumSet.copyOf(owned);
+    final boolean tokenizationSelected =
+        effectiveSteps.contains(PipelineStep.PIPELINE_STEP_TOKENIZE);
     final boolean needsSentences = switch (kind) {
       case NER, POS, TEXT_ENRICHMENT, SENTIMENT, PARSE, EMBED, CHUNK -> true;
+      case DOCUMENT_CATEGORY -> tokenizationSelected;
       default -> false;
     };
     final boolean needsTokens = switch (kind) {
       case NER, POS, TEXT_ENRICHMENT, PARSE -> true;
       case SENTIMENT, DOCUMENT_CATEGORY, CHUNK ->
-          effectiveSteps.contains(PipelineStep.PIPELINE_STEP_TOKENIZE);
+          tokenizationSelected;
       default -> false;
     };
     if (effectiveSteps.contains(PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT)
