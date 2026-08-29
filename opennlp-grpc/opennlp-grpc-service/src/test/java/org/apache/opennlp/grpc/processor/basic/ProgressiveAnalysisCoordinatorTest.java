@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -129,6 +130,44 @@ class ProgressiveAnalysisCoordinatorTest {
     assertNull(failure.get());
     assertTrue(finishedBranches.contains(PipelineStep.PIPELINE_STEP_DOC_CATEGORIZE));
     assertTrue(finishedBranches.contains(PipelineStep.PIPELINE_STEP_PARSE));
+  }
+
+  @Test
+  void documentCategoryBranchIncludesSentenceDetectionWhenItTokenizes()
+      throws InterruptedException {
+    final AnalyzeDocumentRequest request = AnalyzeDocumentRequest.newBuilder()
+        .setDocument(OpenNlpDocument.newBuilder().setRawText("One short sentence.").build())
+        .build();
+    final AnalyzeDocumentResponse base;
+    try (BasicDocumentAnalyzer analyzer = new BasicDocumentAnalyzer(Map.of())) {
+      base = analyzer.analyze(request);
+    }
+    final CountDownLatch terminal = new CountDownLatch(1);
+    final AtomicReference<RuntimeException> failure = new AtomicReference<>();
+    final AtomicReference<Set<PipelineStep>> categorySteps = new AtomicReference<>();
+
+    try (var executor = Executors.newSingleThreadExecutor()) {
+      ProgressiveAnalysisCoordinator.start(
+          request,
+          EnumSet.of(
+              PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
+              PipelineStep.PIPELINE_STEP_TOKENIZE,
+              PipelineStep.PIPELINE_STEP_DOC_CATEGORIZE),
+          executor,
+          null,
+          listener(terminal, failure, new ArrayList<>()),
+          (branchRequest, steps) -> {
+            if (steps.contains(PipelineStep.PIPELINE_STEP_DOC_CATEGORIZE)) {
+              categorySteps.set(steps);
+            }
+            return base;
+          });
+
+      assertTrue(terminal.await(10, TimeUnit.SECONDS));
+    }
+
+    assertNull(failure.get());
+    assertTrue(categorySteps.get().contains(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT));
   }
 
   @Test
