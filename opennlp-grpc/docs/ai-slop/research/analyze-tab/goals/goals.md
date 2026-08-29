@@ -18,7 +18,9 @@
 
 ## P2
 
-- [ ] "Download .pb" through `/api/v1/format-document` server-side.
+- [x] "Download .pb" server-side: `POST /api/v1/analyze-protobuf` returns the serialized
+      response without printing JSON; the tab re-runs the stored request through it when the
+      reply is past the browser limit, and says so.
 - [ ] Synonym expansion (WordNet), Span (UTF-16), Prerequisite steps,
       Installed language model packs.
 - [ ] Group heading or tooltip for the four `opennlp:terms:*` layers.

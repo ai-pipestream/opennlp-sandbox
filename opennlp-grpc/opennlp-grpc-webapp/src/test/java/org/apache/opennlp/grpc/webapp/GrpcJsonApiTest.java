@@ -91,6 +91,27 @@ class GrpcJsonApiTest {
   }
 
   @Test
+  void analyzesToProtobufBytesWithoutPrintingJson() throws Exception {
+    GrpcJsonApi api = new GrpcJsonApi(new StubAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(), new EmptyTrainingRpc());
+    byte[] json = """
+        {"document":{"docId":"one","rawText":"Hello world."}}
+        """.getBytes(StandardCharsets.UTF_8);
+
+    WebHttpResponse response = api.handle("POST", "/api/v1/analyze-protobuf", json);
+
+    assertEquals(200, response.status());
+    assertEquals("application/x-protobuf", response.contentType());
+    AnalyzeDocumentResponse decoded = AnalyzeDocumentResponse.parseFrom(response.body());
+    assertEquals("one", decoded.getDocument().getDocId());
+    assertEquals("Hello world.", decoded.getDocument().getRawText());
+    assertEquals(405, api.handle("GET", "/api/v1/analyze-protobuf", new byte[0]).status());
+    WebHttpResponse malformed = api.handle("POST", "/api/v1/analyze-protobuf",
+        "not-json".getBytes(StandardCharsets.UTF_8));
+    assertEquals(400, malformed.status());
+    assertTrue(malformed.bodyUtf8().contains("Malformed protobuf JSON request"));
+  }
+
+  @Test
   void decodesProtobufBytesBackToAnalyzeResponseJson() {
     GrpcJsonApi api = new GrpcJsonApi(new StubAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(), new EmptyTrainingRpc());
     byte[] bytes = AnalyzeDocumentResponse.newBuilder()

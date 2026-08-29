@@ -492,6 +492,25 @@ export function analyze(request: AnalyzeRequest, fetcher: Fetcher = fetch): Prom
 }
 
 /**
+ * Analyzes one document and returns the serialized response bytes. The gateway never prints
+ * the reply as JSON, so a reply too large for the browser can still become a .pb file.
+ */
+export async function analyzeToProtobuf(
+  request: AnalyzeRequest,
+  fetcher: Fetcher = fetch,
+): Promise<ArrayBuffer> {
+  const response = await fetcher("/api/v1/analyze-protobuf", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  return response.arrayBuffer();
+}
+
+/**
  * Turns the stored response JSON into serialized protobuf bytes through the gateway, so
  * the browser can save a .pb file without a protobuf runtime of its own.
  */

@@ -28,11 +28,16 @@ export const LARGE_COPY_MESSAGE = "This response is too large to copy through th
   + "use Download JSON instead.";
 
 /**
- * Why Download .pb refuses a response past the threshold: the browser would re-upload the
- * whole JSON to the gateway for transcoding, and the gateway caps request bodies.
+ * Why Download .pb refuses a response past the threshold when it was opened from a file: the
+ * browser would re-upload the whole JSON to the gateway for transcoding, the gateway caps
+ * request bodies, and there is no request to re-run on the server.
  */
-export const LARGE_PB_MESSAGE = "This response is too large to transcode through the browser; "
-  + "a gRPC client can call FormatDocument for the protobuf bytes.";
+export const LARGE_PB_MESSAGE = "This response is too large to transcode through the browser, "
+  + "and it was opened from a file, so there is no request the server could re-run for the .pb.";
+
+/** Shown while the server re-runs an analysis whose reply is too large to transcode locally. */
+export const SERVER_PB_MESSAGE = "The reply is too large to transcode in the browser, so the "
+  + "server is re-running the analysis and streaming the .pb directly…";
 
 export interface JsonPresentation {
   inline: boolean;

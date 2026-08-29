@@ -21,6 +21,7 @@ import "./style.css";
 
 import {
   analyze,
+  analyzeToProtobuf,
   analyzeStream,
   decodeAnalyzeResponsePb,
   deleteCollection,
@@ -133,7 +134,12 @@ import {
 } from "./vocabulary-trainer";
 import { tabTargetIndex, WorkbenchNavigation } from "./workbench-navigation";
 import { loadAliceDemo, loadPrideAndPrejudiceDemo } from "./demo-data";
-import { jsonPresentation, LARGE_COPY_MESSAGE, LARGE_PB_MESSAGE } from "./json-response";
+import {
+  jsonPresentation,
+  LARGE_COPY_MESSAGE,
+  LARGE_PB_MESSAGE,
+  SERVER_PB_MESSAGE,
+} from "./json-response";
 
 const sampleText =
   "Apache OpenNLP helps developers build applications that process natural language. " +
@@ -194,6 +200,8 @@ let serviceAvailable = false;
 let busy = false;
 let currentJson = "";
 let currentResponse: unknown;
+/** The request behind the current response, so the server can re-run it for a large .pb. */
+let currentRequest: AnalyzeRequest | undefined;
 let currentShape: DocumentShapeView | undefined;
 let currentLayer: AnnotationLayerView | undefined;
 let currentCombinedSegments: CombinedAnnotationSegment[] = [];
@@ -594,8 +602,9 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
   }
   if (textBytes > LARGE_EMBEDDING_WARNING_BYTES && requestsEmbeddings(request)
       && !window.confirm(`This document is ${mebibytes(textBytes)} MiB and embeddings are on. `
-        + "The reply can reach hundreds of megabytes and take a minute; the JSON view, Copy and "
-        + "Download .pb switch off past the browser's limit. Analyze anyway?")) {
+        + "The reply can reach hundreds of megabytes and take a minute; the JSON view and Copy "
+        + "switch off past the browser's limit, and Download .pb re-runs the analysis on the "
+        + "server. Analyze anyway?")) {
     return;
   }
 
@@ -606,6 +615,7 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
     const response = await analyze(request);
     const shape = readDocumentShape(response);
     storeResponse(response, shape);
+    currentRequest = request;
     chunkProjectionView.render(response);
     renderDocumentShape(shape);
     renderXray(response);
@@ -616,6 +626,7 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
   } catch (error) {
     currentJson = "";
     currentResponse = undefined;
+    currentRequest = undefined;
     copyButton.disabled = true;
     downloadButton.disabled = true;
     downloadPbButton.disabled = true;
@@ -1092,20 +1103,35 @@ function downloadResponse(): void {
   saveBlob(new Blob([storedJson()], { type: "application/json" }), "opennlp-analysis.json");
 }
 
-/** Saves the stored response as serialized protobuf, transcoded by the gateway. */
+/**
+ * Saves the response as serialized protobuf. A response the browser holds as JSON is
+ * transcoded by the gateway byte for byte; one past the browser's limit is re-run on the
+ * server, which streams the bytes without ever printing JSON.
+ */
 async function downloadResponsePb(): Promise<void> {
   if (currentResponse === undefined) {
     return;
   }
-  if (!currentJson) {
+  if (!currentJson && !currentRequest) {
     setFormStatus(LARGE_PB_MESSAGE, true);
     return;
   }
+  downloadPbButton.disabled = true;
   try {
-    const bytes = await encodeAnalyzeResponsePb(storedJson());
-    saveBlob(new Blob([bytes], { type: "application/x-protobuf" }), "opennlp-analysis.pb");
+    if (currentJson) {
+      const bytes = await encodeAnalyzeResponsePb(storedJson());
+      saveBlob(new Blob([bytes], { type: "application/x-protobuf" }), "opennlp-analysis.pb");
+    } else if (currentRequest) {
+      setFormStatus(SERVER_PB_MESSAGE);
+      const bytes = await analyzeToProtobuf(currentRequest);
+      saveBlob(new Blob([bytes], { type: "application/x-protobuf" }), "opennlp-analysis.pb");
+      setFormStatus(`Saved opennlp-analysis.pb (${mebibytes(bytes.byteLength)} MiB) from a `
+        + "server-side re-run of the same request.");
+    }
   } catch (error) {
     setFormStatus(errorMessage(error, "The .pb download did not complete."), true);
+  } finally {
+    downloadPbButton.disabled = false;
   }
 }
 
@@ -1135,6 +1161,8 @@ async function loadLocalResponse(file: File): Promise<void> {
 
 /** Presents a loaded response through the same views a live analysis uses. */
 function presentLoadedResponse(response: unknown, name: string): void {
+  // A file has no request behind it, so a large one cannot be re-run for a .pb.
+  currentRequest = undefined;
   const shape = readDocumentShape(response);
   textArea.value = shape.rawText;
   updateFormState();

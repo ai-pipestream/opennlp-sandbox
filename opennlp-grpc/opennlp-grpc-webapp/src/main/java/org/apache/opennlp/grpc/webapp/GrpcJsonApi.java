@@ -131,6 +131,8 @@ final class GrpcJsonApi {
             ? protobufJson(analysisRpc.listModelBundles()) : methodNotAllowed();
         case "/api/v1/analyze" -> method.equals("POST")
             ? analyze(body) : methodNotAllowed();
+        case "/api/v1/analyze-protobuf" -> method.equals("POST")
+            ? analyzeProtobuf(body) : methodNotAllowed();
         case "/api/v1/output-formats" -> method.equals("GET")
             ? protobufJson(analysisRpc.listOutputFormats()) : methodNotAllowed();
         case "/api/v1/format-document" -> method.equals("POST")
@@ -243,6 +245,22 @@ final class GrpcJsonApi {
           MALFORMED_PROTOBUF_JSON_PREFIX + exception.getMessage());
     }
     return protobufJson(analysisRpc.analyze(request.build()));
+  }
+
+  /**
+   * Analyzes one document and returns the serialized response instead of protobuf JSON.
+   * This is the {@code .pb} export for replies too large to print as JSON and re-upload
+   * for transcoding: the gateway never renders the response as text.
+   *
+   * @param body The protobuf JSON request body.
+   * @return The serialized {@link AnalyzeDocumentResponse}, or a parse failure.
+   */
+  private WebHttpResponse analyzeProtobuf(byte[] body) {
+    final AnalyzeDocumentRequest.Builder request = AnalyzeDocumentRequest.newBuilder();
+    final WebHttpResponse parseFailure = merge(body, request);
+    return parseFailure != null ? parseFailure
+        : new WebHttpResponse(200, PROTOBUF_CONTENT_TYPE,
+            analysisRpc.analyze(request.build()).toByteArray());
   }
 
   /**
