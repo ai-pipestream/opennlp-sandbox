@@ -474,8 +474,9 @@ Open `http://127.0.0.1:7072/`. The default TypeScript interface discovers config
 models, resources, and supported pipeline steps. Its default preset requests the richest safe
 combination that is actually available, while named profiles and automatic server selection remain
 available. Sentence and token-window chunking can be enabled independently or together. The
-same-origin gateway returns the complete `AnalyzeDocumentResponse`, including the document shape,
-typed layers, and chunk groups.
+Analyze action uses the same-origin progressive NDJSON gateway. It renders complete typed layers
+as they arrive, then installs the terminal `AnalyzeDocumentResponse` for copy, download, heatmap,
+graph, and indexing operations.
 
 The Analyze workbench gives the output the full page width and provides Document, Chunks, Heatmap,
 Graph, and Protobuf JSON projections over the same response. Long source text and annotated output
@@ -1495,6 +1496,13 @@ entities, POS tags, lemmas, document classification, per-sentence sentiment, par
 syntactic chunks, embeddings, and chunk/embedding groups. `AnalyzeDocumentResponse`
 also includes per-step diagnostics; invalid requests fail with precise gRPC status codes
 instead of returning partial results.
+
+For one long document, `AnalyzeDocumentProgressive` returns a server stream. The service
+finishes the language, normalization, sentence, and token backbone first, then runs independent
+model branches concurrently with at most four admitted per request. Each completed branch emits
+complete typed layer snapshots. NER, parsing, sentiment, categorization, chunking, and embeddings
+can therefore arrive independently. A non-backbone branch failure is reported as an event while
+the other branches continue. The last event carries the canonical response and diagnostics.
 
 For bulk analysis, `AnalyzeStream` runs the same `DocumentAnalyzer` and returns the
 same `AnalyzeDocumentResponse` shape. The first request frame carries one

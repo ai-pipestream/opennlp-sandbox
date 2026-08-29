@@ -43,6 +43,9 @@ build and learning a vocabulary, run only with `OPENNLP_E2E_WORKFLOW_WRITE=1`. `
 the Maven build still catches compile drift in the specs.
 
 The browser uses the same-origin HTTP facade. Analysis requests follow protobuf JSON exactly.
+The Analyze action consumes `/api/v1/analyze-progressive`, renders complete layers as their
+branches finish, and replaces the partial state with the terminal canonical response. Copy,
+download, semantic heatmap, and graph actions remain tied to that final response.
 The default feature preset builds an inline profile from features that the service reports as
 both supported and configured. For example:
 

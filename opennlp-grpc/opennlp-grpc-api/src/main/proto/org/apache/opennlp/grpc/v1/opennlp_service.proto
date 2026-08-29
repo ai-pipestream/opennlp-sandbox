@@ -26,8 +26,8 @@ option java_multiple_files = true;
 option java_outer_classname = "OpenNlpServiceProto";
 option java_package = "org.apache.opennlp.grpc.v1";
 
-// The v1 document-centric OpenNLP analysis API: one unary RPC to analyze a
-// document, plus two capability-discovery RPCs.
+// The v1 document-centric OpenNLP analysis API: unary and progressive document
+// analysis, bulk streaming, embedding, discovery, and output formatting.
 //
 // Error model: failures are reported as gRPC status codes. AnalyzeDocument maps
 // validation/processing errors to INVALID_ARGUMENT (malformed/invalid request),
