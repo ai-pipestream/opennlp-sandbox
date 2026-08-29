@@ -29,7 +29,7 @@
       `opennlp-catalog.json` from `StandardModelCatalog` and diff it in a test.
 - [ ] Rename "Server capability inventory" to "What this server can do";
       "Pinned model catalog" to "Model catalog (checksum pinned)".
-- [ ] e2e spec: readiness grid, catalog list, disabled install state.
+- [x] e2e spec: readiness grid, catalog list, disabled install state (`e2e/models-data.spec.ts`).
 - [ ] Unit tests for `configure()`, the copy button, the empty catalog.
 
 ## P3

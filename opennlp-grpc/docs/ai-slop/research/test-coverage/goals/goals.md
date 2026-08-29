@@ -24,7 +24,7 @@ Effort: S under a day, M a few days, L a week or more.
 ## P2
 
 - [ ] (M) Size ladder test for `scaledDeadlineNanos` and the gateway routes that use it.
-- [ ] (M) e2e specs for Models & data and Lifecycle (both have none).
+- [x] (M) e2e specs for Models & data and Lifecycle (both have none); Trainer got one too.
 - [ ] (S) Gateway test for `/api/v1/model-bundles`; FE tests for the NDJSON stream readers.
 - [ ] (L) Integration tests past `search-indexes` and `search`: analyze, index,
       persist, seal, alias, collection, catalog install.

@@ -38,7 +38,8 @@
 - [ ] After a Workflows build, offer "Save this workspace" inline.
 - [ ] Rename "Provider instances" to "Vector storage available on this server";
       "Point alias at workspace" to "Point alias here".
-- [ ] e2e spec for the tab (checkpoint, read-only, alias, collection).
+- [x] e2e spec for the tab (checkpoint, read-only, alias, collection): `e2e/lifecycle.spec.ts`
+      builds its own index through the gateway and removes it afterwards.
 
 ## P3
 

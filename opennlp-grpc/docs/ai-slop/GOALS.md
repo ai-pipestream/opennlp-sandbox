@@ -77,11 +77,14 @@ items from that theme's `goals/goals.md`, and the tab's e2e spec.
 
 Status 2026-08-28: landed as one commit per tab. Every tab now has a help
 callout, an empty state that names where its first object comes from, and
-jumps at each dead end the audits listed. Left for later, and still unticked
-in the theme goals: per-tab Playwright specs for Models & data, Trainer and
-Lifecycle (the unit suites cover their controllers), a `ListVocabularies`
-RPC behind a vocabulary picker, state chips on the index pickers, and the
-"Download .pb" server-side formatting route.
+jumps at each dead end the audits listed.
+
+Status 2026-08-29: the items left over from the tab commits landed as four
+more: `ListVocabularies` behind the Trainer and Lifecycle pickers, the
+In memory / Saved to disk / Read-only labels on both index pickers,
+`POST /api/v1/analyze-protobuf` behind Download .pb for replies past the
+browser limit, and Playwright specs for Models & data, Trainer and
+Lifecycle. Every tab now meets the acceptance line below.
 
 1. Analyze (`research/analyze-tab/goals`): add-to-index feedback, open-hit
    switch, size threshold shared by JSON view, copy and download, layer titles

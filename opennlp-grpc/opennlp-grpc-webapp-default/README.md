@@ -26,17 +26,20 @@ mvn -Dfrontend.skip=true package
 
 `e2e/` holds a Playwright suite that drives a running server and gateway through a real browser:
 tab scoping and bridging, a complete analyze round trip onto the calm Highlights overlay, corpus
-search hit inspection, and the trainer controls. It is intentionally not part of the Maven build
-because it needs browser binaries and a live stack. Start the stack (for example the Docker
-demonstration image), then:
+search hit inspection, the Models & data readiness grid and catalog install states, the Trainer
+gating states and server-fed pickers, and the Lifecycle flow of saving, aliasing, collecting and
+making a live index read-only (the spec builds that index through the gateway and removes it
+afterwards). It is intentionally not part of the Maven build because it needs browser binaries
+and a live stack. Start the stack (for example the Docker demonstration image), then:
 
 ```shell
 npx playwright install chromium   # once
 OPENNLP_E2E_BASE_URL=http://127.0.0.1:7072 npm run e2e
 ```
 
-Tests that depend on optional server state, such as a configured immutable corpus index, skip
-with a reason instead of failing. `tsc --noEmit` type-checks the suite as part of `npm test`, so
+Tests that depend on optional server state, such as a configured read-only corpus index, skip
+with a reason instead of failing. Specs that leave artifacts behind on the server, the workflow
+build and learning a vocabulary, run only with `OPENNLP_E2E_WORKFLOW_WRITE=1`. `tsc --noEmit` type-checks the suite as part of `npm test`, so
 the Maven build still catches compile drift in the specs.
 
 The browser uses the same-origin HTTP facade. Analysis requests follow protobuf JSON exactly.
