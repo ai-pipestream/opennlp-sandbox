@@ -52,6 +52,8 @@ import org.apache.opennlp.grpc.v1.Token;
 /** Coordinates isolated analysis branches and serializes their completed results. */
 final class ProgressiveAnalysisCoordinator {
 
+  private static final int MAX_CONCURRENT_BRANCHES = 4;
+
   private static final List<PipelineStep> STEP_ORDER = List.of(
       PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT,
       PipelineStep.PIPELINE_STEP_NORMALIZE,
@@ -136,8 +138,9 @@ final class ProgressiveAnalysisCoordinator {
       final CompletionService<BranchOutcome> completions =
           new ExecutorCompletionService<>(branchExecutor);
       final List<Future<BranchOutcome>> futures = new ArrayList<>(branches.size());
-      for (Branch branch : branches) {
-        futures.add(completions.submit(() -> analyzeBranch(branch, analyzer)));
+      int submitted = 0;
+      while (submitted < Math.min(MAX_CONCURRENT_BRANCHES, branches.size())) {
+        submit(branches.get(submitted++), analyzer, completions, futures);
       }
 
       final Map<Branch, AnalyzeDocumentResponse> completed = new HashMap<>();
@@ -160,6 +163,9 @@ final class ProgressiveAnalysisCoordinator {
               "Progressive analysis branch coordination failed", e.getCause()));
           return;
         }
+        if (submitted < branches.size()) {
+          submit(branches.get(submitted++), analyzer, completions, futures);
+        }
         if (outcome.failure() != null) {
           listener.onStepFailed(outcome.branch().terminalStep(), outcome.failure());
           continue;
@@ -168,10 +174,10 @@ final class ProgressiveAnalysisCoordinator {
         final AnalysisLayerBatch batch = layerBatch(
             outcome.branch().terminalStep(),
             outcome.response(),
+            progressiveLayers(outcome.branch(), outcome.response(), branches, completed),
             outcome.branch().ownedSteps(),
             requestedEncoding,
-            rawText,
-            outcome.branch().kind());
+            rawText);
         if (batch.getLayersCount() > 0 || batch.getDiagnosticsCount() > 0) {
           listener.onLayersReady(batch);
         }
@@ -187,6 +193,15 @@ final class ProgressiveAnalysisCoordinator {
         listener.onError(e);
       }
     }
+  }
+
+  /** Submits one branch and retains its future for cancellation. */
+  private static void submit(
+      Branch branch,
+      BranchAnalyzer analyzer,
+      CompletionService<BranchOutcome> completions,
+      List<Future<BranchOutcome>> futures) {
+    futures.add(completions.submit(() -> analyzeBranch(branch, analyzer)));
   }
 
   /** Runs one isolated branch and captures its local failure. */
@@ -318,6 +333,18 @@ final class ProgressiveAnalysisCoordinator {
             .filter(layer -> ownsLayer(kind, layer.getId()))
             .toList()
         : List.of();
+    return layerBatch(
+        terminalStep, response, selected, ownedSteps, requestedEncoding, rawText);
+  }
+
+  /** Produces one client-encoded event batch from selected layers. */
+  private static AnalysisLayerBatch layerBatch(
+      PipelineStep terminalStep,
+      AnalyzeDocumentResponse response,
+      List<AnnotationLayer> selected,
+      Set<PipelineStep> ownedSteps,
+      OffsetEncoding requestedEncoding,
+      String rawText) {
     final OpenNlpDocument.Builder encoded = OpenNlpDocument.newBuilder()
         .setRawText(rawText)
         .setLayers(DocumentLayers.newBuilder().addAllLayers(selected).build());
@@ -329,6 +356,60 @@ final class ProgressiveAnalysisCoordinator {
             .filter(diagnostic -> ownedSteps.contains(diagnostic.getStep()))
             .toList())
         .build();
+  }
+
+  /** Returns branch layers with a complete snapshot of all ready chunk groups. */
+  private static List<AnnotationLayer> progressiveLayers(
+      Branch current,
+      AnalyzeDocumentResponse response,
+      List<Branch> branches,
+      Map<Branch, AnalyzeDocumentResponse> completed) {
+    final List<AnnotationLayer> selected = response.getDocument().hasLayers()
+        ? new ArrayList<>(response.getDocument().getLayers().getLayersList().stream()
+            .filter(layer -> ownsLayer(current.kind(), layer.getId()))
+            .toList())
+        : new ArrayList<>();
+    int chunkLayerIndex = -1;
+    for (int index = 0; index < selected.size(); index++) {
+      if (selected.get(index).getId().equals("opennlp:chunk-groups")) {
+        chunkLayerIndex = index;
+        break;
+      }
+    }
+    if (chunkLayerIndex < 0) {
+      return selected;
+    }
+
+    final AnnotationLayer.Builder cumulative = selected.get(chunkLayerIndex).toBuilder();
+    final org.apache.opennlp.grpc.v1.ChunkGroupAnnotationList.Builder groups =
+        cumulative.getChunkGroupValues().toBuilder().clearAnnotations();
+    addReadyChunkGroups(groups, BranchKind.CHUNK, branches, completed);
+    addReadyChunkGroups(groups, BranchKind.SENTIMENT, branches, completed);
+    cumulative.setChunkGroupValues(groups);
+    selected.set(chunkLayerIndex, cumulative.build());
+    return selected;
+  }
+
+  /** Appends ready chunk groups in the same normal-then-category order as the final response. */
+  private static void addReadyChunkGroups(
+      org.apache.opennlp.grpc.v1.ChunkGroupAnnotationList.Builder target,
+      BranchKind kind,
+      List<Branch> branches,
+      Map<Branch, AnalyzeDocumentResponse> completed) {
+    for (Branch branch : branches) {
+      if (branch.kind() != kind) {
+        continue;
+      }
+      final AnalyzeDocumentResponse response = completed.get(branch);
+      if (response == null || !response.getDocument().hasLayers()) {
+        continue;
+      }
+      for (AnnotationLayer layer : response.getDocument().getLayers().getLayersList()) {
+        if (layer.getId().equals("opennlp:chunk-groups")) {
+          target.addAllAnnotations(layer.getChunkGroupValues().getAnnotationsList());
+        }
+      }
+    }
   }
 
   /** Returns whether a layer belongs to the finished branch rather than its dependencies. */
