@@ -33,6 +33,7 @@ function index(id: string, immutable: boolean): SearchIndex {
   return {
     id, label: `Index ${id}`, providerId: "flat_float", modelId: "m", backendId: "static",
     vectorSpaceId: "s", metric: "SEARCH_METRIC_COSINE", supportsAllHits: true, immutable,
+    persisted: immutable,
     corpusTitle: id, provenance: "test", build: {}, size: 3,
   };
 }
@@ -98,7 +99,7 @@ describe("lifecycle workbench", () => {
 
     const picker = document.getElementById("lifecycle-index-select") as HTMLSelectElement;
     expect(Array.from(picker.options).map((option) => option.text))
-      .toEqual(["Index a (a)", "Index b (b) · read-only"]);
+      .toEqual(["Index a (a) · In memory", "Index b (b) · Read-only"]);
     picker.value = "b";
     picker.dispatchEvent(new Event("change"));
     const seal = document.getElementById("lifecycle-seal-button") as HTMLButtonElement;

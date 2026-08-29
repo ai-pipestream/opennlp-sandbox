@@ -39,6 +39,7 @@ function testIndex(): SearchIndex {
     metric: "METRIC_COSINE",
     supportsAllHits: false,
     immutable: false,
+    persisted: false,
     corpusTitle: "Test corpus",
     provenance: "Built by the workbench test",
     build: {},

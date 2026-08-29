@@ -46,6 +46,8 @@ export interface SearchIndex {
   maxResponseBytes?: number;
   supportsAllHits: boolean;
   immutable: boolean;
+  /** True when a checkpoint of the index exists on disk, so it survives a server restart. */
+  persisted: boolean;
   corpusTitle: string;
   provenance: string;
   sourceUri?: string;
@@ -282,6 +284,7 @@ export function readSearchIndexes(response: unknown): SearchIndex[] {
       maxResponseBytes: positiveInteger(descriptor.maxResponseBytes),
       supportsAllHits: descriptor.supportsAllHits === true,
       immutable,
+      persisted: descriptor.persisted === true,
       ...(Array.isArray(descriptor.components)
         ? { components: readComponents(descriptor.components) } : {}),
       corpusTitle: text(corpus?.title) || "Untitled corpus",
@@ -506,4 +509,19 @@ function readComponents(values: unknown[]): SearchIndexComponent[] {
       providerInstanceId: text(component.providerInstanceId),
     }];
   });
+}
+
+/** The three states a live index passes through, as the pickers label them. */
+export type IndexStateLabel = "In memory" | "Saved to disk" | "Read-only";
+
+/**
+ * Labels an index's state from the descriptor's two flags: a read-only index is always on
+ * disk, a saved one is on disk and still accepts documents, and the rest live in server
+ * memory only until the process ends.
+ */
+export function indexStateLabel(index: Pick<SearchIndex, "immutable" | "persisted">): IndexStateLabel {
+  if (index.immutable) {
+    return "Read-only";
+  }
+  return index.persisted ? "Saved to disk" : "In memory";
 }

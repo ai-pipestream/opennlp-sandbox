@@ -22,13 +22,14 @@ import { describe, expect, it } from "vitest";
 import {
   createAllHitsSearchRequest,
   createCompoundSearchRequest,
+  createIndexDocumentsRequest,
   createSearchRequest,
+  indexStateLabel,
   readSearchIndexes,
   readSearchProviderInstances,
-  readSearchResponse,
   readSearchProviderListing,
+  readSearchResponse,
   supportsKeywordClauses,
-  createIndexDocumentsRequest,
 } from "../src/search-adapter";
 
 function indexDescriptor(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -125,6 +126,7 @@ describe("server search API adapter", () => {
       maxResponseBytes: 1048576,
       supportsAllHits: false,
       immutable: true,
+      persisted: false,
       corpusTitle: "Apache documentation",
       licenseName: "Apache-2.0",
       corpusArtifactHash: "sha256:corpus",
@@ -424,5 +426,21 @@ describe("server search API adapter", () => {
       capabilities: ["vector", "live", "persistent"],
       standard: "STANDARD_SEARCH_PROVIDER_TURBO_QUANT",
     }]);
+  });
+});
+
+describe("indexStateLabel", () => {
+  it("names the three live index states from the descriptor flags", () => {
+    expect(indexStateLabel({ immutable: false, persisted: false })).toBe("In memory");
+    expect(indexStateLabel({ immutable: false, persisted: true })).toBe("Saved to disk");
+    expect(indexStateLabel({ immutable: true, persisted: true })).toBe("Read-only");
+    // A read-only index is always on disk; the flag pair the server never emits still reads right.
+    expect(indexStateLabel({ immutable: true, persisted: false })).toBe("Read-only");
+  });
+
+  it("maps persisted from the descriptor and defaults it to false", () => {
+    expect(readSearchIndexes({ indexes: [indexDescriptor({ persisted: true })] })[0]?.persisted)
+      .toBe(true);
+    expect(readSearchIndexes({ indexes: [indexDescriptor()] })[0]?.persisted).toBe(false);
   });
 });

@@ -39,6 +39,7 @@ const DYNAMIC_INDEX: SearchIndex = {
   maxResponseBytes: 4_194_304,
   supportsAllHits: false,
   immutable: false,
+  persisted: false,
   corpusTitle: "Workbench index",
   provenance: "Server-owned in-memory workspace",
   build: {},
@@ -58,7 +59,7 @@ describe("workspace search", () => {
       </select>
       <form id="semantic-search-form"><textarea id="semantic-query" disabled></textarea>
         <button id="search-button" type="submit" disabled></button></form>
-      <span id="index-count"></span><p id="semantic-status"></p><div id="search-results"></div>
+      <span id="index-count"></span><span id="index-storage"></span><p id="semantic-status"></p><div id="search-results"></div>
       <form id="heatmap-query-form"><input id="heatmap-query" />
         <button id="heatmap-query-button"></button></form>
       <select id="heatmap-projection-select"></select>
@@ -135,6 +136,7 @@ describe("workspace search", () => {
       listIndexes: vi.fn(async () => [{
         id: "live-1", label: "Notes", providerId: "flat_float", modelId: "m", backendId: "static",
         vectorSpaceId: "s", metric: "cosine", supportsAllHits: true, immutable: false,
+        persisted: true,
         corpusTitle: "Notes", provenance: "test", build: {}, size: 2,
       }]),
       deleteIndex,
@@ -147,8 +149,12 @@ describe("workspace search", () => {
     });
     await workbench.initializeWorkspaces();
     const picker = document.getElementById("workspace-index-select") as HTMLSelectElement;
+    // The picker says which state each index is in, from the descriptor's flags.
+    expect(picker.options[1]?.textContent).toBe("Notes · 2 chunks · Saved to disk");
     picker.value = "live-1";
     picker.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(document.getElementById("index-storage")!.textContent)
+      .toBe("Saved to disk"));
     await vi.waitFor(() => expect(document.getElementById("semantic-status")!.textContent)
       .toContain("Searching 'Notes'"));
     const clear = document.getElementById("clear-index-button") as HTMLButtonElement;

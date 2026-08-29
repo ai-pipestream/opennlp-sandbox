@@ -20,11 +20,12 @@
 import type { ReindexIndexRequest, SetCollectionRequest } from "./api";
 import type { CollectionEventView, CollectionView } from "./collection-adapter";
 import {
+  indexStateLabel,
+  SCRATCH_INDEX_PREFIX,
   type IndexAliasView,
   type SearchIndex,
   type SearchProviderInstance,
   type SearchProviderListing,
-  SCRATCH_INDEX_PREFIX,
 } from "./search-adapter";
 import { ellipsizeCodePoints, formatInteger } from "./text-utils";
 import { addFact, emptyMessage, errorMessage, requiredElement } from "./ui-utils";
@@ -201,7 +202,7 @@ export class LifecycleWorkbench {
     } else {
       for (const index of this.#indexes) {
         this.#indexSelect.add(new Option(
-          `${index.label} (${index.id})${index.immutable ? " · read-only" : ""}`, index.id));
+          `${index.label} (${index.id}) · ${indexStateLabel(index)}`, index.id));
       }
       this.#indexSelect.disabled = false;
       if (this.#indexes.some((index) => index.id === selected)) {
@@ -229,7 +230,7 @@ export class LifecycleWorkbench {
     addFact(this.#indexFacts, "Embedding model", index.modelId);
     addFact(this.#indexFacts, "Vector space", ellipsizeCodePoints(index.vectorSpaceId, 24));
     addFact(this.#indexFacts, "Chunks", formatInteger(index.size ?? 0));
-    addFact(this.#indexFacts, "Read-only", index.immutable ? "yes" : "no");
+    addFact(this.#indexFacts, "State", indexStateLabel(index));
   }
 
   private renderProviders(providers: SearchProviderInstance[]): void {

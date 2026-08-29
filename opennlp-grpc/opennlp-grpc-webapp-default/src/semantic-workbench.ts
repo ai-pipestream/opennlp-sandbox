@@ -30,13 +30,14 @@ import { supportsCompleteGraph } from "./document-window";
 import { toBrowserSpan } from "./offsets";
 import {
   createAllHitsSearchRequest,
+  createIndexDocumentsRequest,
   createSearchRequest,
+  indexStateLabel,
+  SCRATCH_INDEX_PREFIX,
   type SearchHit,
   type SearchIndex,
   type SearchRequest,
   type SearchResponse,
-  createIndexDocumentsRequest,
-  SCRATCH_INDEX_PREFIX,
 } from "./search-adapter";
 import { collapseWhitespace, ellipsizeCodePoints } from "./text-utils";
 import { emptyMessage, requiredElement } from "./ui-utils";
@@ -111,6 +112,7 @@ export class SemanticWorkbench {
   readonly #query = requiredElement<HTMLTextAreaElement>("semantic-query");
   readonly #searchButton = requiredElement<HTMLButtonElement>("search-button");
   readonly #indexCount = requiredElement<HTMLElement>("index-count");
+  readonly #indexStorage = requiredElement<HTMLElement>("index-storage");
   readonly #status = requiredElement<HTMLElement>("semantic-status");
   readonly #results = requiredElement<HTMLElement>("search-results");
   readonly #heatmapQueryForm = requiredElement<HTMLFormElement>("heatmap-query-form");
@@ -204,7 +206,8 @@ export class SemanticWorkbench {
     for (const workspace of workspaces) {
       const size = workspace.size ?? 0;
       this.#workspaceSelect.add(new Option(
-        `${workspace.label} · ${size} ${size === 1 ? "chunk" : "chunks"}`, workspace.id));
+        `${workspace.label} · ${size} ${size === 1 ? "chunk" : "chunks"} · ${indexStateLabel(workspace)}`,
+        workspace.id));
     }
     const stillExists = workspaces.some((workspace) => workspace.id === selected);
     this.#workspaceSelect.value = stillExists ? selected : "";
@@ -663,6 +666,8 @@ export class SemanticWorkbench {
   #available = true;
 
   private updateControls(): void {
+    this.#indexStorage.textContent = this.#workspace
+      ? indexStateLabel(this.#workspace) : "In memory once created";
     this.#workspaceSelect.disabled = this.#busy || !this.#available;
     this.#providerSelect.disabled = Boolean(this.#workspace) || this.#busy || !this.#available;
     const indexable = this.#available

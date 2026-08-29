@@ -56,6 +56,7 @@ const INDEX: SearchIndex = {
   size: 2,
   supportsAllHits: true,
   immutable: false,
+  persisted: false,
   corpusTitle: "Demo workflow",
   provenance: "Pasted workflow corpus",
   build: {},

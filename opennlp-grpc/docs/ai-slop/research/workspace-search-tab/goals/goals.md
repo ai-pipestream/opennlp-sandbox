@@ -22,8 +22,9 @@
 
 ## P2
 
-- [ ] "In memory" / "Saved to disk" / "Read-only" chip in both pickers; map `persisted` in
-      `search-adapter.ts`.
+- [x] "In memory" / "Saved to disk" / "Read-only" chip in both pickers; map `persisted` in
+      `search-adapter.ts` (`indexStateLabel`); the Live index search facts show the state
+      of the attached index instead of a fixed "gRPC server memory".
 - [ ] Rename "Semantic query" to "What are you looking for?"; "Attached to"
       to "Searching"; "Detached." to "Nothing selected."; storage row shows the
       live state instead of the constant "gRPC server memory".
