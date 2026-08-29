@@ -143,6 +143,36 @@ class OpenNlpGrpcWebServerTest {
   }
 
   @Test
+  void streamsProgressiveAnalysisAsNdjson() throws Exception {
+    WebUiExtensionRegistry registry = new WebUiExtensionRegistry(List.of(testExtension()));
+    try (OpenNlpGrpcWebServer server = new OpenNlpGrpcWebServer(
+        new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+        new TestAnalysisRpc(), new EmptySearchRpc(), new EmptyVocabularyRpc(),
+        new EmptyTrainingRpc(), registry, 4096)) {
+      server.start();
+      HttpClient client = HttpClient.newHttpClient();
+
+      HttpRequest analyze = request(server, "/api/v1/analyze-progressive")
+          .header("Content-Type", "application/json")
+          .POST(HttpRequest.BodyPublishers.ofString(
+              "{\"document\":{\"docId\":\"progressive\",\"rawText\":\"Hello\"}}"))
+          .build();
+      HttpResponse<String> response = client.send(analyze,
+          HttpResponse.BodyHandlers.ofString());
+
+      assertEquals(200, response.statusCode());
+      assertEquals("application/x-ndjson; charset=utf-8",
+          response.headers().firstValue("content-type").orElseThrow());
+      String[] lines = response.body().strip().split("\n");
+      assertTrue(lines.length >= 2);
+      assertTrue(lines[0].contains("\"started\""));
+      assertTrue(lines[lines.length - 1].contains("\"complete\""));
+      assertTrue(lines[lines.length - 1].contains("\"docId\": \"progressive\"")
+          || lines[lines.length - 1].contains("\"docId\":\"progressive\""));
+    }
+  }
+
+  @Test
   void transcodesSavedResponsesOverHttp() throws Exception {
     WebUiExtensionRegistry registry = new WebUiExtensionRegistry(List.of(testExtension()));
     try (OpenNlpGrpcWebServer server = new OpenNlpGrpcWebServer(
