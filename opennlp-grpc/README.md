@@ -141,30 +141,30 @@ operator supplies a dependency model.
 
 ## Branch boundaries
 
-- `OPENNLP-1833-grpc-expansion` in `apache/opennlp-sandbox` is the canonical server
-  and frontend branch. Service, gateway, webapp, deployment, and sandbox-specific
-  adapter work lands there directly.
-- `OPENNLP-1833-grpc-helper` in `apache/opennlp` is a generated build dependency:
-  current apache main plus every open JIRA-backed feature PR head, including drafts.
-  It carries only the snapshot version stamp and integration repairs associated with
-  those JIRA branches. It is not a service-development branch.
+- `OPENNLP-1833-grpc-expansion` in `apache/opennlp-sandbox` is the canonical public
+  server and frontend branch. Generic service, gateway, webapp, and deployment work
+  lands there first.
+- `OPENNLP-1833-grpc-uber-server` is the research and search-demo runtime. Apache server
+  changes flow into it one way, and it differs only where the preview dependency or a
+  research-only adapter requires it.
+- This branch consumes the `kristian-3.x-features` OpenNLP preview. It does not consume
+  `OPENNLP-1833-grpc-helper`, which remains the public Apache server dependency.
 - The former query, search UI, webapp, docview, and graph branches are historical
   consolidation inputs. Do not add new work to them.
 
 ## Build
 
-The gRPC modules pin `opennlp.version` to `3.0.0-OPENNLP-1833-SNAPSHOT`, a local
-test coordinate produced by the `OPENNLP-1833-grpc-helper` branch of
-[apache/opennlp](https://github.com/apache/opennlp/tree/OPENNLP-1833-grpc-helper).
-That branch aggregates every open JIRA-backed feature PR head (drafts included)
-on top of apache main and is never deployed anywhere, so build it once into your
-local Maven repository first:
+This runtime pins OpenNLP to
+`ai.pipestream:opennlp-*:0.1.0-alpha4-SNAPSHOT`, the unsupported preview produced
+from `kristian-3.x-features`. Snapshot artifacts resolve from Central Snapshots.
+The official pretrained model jars retain their `org.apache.opennlp` coordinates.
+
+To build against the exact local preview head instead of the published snapshot,
+install it through the workspace publisher. The publisher uses a throwaway worktree
+and leaves the generated uber branch untouched:
 
 ```bash
-git clone https://github.com/apache/opennlp.git
-cd opennlp
-git checkout OPENNLP-1833-grpc-helper
-./mvnw install -DskipTests
+bash /work/worktrees/opennlp/publish-preview-m2.sh
 ```
 
 Then build this repository (JDK 21+):
@@ -173,8 +173,8 @@ Then build this repository (JDK 21+):
 mvn clean install
 ```
 
-Once the depended-on PRs merge to apache main, the pin reverts to plain
-`3.0.0-SNAPSHOT` and the helper step goes away.
+The matching source inputs are recorded in the preview branch's
+`PIPESTREAM-PROVENANCE.txt`.
 
 ## Run the server
 

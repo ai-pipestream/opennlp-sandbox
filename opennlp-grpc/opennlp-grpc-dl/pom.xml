@@ -67,7 +67,7 @@
           ai.onnxruntime classes) can never coexist on the classpath.
         -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-dl</artifactId>
             <version>${opennlp.version}</version>
             <exclusions>

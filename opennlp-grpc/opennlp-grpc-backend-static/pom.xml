@@ -46,7 +46,7 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-embeddings</artifactId>
             <version>${opennlp.version}</version>
         </dependency>

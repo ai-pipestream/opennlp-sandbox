@@ -53,18 +53,20 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-runtime</artifactId>
+            <version>${opennlp.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-model-resolver</artifactId>
+            <version>${opennlp.version}</version>
         </dependency>
         <!-- Immutable vector indexes and the normalized legal-passage interchange contract.
              The onnxruntime jar is excluded so the slim server carries no native inference
              runtime; ONNX Runtime ships only in the opennlp-grpc-dl add-on. -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-embeddings</artifactId>
             <version>${opennlp.version}</version>
             <exclusions>
@@ -76,19 +78,19 @@
         </dependency>
         <!-- SentencePiece subword tokenization for PIPELINE_STEP_SUBWORD_TOKENIZE. -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-subword</artifactId>
             <version>${opennlp.version}</version>
         </dependency>
         <!-- WordNet-style lexical knowledge bases for PIPELINE_STEP_EXPAND. -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-wordnet</artifactId>
             <version>${opennlp.version}</version>
         </dependency>
         <!-- Bundled Natural Earth gazetteer and geocoders for PIPELINE_STEP_GEOCODE. -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-geo</artifactId>
             <version>${opennlp.version}</version>
         </dependency>

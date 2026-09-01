@@ -36,8 +36,6 @@ import org.apache.opennlp.grpc.v1.AnnotationSpan;
 import org.apache.opennlp.grpc.v1.CoordinateSpace;
 import org.apache.opennlp.grpc.v1.NamedEntity;
 import org.apache.opennlp.grpc.v1.Token;
-import org.apache.opennlp.grpc.spi.model.NerModel;
-import org.apache.opennlp.grpc.spi.model.NerSpans;
 
 /**
  * {@link NerModel} backed by a classic OpenNLP {@link NameFinderME}. Each instance serves

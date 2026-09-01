@@ -55,20 +55,32 @@
 
     <properties>
         <!--
-          TEMPORARY: pin to a locally-built OpenNLP from the apache/opennlp branch
-          OPENNLP-1833-grpc-helper, which merges apache main plus every open OpenNLP pull
-          request. Only features visible in the apache review queue are in scope for this
-          service. The distinct version keeps a plain 3.0.0-SNAPSHOT refresh from clobbering
-          it and is never deployed anywhere. Revert to ${opennlp.version} inherited from the
-          parent (3.0.0-SNAPSHOT) once the depended-on PRs are merged to apache/opennlp main.
+          This runtime is the research and search-demo variant. It consumes the unsupported
+          ai.pipestream preview built from kristian-3.x-features, while the Apache sandbox
+          server consumes the generated OPENNLP-1833 helper. Pretrained model jars remain on
+          their official org.apache.opennlp coordinates in opennlp-grpc-service.
         -->
-        <opennlp.version>3.0.0-OPENNLP-1833-SNAPSHOT</opennlp.version>
+        <opennlp.groupId>ai.pipestream</opennlp.groupId>
+        <opennlp.version>0.1.0-alpha4-SNAPSHOT</opennlp.version>
         <grpc.version>1.83.1</grpc.version>
         <protobuf.version>3.25.8</protobuf.version>
         <picocli.version>4.7.7</picocli.version>
         <junit5-system-exit.version>2.0.3</junit5-system-exit.version>
         <awaitility.version>4.3.0</awaitility.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>ai-pipestream-preview-snapshots</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>

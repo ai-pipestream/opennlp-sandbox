@@ -48,7 +48,7 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-tools</artifactId>
             <version>${opennlp.version}</version>
         </dependency>
@@ -56,7 +56,7 @@
              excluded for the same reason as in opennlp-grpc-service: exactly one
              runtime flavor is supplied by the module that owns ONNX inference. -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-embeddings</artifactId>
             <version>${opennlp.version}</version>
             <exclusions>

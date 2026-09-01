@@ -56,8 +56,9 @@
         </dependency>
         <!-- ResourceInstaller: bounded, checksum-verified downloads. -->
         <dependency>
-            <groupId>org.apache.opennlp</groupId>
+            <groupId>${opennlp.groupId}</groupId>
             <artifactId>opennlp-runtime</artifactId>
+            <version>${opennlp.version}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
