@@ -18,6 +18,7 @@
 package org.apache.opennlp.grpc.processor.basic;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,22 +27,31 @@ import java.util.function.UnaryOperator;
 import opennlp.geo.BundledGazetteer;
 import opennlp.geo.SpatialCoherenceGeocoder;
 import opennlp.subword.sentencepiece.SentencePieceTokenizer;
+import opennlp.tools.document.Annotation;
+import opennlp.tools.document.Document;
+import opennlp.tools.document.Layers;
 import opennlp.tools.geo.GazetteerEntry;
 import opennlp.tools.geo.GeoResolution;
 import opennlp.tools.geo.Geocoder;
 import opennlp.tools.langdetect.Language;
-import opennlp.wordnet.LexicalExpander;
 import opennlp.tools.langdetect.LanguageDetectorME;
 import opennlp.tools.lemmatizer.Lemmatizer;
+import opennlp.tools.lemmatizer.LemmatizerAnnotator;
+import opennlp.tools.postag.POSTagger;
+import opennlp.tools.postag.POSTaggerAnnotator;
 import opennlp.tools.postag.POSTaggerME;
 import opennlp.tools.sentdetect.SentenceDetector;
+import opennlp.tools.sentdetect.SentenceDetectorAnnotator;
 import opennlp.tools.sentdetect.SentenceDetectorME;
+import opennlp.tools.stemmer.StemmerAnnotator;
 import opennlp.tools.tokenize.SubwordPiece;
 import opennlp.tools.tokenize.Tokenizer;
+import opennlp.tools.tokenize.TokenizerAnnotator;
 import opennlp.tools.tokenize.TokenizerME;
 import opennlp.tools.tokenize.lattice.LatticeTokenizer;
 import opennlp.tools.tokenize.uax29.WordToken;
 import opennlp.tools.tokenize.uax29.WordTokenizer;
+import opennlp.tools.util.Sequence;
 import opennlp.tools.util.Span;
 import opennlp.tools.util.StringUtil;
 import opennlp.tools.util.normalizer.AlignedText;
@@ -52,15 +62,16 @@ import opennlp.tools.util.normalizer.OffsetAwareNormalizer;
 import opennlp.tools.util.normalizer.Term;
 import opennlp.tools.util.normalizer.TermAnalyzer;
 import opennlp.tools.util.normalizer.TextNormalizer;
+import opennlp.wordnet.LexicalExpander;
 import org.apache.opennlp.grpc.model.ChunkerRegistry;
 import org.apache.opennlp.grpc.model.ClassicLanguagePipeline;
-import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
 import org.apache.opennlp.grpc.model.DocCategorizerRegistry;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
 import org.apache.opennlp.grpc.model.NameFinderRegistry;
 import org.apache.opennlp.grpc.model.ParserRegistry;
 import org.apache.opennlp.grpc.model.SentimentRegistry;
 import org.apache.opennlp.grpc.spi.AnalysisException;
+import org.apache.opennlp.grpc.spi.model.DocCategorizerModel;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
 import org.apache.opennlp.grpc.v1.AnnotationLayer;
 import org.apache.opennlp.grpc.v1.AnnotationSpan;
@@ -71,25 +82,25 @@ import org.apache.opennlp.grpc.v1.EnginePolicy;
 import org.apache.opennlp.grpc.v1.GeoAnnotation;
 import org.apache.opennlp.grpc.v1.GeoAnnotationList;
 import org.apache.opennlp.grpc.v1.GeoResolutionResult;
+import org.apache.opennlp.grpc.v1.LanguageScore;
 import org.apache.opennlp.grpc.v1.LayerScope;
 import org.apache.opennlp.grpc.v1.LexicalExpansionAnnotation;
 import org.apache.opennlp.grpc.v1.LexicalExpansionAnnotationList;
 import org.apache.opennlp.grpc.v1.LexicalExpansionKind;
 import org.apache.opennlp.grpc.v1.NamedEntity;
 import org.apache.opennlp.grpc.v1.NormalizationResult;
-import org.apache.opennlp.grpc.v1.Normalizer;
 import org.apache.opennlp.grpc.v1.NormalizationSpec;
-import org.apache.opennlp.grpc.v1.LanguageScore;
+import org.apache.opennlp.grpc.v1.Normalizer;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.apache.opennlp.grpc.v1.POSTagFormat;
 import org.apache.opennlp.grpc.v1.ParseFormat;
 import org.apache.opennlp.grpc.v1.ParseTree;
 import org.apache.opennlp.grpc.v1.PipelineStep;
 import org.apache.opennlp.grpc.v1.ProcessingDiagnostic;
-import org.apache.opennlp.grpc.v1.StemmerSpec;
-import org.apache.opennlp.grpc.v1.StemmerAlgorithm;
 import org.apache.opennlp.grpc.v1.StemAnnotation;
 import org.apache.opennlp.grpc.v1.StemAnnotationList;
+import org.apache.opennlp.grpc.v1.StemmerAlgorithm;
+import org.apache.opennlp.grpc.v1.StemmerSpec;
 import org.apache.opennlp.grpc.v1.SubwordAnnotation;
 import org.apache.opennlp.grpc.v1.SubwordAnnotationList;
 import org.apache.opennlp.grpc.v1.TermLayerSpec;
@@ -107,6 +118,7 @@ import org.apache.opennlp.grpc.v1.Token;
 final class ClassicStepRunner {
 
   private final ModelBundleCache modelBundleCache;
+  private final ClassicDocumentMapper documentMapper;
 
   /**
    * Creates a runner over one loaded model bundle.
@@ -118,6 +130,7 @@ final class ClassicStepRunner {
       throw new IllegalArgumentException("modelBundleCache must not be null");
     }
     this.modelBundleCache = modelBundleCache;
+    this.documentMapper = new ClassicDocumentMapper();
   }
 
   /**
@@ -161,12 +174,15 @@ final class ClassicStepRunner {
       boolean includeProbabilities,
       List<ProcessingDiagnostic> diagnostics) {
     final SentenceDetectorME detector = pipeline.sentenceDetector();
-    final Span[] spans = detector.sentPosDetect(rawText);
+    final Document annotated = new SentenceDetectorAnnotator(detector)
+        .annotate(Document.of(rawText));
+    final List<Annotation<String>> sentences = annotated.get(Layers.SENTENCES);
     final double[] probabilities = includeProbabilities ? detector.probs() : null;
-    for (int i = 0; i < spans.length; i++) {
+    for (int i = 0; i < sentences.size(); i++) {
+      final Span sentence = sentences.get(i).span();
       final AnnotationSpan.Builder span = AnnotationSpan.newBuilder()
-          .setStart(spans[i].getStart())
-          .setEnd(spans[i].getEnd())
+          .setStart(sentence.getStart())
+          .setEnd(sentence.getEnd())
           .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT);
       if (probabilities != null && i < probabilities.length) {
         span.setProbability(probabilities[i]);
@@ -174,18 +190,21 @@ final class ClassicStepRunner {
       document.addSentences(AnnotatedSentence.newBuilder().setSentenceSpan(span).build());
     }
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
-        "Detected " + spans.length + " sentence(s)"));
+        "Detected " + sentences.size() + " sentence(s)"));
   }
 
   /** Detects sentence spans with a deterministic standard or custom engine. */
-  static void detectSentences(
+  void detectSentences(
       String rawText,
       OpenNlpDocument.Builder document,
       SentenceDetector detector,
       String engineId,
       List<ProcessingDiagnostic> diagnostics) {
-    final Span[] spans = detector.sentPosDetect(rawText);
-    for (Span span : spans) {
+    final Document annotated = new SentenceDetectorAnnotator(detector)
+        .annotate(Document.of(rawText));
+    final List<Annotation<String>> sentences = annotated.get(Layers.SENTENCES);
+    for (Annotation<String> sentence : sentences) {
+      final Span span = sentence.span();
       document.addSentences(AnnotatedSentence.newBuilder()
           .setSentenceSpan(AnnotationSpan.newBuilder()
               .setStart(span.getStart())
@@ -194,7 +213,7 @@ final class ClassicStepRunner {
           .build());
     }
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
-        "Detected " + spans.length + " sentence(s) (" + engineId + ")"));
+        "Detected " + sentences.size() + " sentence(s) (" + engineId + ")"));
   }
 
   /** Tokenizes every sentence with the routed pipeline's tokenizer, keeping offsets. */
@@ -205,62 +224,59 @@ final class ClassicStepRunner {
       boolean includeProbabilities,
       List<ProcessingDiagnostic> diagnostics) {
     final TokenizerME tokenizer = pipeline.tokenizer();
-    int tokenCount = 0;
-    for (int i = 0; i < document.getSentencesCount(); i++) {
-      final AnnotatedSentence sentence = document.getSentences(i);
-      final AnnotationSpan sentenceSpan = sentence.getSentenceSpan();
-      final String sentenceText = rawText.substring(sentenceSpan.getStart(), sentenceSpan.getEnd());
-      final Span[] tokenSpans = tokenizer.tokenizePos(sentenceText);
-      final double[] probabilities = includeProbabilities ? tokenizer.probs() : null;
-      final AnnotatedSentence.Builder sentenceBuilder = sentence.toBuilder();
-      for (int t = 0; t < tokenSpans.length; t++) {
-        final Span tokenSpan = tokenSpans[t];
-        final AnnotationSpan.Builder span = AnnotationSpan.newBuilder()
-            .setStart(sentenceSpan.getStart() + tokenSpan.getStart())
-            .setEnd(sentenceSpan.getStart() + tokenSpan.getEnd())
-            .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT);
-        if (probabilities != null && t < probabilities.length) {
-          span.setProbability(probabilities[t]);
-        }
-        sentenceBuilder.addTokens(Token.newBuilder()
-            .setText(sentenceText.substring(tokenSpan.getStart(), tokenSpan.getEnd()))
-            .setAnnotationSpan(span)
-            .build());
-        tokenCount++;
-      }
-      document.setSentences(i, sentenceBuilder.build());
-    }
+    final RecordingTokenizer recording = includeProbabilities
+        ? new RecordingTokenizer(tokenizer) : null;
+    final Tokenizer delegate = recording == null ? tokenizer : recording;
+    final Document annotated = new TokenizerAnnotator(delegate)
+        .annotate(documentMapper.withSentences(rawText, document));
+    final int tokenCount = writeTokens(
+        annotated, document, recording == null ? null : recording.probabilities());
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_TOKENIZE,
         "Tokenized " + tokenCount + " token(s)"));
   }
 
   /** Tokenizes each detected sentence with a deterministic standard or custom engine. */
-  static void tokenize(
+  void tokenize(
       String rawText,
       OpenNlpDocument.Builder document,
       Tokenizer tokenizer,
       String engineId,
       List<ProcessingDiagnostic> diagnostics) {
-    int tokenCount = 0;
-    for (int i = 0; i < document.getSentencesCount(); i++) {
-      final AnnotatedSentence sentence = document.getSentences(i);
-      final AnnotationSpan sentenceSpan = sentence.getSentenceSpan();
-      final String sentenceText = rawText.substring(sentenceSpan.getStart(), sentenceSpan.getEnd());
-      final AnnotatedSentence.Builder sentenceBuilder = sentence.toBuilder();
-      for (Span tokenSpan : tokenizer.tokenizePos(sentenceText)) {
-        sentenceBuilder.addTokens(Token.newBuilder()
-            .setText(sentenceText.substring(tokenSpan.getStart(), tokenSpan.getEnd()))
-            .setAnnotationSpan(AnnotationSpan.newBuilder()
-                .setStart(sentenceSpan.getStart() + tokenSpan.getStart())
-                .setEnd(sentenceSpan.getStart() + tokenSpan.getEnd())
-                .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT))
-            .build());
-        tokenCount++;
-      }
-      document.setSentences(i, sentenceBuilder.build());
-    }
+    final Document annotated = new TokenizerAnnotator(tokenizer)
+        .annotate(documentMapper.withSentences(rawText, document));
+    final int tokenCount = writeTokens(annotated, document, null);
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_TOKENIZE,
         "Tokenized " + tokenCount + " token(s) (" + engineId + ")"));
+  }
+
+  /** Projects a flat token layer back into the wire document's sentences. */
+  private int writeTokens(Document annotated, OpenNlpDocument.Builder wire,
+      RecordedProbabilities probabilities) {
+    final List<Annotation<String>> tokens = annotated.get(Layers.TOKENS);
+    int tokenIndex = 0;
+    for (int i = 0; i < wire.getSentencesCount(); i++) {
+      final AnnotatedSentence sentence = wire.getSentences(i);
+      final Span sentenceSpan = new Span(
+          sentence.getSentenceSpan().getStart(), sentence.getSentenceSpan().getEnd());
+      final AnnotatedSentence.Builder sentenceBuilder = sentence.toBuilder();
+      while (tokenIndex < tokens.size() && sentenceSpan.contains(tokens.get(tokenIndex).span())) {
+        final Annotation<String> token = tokens.get(tokenIndex);
+        final AnnotationSpan.Builder span = AnnotationSpan.newBuilder()
+            .setStart(token.span().getStart())
+            .setEnd(token.span().getEnd())
+            .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT);
+        if (probabilities != null && probabilities.has(tokenIndex)) {
+          span.setProbability(probabilities.get(tokenIndex));
+        }
+        sentenceBuilder.addTokens(Token.newBuilder()
+            .setText(token.value())
+            .setAnnotationSpan(span)
+            .build());
+        tokenIndex++;
+      }
+      wire.setSentences(i, sentenceBuilder.build());
+    }
+    return tokenIndex;
   }
 
   // The UAX #29 word tokenizer is stateless and thread-safe; one shared instance.
@@ -317,20 +333,23 @@ final class ClassicStepRunner {
     final StemmerAlgorithm algorithm = spec.getAlgorithm()
         == StemmerAlgorithm.STEMMER_ALGORITHM_UNSPECIFIED
             ? StemmerAlgorithm.STEMMER_ALGORITHM_SNOWBALL : spec.getAlgorithm();
-    for (int i = 0; i < document.getSentencesCount(); i++) {
-      for (Token token : document.getSentences(i).getTokensList()) {
-        final StemAnnotation.Builder annotation = StemAnnotation.newBuilder()
-            .setSpan(token.getAnnotationSpan())
-            .setStem(stem.apply(token.getText()))
-            .setAlgorithm(algorithm);
-        if (spec.hasLanguage()) {
-          annotation.setLanguage(spec.getLanguage());
-        }
-        if (spec.hasHunspellDictionaryId()) {
-          annotation.setHunspellDictionaryId(spec.getHunspellDictionaryId());
-        }
-        list.addAnnotations(annotation);
+    final Document annotated = new StemmerAnnotator(word -> stem.apply(word.toString()))
+        .annotate(documentMapper.withTokens(document.getRawText(), document));
+    for (Annotation<String> stemAnnotation : annotated.get(StemmerAnnotator.STEMS)) {
+      final StemAnnotation.Builder annotation = StemAnnotation.newBuilder()
+          .setSpan(AnnotationSpan.newBuilder()
+              .setStart(stemAnnotation.span().getStart())
+              .setEnd(stemAnnotation.span().getEnd())
+              .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT))
+          .setStem(stemAnnotation.value())
+          .setAlgorithm(algorithm);
+      if (spec.hasLanguage()) {
+        annotation.setLanguage(spec.getLanguage());
       }
+      if (spec.hasHunspellDictionaryId()) {
+        annotation.setHunspellDictionaryId(spec.getHunspellDictionaryId());
+      }
+      list.addAnnotations(annotation);
     }
     if (list.getAnnotationsCount() > 0) {
       extraLayers.add(DocumentShapeAssembler.layer(DocumentShapeAssembler.STEMS_ID)
@@ -471,11 +490,12 @@ final class ClassicStepRunner {
           list.addAnnotations(LexicalExpansionAnnotation.newBuilder()
               .setSpan(token.getAnnotationSpan())
               .setTerm(expansion.term())
-              .setKind(switch (expansion.kind()) {
-                case SYNONYM -> LexicalExpansionKind.LEXICAL_EXPANSION_KIND_SYNONYM;
-                case HYPERNYM -> LexicalExpansionKind.LEXICAL_EXPANSION_KIND_HYPERNYM;
-                case HYPONYM -> LexicalExpansionKind.LEXICAL_EXPANSION_KIND_HYPONYM;
-              })
+              .setKind(
+                  switch (expansion.kind()) {
+                    case SYNONYM -> LexicalExpansionKind.LEXICAL_EXPANSION_KIND_SYNONYM;
+                    case HYPERNYM -> LexicalExpansionKind.LEXICAL_EXPANSION_KIND_HYPERNYM;
+                    case HYPONYM -> LexicalExpansionKind.LEXICAL_EXPANSION_KIND_HYPONYM;
+                  })
               .setDepth(expansion.depth())
               .setSenseRank(expansion.senseRank())
               .setWeight(expansion.weight())
@@ -540,26 +560,8 @@ final class ClassicStepRunner {
       String dictionaryId,
       List<ProcessingDiagnostic> diagnostics) {
     final LatticeTokenizer tokenizer = modelBundleCache.getLatticeRegistry().get(dictionaryId);
-    int tokenCount = 0;
-    for (int i = 0; i < document.getSentencesCount(); i++) {
-      final AnnotatedSentence sentence = document.getSentences(i);
-      final AnnotationSpan sentenceSpan = sentence.getSentenceSpan();
-      final String sentenceText = rawText.substring(sentenceSpan.getStart(), sentenceSpan.getEnd());
-      final AnnotatedSentence.Builder sentenceBuilder = sentence.toBuilder();
-      for (final Span tokenSpan : tokenizer.tokenizePos(sentenceText)) {
-        sentenceBuilder.addTokens(Token.newBuilder()
-            .setText(sentenceText.substring(tokenSpan.getStart(), tokenSpan.getEnd()))
-            .setAnnotationSpan(AnnotationSpan.newBuilder()
-                .setStart(sentenceSpan.getStart() + tokenSpan.getStart())
-                .setEnd(sentenceSpan.getStart() + tokenSpan.getEnd())
-                .setSpace(CoordinateSpace.COORDINATE_SPACE_CHAR_DOCUMENT))
-            .build());
-        tokenCount++;
-      }
-      document.setSentences(i, sentenceBuilder.build());
-    }
-    diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_TOKENIZE,
-        "Tokenized " + tokenCount + " token(s) (lattice, dictionary '" + dictionaryId + "')"));
+    tokenize(rawText, document, tokenizer,
+        "lattice, dictionary '" + dictionaryId + "'", diagnostics);
   }
 
   /**
@@ -820,28 +822,31 @@ final class ClassicStepRunner {
       boolean includeProbabilities,
       List<ProcessingDiagnostic> diagnostics) {
     final POSTaggerME posTagger = pipeline.createPosTagger(posTagFormat);
-    int taggedTokens = 0;
+    final RecordingPOSTagger recording = includeProbabilities
+        ? new RecordingPOSTagger(posTagger) : null;
+    final POSTagger delegate = recording == null ? posTagger : recording;
+    final Document annotated = new POSTaggerAnnotator(delegate)
+        .annotate(documentMapper.withTokens(document.getRawText(), document));
+    final List<Annotation<String>> tags = annotated.get(Layers.POS_TAGS);
+    final RecordedProbabilities probabilities = recording == null
+        ? null : recording.probabilities();
+    int tagIndex = 0;
     for (int i = 0; i < document.getSentencesCount(); i++) {
       final AnnotatedSentence sentence = document.getSentences(i);
-      if (sentence.getTokensCount() == 0) {
-        continue;
-      }
-      final String[] tokens = tokenTexts(sentence);
-      final String[] tags = posTagger.tag(tokens);
-      final double[] probabilities = includeProbabilities ? posTagger.probs() : null;
       final AnnotatedSentence.Builder sentenceBuilder = sentence.toBuilder();
-      for (int t = 0; t < tags.length; t++) {
-        final Token.Builder token = sentenceBuilder.getTokens(t).toBuilder().setPosTag(tags[t]);
-        if (probabilities != null && t < probabilities.length) {
-          token.setPosProbability((float) probabilities[t]);
+      for (int t = 0; t < sentence.getTokensCount(); t++) {
+        final Token.Builder token = sentenceBuilder.getTokens(t).toBuilder()
+            .setPosTag(tags.get(tagIndex).value());
+        if (probabilities != null && probabilities.has(tagIndex)) {
+          token.setPosProbability((float) probabilities.get(tagIndex));
         }
         sentenceBuilder.setTokens(t, token.build());
+        tagIndex++;
       }
       document.setSentences(i, sentenceBuilder.build());
-      taggedTokens += tags.length;
     }
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_POS_TAG,
-        "POS-tagged " + taggedTokens + " token(s)"));
+        "POS-tagged " + tagIndex + " token(s)"));
   }
 
   /**
@@ -857,33 +862,26 @@ final class ClassicStepRunner {
     final POSTaggerME nativeTagger = pipeline.convertsPosTagFormat(posTagFormat)
         ? pipeline.createPosTagger(POSTagFormat.POS_TAG_FORMAT_UNSPECIFIED)
         : null;
-    int lemmatizedTokens = 0;
+    Document annotated = nativeTagger == null
+        ? documentMapper.withPosTags(document.getRawText(), document)
+        : new POSTaggerAnnotator(nativeTagger)
+            .annotate(documentMapper.withTokens(document.getRawText(), document));
+    annotated = new LemmatizerAnnotator(lemmatizer).annotate(annotated);
+    final List<Annotation<String>> lemmas = annotated.get(LemmatizerAnnotator.LEMMAS);
+    int lemmaIndex = 0;
     for (int i = 0; i < document.getSentencesCount(); i++) {
       final AnnotatedSentence sentence = document.getSentences(i);
-      if (sentence.getTokensCount() == 0) {
-        continue;
-      }
-      final String[] tokens = tokenTexts(sentence);
-      final String[] tags;
-      if (nativeTagger != null) {
-        tags = nativeTagger.tag(tokens);
-      } else {
-        tags = new String[sentence.getTokensCount()];
-        for (int t = 0; t < tags.length; t++) {
-          tags[t] = sentence.getTokens(t).getPosTag();
-        }
-      }
-      final String[] lemmas = lemmatizer.lemmatize(tokens, tags);
       final AnnotatedSentence.Builder sentenceBuilder = sentence.toBuilder();
-      for (int t = 0; t < lemmas.length; t++) {
+      for (int t = 0; t < sentence.getTokensCount(); t++) {
         sentenceBuilder.setTokens(t,
-            sentenceBuilder.getTokens(t).toBuilder().setLemma(lemmas[t]).build());
+            sentenceBuilder.getTokens(t).toBuilder()
+                .setLemma(lemmas.get(lemmaIndex).value()).build());
+        lemmaIndex++;
       }
       document.setSentences(i, sentenceBuilder.build());
-      lemmatizedTokens += lemmas.length;
     }
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_LEMMATIZE,
-        "Lemmatized " + lemmatizedTokens + " token(s)"));
+        "Lemmatized " + lemmaIndex + " token(s)"));
   }
 
   /**
@@ -1042,6 +1040,116 @@ final class ClassicStepRunner {
     }
     diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_SYNTACTIC_CHUNK,
         "Found " + chunkCount + " syntactic chunk(s) across " + chunkerIds.size() + " chunker(s)"));
+  }
+
+  /** Records the probabilities produced by each tokenizer call. */
+  private final class RecordingTokenizer implements Tokenizer {
+
+    private final TokenizerME delegate;
+    private final RecordedProbabilities probabilities = new RecordedProbabilities();
+
+    /** Creates a recording wrapper over a model-backed tokenizer. */
+    private RecordingTokenizer(TokenizerME delegate) {
+      this.delegate = delegate;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String[] tokenize(String text) {
+      return delegate.tokenize(text);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Span[] tokenizePos(String text) {
+      final Span[] spans = delegate.tokenizePos(text);
+      probabilities.append(delegate.probs(), spans.length);
+      return spans;
+    }
+
+    /** Returns the probabilities in flat token order. */
+    private RecordedProbabilities probabilities() {
+      return probabilities;
+    }
+  }
+
+  /** Records the probabilities produced by each part-of-speech tagging call. */
+  private final class RecordingPOSTagger implements POSTagger {
+
+    private final POSTaggerME delegate;
+    private final RecordedProbabilities probabilities = new RecordedProbabilities();
+
+    /** Creates a recording wrapper over a model-backed tagger. */
+    private RecordingPOSTagger(POSTaggerME delegate) {
+      this.delegate = delegate;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String[] tag(String[] sentence) {
+      final String[] tags = delegate.tag(sentence);
+      probabilities.append(delegate.probs(), tags.length);
+      return tags;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String[] tag(String[] sentence, Object[] additionalContext) {
+      final String[] tags = delegate.tag(sentence, additionalContext);
+      probabilities.append(delegate.probs(), tags.length);
+      return tags;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Sequence[] topKSequences(String[] sentence) {
+      return delegate.topKSequences(sentence);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Sequence[] topKSequences(String[] sentence, Object[] additionalContext) {
+      return delegate.topKSequences(sentence, additionalContext);
+    }
+
+    /** Returns the probabilities in flat token order. */
+    private RecordedProbabilities probabilities() {
+      return probabilities;
+    }
+  }
+
+  /** Stores probability values without boxing them on the annotation hot path. */
+  private final class RecordedProbabilities {
+
+    private double[] values = new double[16];
+    private int size;
+
+    /** Appends one slot for each produced annotation. */
+    private void append(double[] produced, int expectedSize) {
+      ensureCapacity(size + expectedSize);
+      Arrays.fill(values, size, size + expectedSize, Double.NaN);
+      if (produced != null) {
+        System.arraycopy(produced, 0, values, size, Math.min(produced.length, expectedSize));
+      }
+      size += expectedSize;
+    }
+
+    /** Returns whether the requested slot carries a probability. */
+    private boolean has(int index) {
+      return index < size && !Double.isNaN(values[index]);
+    }
+
+    /** Returns one recorded probability. */
+    private double get(int index) {
+      return values[index];
+    }
+
+    /** Grows the primitive backing array when required. */
+    private void ensureCapacity(int required) {
+      if (required > values.length) {
+        values = Arrays.copyOf(values, Math.max(required, values.length * 2));
+      }
+    }
   }
 
   /** Returns sentence token text in order. */

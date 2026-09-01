@@ -31,6 +31,17 @@ export function emptyProgressiveAnalysis(): ProgressiveAnalysisState {
   return { sequence: 0, response: {}, complete: false, updatedLayerIds: [], failures: [] };
 }
 
+/** Formats a pipeline enum value for the progress status. */
+export function displayPipelineStep(step: string): string {
+  const prefix = "PIPELINE_STEP_";
+  const value = step.startsWith(prefix) ? step.slice(prefix.length) : step;
+  let label = "";
+  for (const character of value) {
+    label += character === "_" ? " " : character;
+  }
+  return label;
+}
+
 /** Applies one monotonic event, upserting complete layer values by stable layer id. */
 export function applyProgressiveEvent(
   state: ProgressiveAnalysisState,

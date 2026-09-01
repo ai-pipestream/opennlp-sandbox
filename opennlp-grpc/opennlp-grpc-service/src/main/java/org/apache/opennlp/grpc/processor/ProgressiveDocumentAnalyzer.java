@@ -22,16 +22,17 @@ import java.util.concurrent.Executor;
 
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 
-/** An analyzer that can publish independent pipeline results as they finish. */
+/** An analyzer that publishes independent pipeline results as they finish. */
 public interface ProgressiveDocumentAnalyzer extends DocumentAnalyzer {
 
   /**
-   * Starts one progressive analysis. CPU-bound branches run on {@code branchExecutor};
-   * listener callbacks are serialized by the implementation.
+   * Starts one analysis and publishes ordered updates until it completes, fails, or is
+   * cancelled. Thread safety is implementation specific.
    *
    * @param request The document and analysis configuration.
    * @param branchExecutor The bounded executor used for independent branches.
    * @param listener The recipient of ordered analysis updates.
+   * @throws IllegalArgumentException If an argument is {@code null}.
    */
   void analyzeProgressively(
       AnalyzeDocumentRequest request,

@@ -117,10 +117,9 @@ class BasicDocumentAnalyzerNerTest {
         assertEquals(1, entity.getSourcesCount());
         assertEquals("person", entity.getSources(0).getRecognizerId());
         assertEquals("opennlp-me", entity.getSources(0).getEngine());
-        if (entity.hasProbability()) {
-          assertTrue(entity.getProbability() > 0.0d);
-          assertEquals(entity.getProbability(), entity.getSources(0).getProbability(), 1e-9);
-        }
+        assertTrue(entity.hasProbability());
+        assertTrue(entity.getProbability() > 0.0d);
+        assertEquals(entity.getProbability(), entity.getSources(0).getProbability(), 1e-9);
         entityCount++;
       }
     }

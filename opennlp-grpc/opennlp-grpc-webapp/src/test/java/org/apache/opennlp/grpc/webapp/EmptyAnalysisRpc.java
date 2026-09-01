@@ -35,6 +35,8 @@ import org.apache.opennlp.grpc.v1.ListOutputFormatsResponse;
 /** An analysis adapter that accepts every call and answers with empty responses. */
 final class EmptyAnalysisRpc implements AnalysisRpc {
 
+  private int analysisCalls;
+
   /** {@inheritDoc} */
   @Override
   public GetServiceInfoResponse getServiceInfo() {
@@ -62,7 +64,13 @@ final class EmptyAnalysisRpc implements AnalysisRpc {
   /** {@inheritDoc} */
   @Override
   public AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request) {
+    analysisCalls++;
     return AnalyzeDocumentResponse.getDefaultInstance();
+  }
+
+  /** @return The number of unary analysis calls received. */
+  int analysisCalls() {
+    return analysisCalls;
   }
 
   /** {@inheritDoc} */

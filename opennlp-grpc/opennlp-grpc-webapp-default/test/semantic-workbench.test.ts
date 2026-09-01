@@ -66,7 +66,127 @@ describe("workspace search", () => {
       <button id="heatmap-mode-query"></button><button id="heatmap-mode-sentiment"></button>
       <p id="heatmap-status"></p><div id="document-heatmap"></div><div id="heatmap-selection"></div>
       <div id="document-graph"></div><div id="graph-selection"></div>
-      <button id="graph-completeness"></button>`;
+      <button id="graph-completeness"></button>
+      <button id="graph-mode-overview"></button>
+      <button id="graph-mode-dependencies"></button>
+      <button id="graph-mode-relations"></button>`;
+  });
+
+  it("browns out the tab when the operator disabled live indexing", () => {
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+    });
+    workbench.setAvailability(false);
+
+    expect((document.getElementById("search-button") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.getElementById("add-to-index-button") as HTMLButtonElement).disabled).toBe(true);
+    expect(document.getElementById("semantic-status")!.textContent)
+      .toContain("Live indexing is disabled by the server operator");
+  });
+
+  it("reports the add-to-index outcome to the tab that pressed the button", async () => {
+    const outcomes: Array<[string, boolean]> = [];
+    const index = vi.fn().mockResolvedValue({ id: "live-1", label: "Workbench index", size: 3,
+      providerId: "flat_float", modelId: "demo-embedding", backendId: "static",
+      vectorSpaceId: "demo", metric: "cosine", supportsAllHits: true, immutable: false,
+      corpusTitle: "Workbench index", provenance: "test", build: {} });
+    const workbench = new SemanticWorkbench({
+      index,
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+      onIndexed: (message, error) => outcomes.push([message, error]),
+    });
+    const button = document.getElementById("add-to-index-button") as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+
+    workbench.setDocument("Demo", {
+      rawText: "Alice followed the White Rabbit.",
+      offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+      layers: [],
+    }, { document: {
+      rawText: "Alice followed the White Rabbit.",
+      offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+      chunkEmbeddingGroups: [{ groupId: "sentence-chunks", embeddingModelIds: ["demo-embedding"] }],
+      layers: [],
+      sentences: [{ text: "Alice followed the White Rabbit." }],
+      embeddings: [{ modelId: "demo-embedding", vector: [0.1, 0.2] }],
+    } });
+    button.click();
+    await vi.waitFor(() => expect(index).toHaveBeenCalled());
+    await vi.waitFor(() => expect(outcomes.at(-1)?.[0]).toContain("Added to live index 'Workbench index'"));
+    expect(outcomes.at(-1)?.[1]).toBe(false);
+  });
+
+  it("asks before deleting a live index and tells other tabs afterwards", async () => {
+    const deleteIndex = vi.fn(async () => undefined);
+    const onWorkspacesChanged = vi.fn();
+    const answers: boolean[] = [false, true];
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => [{
+        id: "live-1", label: "Notes", providerId: "flat_float", modelId: "m", backendId: "static",
+        vectorSpaceId: "s", metric: "cosine", supportsAllHits: true, immutable: false,
+        persisted: true,
+        corpusTitle: "Notes", provenance: "test", build: {}, size: 2,
+      }]),
+      deleteIndex,
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+      confirmDelete: () => answers.shift() ?? false,
+      onWorkspacesChanged,
+    });
+    await workbench.initializeWorkspaces();
+    const picker = document.getElementById("workspace-index-select") as HTMLSelectElement;
+    // The picker says which state each index is in, from the descriptor's flags.
+    expect(picker.options[1]?.textContent).toBe("Notes · 2 chunks · Saved to disk");
+    picker.value = "live-1";
+    picker.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(document.getElementById("index-storage")!.textContent)
+      .toBe("Saved to disk"));
+    await vi.waitFor(() => expect(document.getElementById("semantic-status")!.textContent)
+      .toContain("Searching 'Notes'"));
+    const clear = document.getElementById("clear-index-button") as HTMLButtonElement;
+
+    clear.click();
+    expect(deleteIndex).not.toHaveBeenCalled();
+
+    clear.click();
+    await vi.waitFor(() => expect(deleteIndex).toHaveBeenCalledWith("live-1"));
+    await vi.waitFor(() => expect(onWorkspacesChanged).toHaveBeenCalled());
+  });
+
+  it("shows where a first live index comes from when the server has none", async () => {
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+    });
+    await workbench.initializeWorkspaces();
+
+    const results = document.getElementById("search-results")!;
+    expect(results.textContent).toContain("No live indexes yet");
+    expect(Array.from(results.querySelectorAll<HTMLElement>("[data-workbench-jump]"))
+      .map((jump) => jump.dataset.workbenchJump)).toEqual(["analysis", "workflows"]);
   });
 
   it("browns out the tab when the operator disabled live indexing", () => {
@@ -430,6 +550,59 @@ describe("workspace search", () => {
     chunk.click();
 
     expect(inspectSpan).toHaveBeenCalledWith(shape, 0, 11, "Lovely day.", chunk);
+  });
+
+  it("enables dependency and entity graph projections when typed layers are present", () => {
+    const workbench = new SemanticWorkbench({
+      index: vi.fn(),
+      search: vi.fn(),
+      listIndexes: vi.fn(async () => []),
+      deleteIndex: vi.fn(),
+      openDocument: vi.fn(),
+      selectAnnotation: vi.fn(),
+      inspectChunk: vi.fn(),
+      inspectSpan: vi.fn(),
+    });
+    workbench.setDocument("Graphs", {
+      rawText: "Acme acquired Bolt",
+      offsetEncoding: "OFFSET_ENCODING_UTF16_CODE_UNIT",
+      layers: [
+        { id: "opennlp:tokens", title: "Tokens", scope: "POSITIONAL", valueType: "String",
+          standardIdentity: "STANDARD_LAYER_TOKENS", annotations: [
+            { label: "Acme", source: {} }, { label: "acquired", source: {} },
+            { label: "Bolt", source: {} },
+          ] },
+        { id: "opennlp:dependencies", title: "Dependencies", scope: "POSITIONAL",
+          valueType: "Dependency", standardIdentity: "STANDARD_LAYER_DEPENDENCIES", annotations: [
+            { label: "nsubj", source: { headTokenIndex: 1, dependentTokenIndex: 0, relation: "nsubj" } },
+            { label: "root", source: { headTokenIndex: -1, dependentTokenIndex: 1, relation: "root" } },
+            { label: "obj", source: { headTokenIndex: 1, dependentTokenIndex: 2, relation: "obj" } },
+          ] },
+        { id: "opennlp:entities", title: "Entities", scope: "POSITIONAL",
+          valueType: "Named entity", standardIdentity: "STANDARD_LAYER_ENTITIES", annotations: [
+            { label: "Acme", source: { entityType: "organization" } },
+            { label: "Bolt", source: { entityType: "organization" } },
+          ] },
+        { id: "opennlp:relations", title: "Relations", scope: "POSITIONAL",
+          valueType: "Relation", standardIdentity: "STANDARD_LAYER_RELATIONS", annotations: [
+            { label: "acquisition", source: {
+              type: "acquisition", subjectEntityIndex: 0, objectEntityIndex: 1,
+            } },
+          ] },
+      ],
+    });
+
+    expect((document.getElementById("graph-mode-dependencies") as HTMLButtonElement).disabled)
+      .toBe(false);
+    expect((document.getElementById("graph-mode-relations") as HTMLButtonElement).disabled)
+      .toBe(false);
+
+    document.getElementById("graph-mode-dependencies")?.click();
+    expect(document.getElementById("graph-selection")?.textContent)
+      .toContain("3 labeled dependency arcs");
+    document.getElementById("graph-mode-overview")?.click();
+    expect(document.getElementById("graph-selection")?.textContent)
+      .toContain("Complete graph with 9 annotations");
   });
 
   it("attaches search to a picked existing workspace without adding a document", async () => {

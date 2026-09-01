@@ -18,19 +18,70 @@
 package org.apache.opennlp.grpc.webapp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.grpc.Status;
+import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
+import org.apache.opennlp.grpc.v1.AnalysisStarted;
 import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 import org.apache.opennlp.grpc.v1.OpenNlpDocument;
 import org.junit.jupiter.api.Test;
 
 class GrpcJsonApiTest {
+
+  @Test
+  void closesProgressiveEventsWhenTheHttpSinkDisconnects() {
+    final AtomicBoolean closed = new AtomicBoolean();
+    final AnalysisRpc rpc = new StubAnalysisRpc() {
+      @Override
+      public ProgressiveEvents analyzeProgressively(AnalyzeDocumentRequest request) {
+        return new ProgressiveEvents() {
+          private boolean delivered;
+
+          @Override
+          public boolean hasNext() {
+            return !delivered;
+          }
+
+          @Override
+          public AnalyzeDocumentEvent next() {
+            if (delivered) {
+              throw new NoSuchElementException();
+            }
+            delivered = true;
+            return AnalyzeDocumentEvent.newBuilder()
+                .setSequence(1)
+                .setStarted(AnalysisStarted.newBuilder().setDocument(request.getDocument()))
+                .build();
+          }
+
+          @Override
+          public void close() {
+            closed.set(true);
+          }
+        };
+      }
+    };
+    final GrpcJsonApi api = new GrpcJsonApi(
+        rpc, new EmptySearchRpc(), new EmptyVocabularyRpc(), new EmptyTrainingRpc());
+    final byte[] request = "{\"document\":{\"rawText\":\"Hello\"}}"
+        .getBytes(StandardCharsets.UTF_8);
+
+    assertThrows(IOException.class,
+        () -> api.analyzeProgressively(request, line -> {
+          throw new IOException("browser disconnected");
+        }));
+    assertTrue(closed.get());
+  }
 
   @Test
   void rendersServiceInfoAsProtobufJson() {

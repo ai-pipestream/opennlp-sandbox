@@ -216,9 +216,22 @@ class OpenNlpAnalysisServiceImplTest {
           .filter(event -> event.hasLayersReady())
           .flatMap(event -> event.getLayersReady().getLayersList().stream())
           .anyMatch(layer -> layer.getId().equals("opennlp:pos")));
-      assertEquals(analyzer.analyze(request).getDocument(),
-          observer.values.getLast().getComplete().getDocument());
+      assertEquals(2, observer.values.stream()
+          .filter(event -> event.hasLayersReady())
+          .flatMap(event -> event.getLayersReady().getLayersList().stream())
+          .filter(layer -> layer.getId().equals("opennlp:analytics"))
+          .count());
+      assertEquals(analyzer.analyze(request), observer.values.getLast().getComplete());
     }
+  }
+
+  @Test
+  void progressiveAnalysisRejectsANullObserver() {
+    final IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+        () -> serviceWith(request -> AnalyzeDocumentResponse.getDefaultInstance())
+            .analyzeDocumentProgressive(request(), null));
+
+    assertEquals("responseObserver must not be null", error.getMessage());
   }
 
   @Test

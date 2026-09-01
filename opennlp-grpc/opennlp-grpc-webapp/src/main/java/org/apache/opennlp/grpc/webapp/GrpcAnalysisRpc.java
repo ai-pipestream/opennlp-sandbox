@@ -24,8 +24,10 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.grpc.Channel;
+import io.grpc.Context;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
@@ -149,9 +151,69 @@ final class GrpcAnalysisRpc implements AnalysisRpc {
 
   /** {@inheritDoc} */
   @Override
-  public Iterator<AnalyzeDocumentEvent> analyzeProgressively(AnalyzeDocumentRequest request) {
-    return sizedDeadlineStub(request.getDocument().getRawTextBytes().size())
-        .analyzeDocumentProgressive(request);
+  public ProgressiveEvents analyzeProgressively(AnalyzeDocumentRequest request) {
+    final Context.CancellableContext context = Context.current().withCancellation();
+    final AtomicReference<Iterator<AnalyzeDocumentEvent>> events = new AtomicReference<>();
+    try {
+      context.run(() -> events.set(
+          sizedDeadlineStub(request.getDocument().getRawTextBytes().size())
+              .analyzeDocumentProgressive(request)));
+      return new CancellableEventIterator(events.get(), context);
+    } catch (RuntimeException failure) {
+      context.cancel(failure);
+      throw failure;
+    }
+  }
+
+  /** Cancels the active gRPC call when its consumer stops reading. */
+  private static final class CancellableEventIterator implements ProgressiveEvents {
+
+    private final Iterator<AnalyzeDocumentEvent> delegate;
+    private final Context.CancellableContext context;
+    private boolean closed;
+
+    /**
+     * Creates a cancellable wrapper around one active response stream.
+     *
+     * @param delegate The blocking response iterator.
+     * @param context The context that owns the gRPC call.
+     */
+    private CancellableEventIterator(
+        Iterator<AnalyzeDocumentEvent> delegate, Context.CancellableContext context) {
+      this.delegate = delegate;
+      this.context = context;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNext() {
+      if (closed) {
+        return false;
+      }
+      final boolean available = delegate.hasNext();
+      if (!available) {
+        close();
+      }
+      return available;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public AnalyzeDocumentEvent next() {
+      if (closed) {
+        throw new NoSuchElementException();
+      }
+      return delegate.next();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() {
+      if (!closed) {
+        closed = true;
+        context.cancel(null);
+      }
+    }
   }
 
   /** {@inheritDoc} */

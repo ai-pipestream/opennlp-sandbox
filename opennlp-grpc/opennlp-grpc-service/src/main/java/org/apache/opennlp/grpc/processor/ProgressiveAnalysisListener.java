@@ -23,7 +23,7 @@ import org.apache.opennlp.grpc.v1.AnalysisStarted;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.PipelineStep;
 
-/** Receives serialized updates from one progressive document analysis. */
+/** Receives ordered updates from one progressive document analysis. */
 public interface ProgressiveAnalysisListener {
 
   /**

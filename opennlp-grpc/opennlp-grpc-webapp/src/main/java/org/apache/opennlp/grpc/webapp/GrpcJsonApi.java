@@ -208,12 +208,6 @@ final class GrpcJsonApi {
     }
   }
 
-  /**
-   * Parses and forwards an analysis request.
-   *
-   * @param body The protobuf JSON request body.
-   * @return The encoded analysis response.
-   */
   /** Renders one analyzed document into a deployed output format. */
   private WebHttpResponse formatDocument(byte[] body) {
     final FormatDocumentRequest.Builder request = FormatDocumentRequest.newBuilder();
@@ -670,11 +664,12 @@ final class GrpcJsonApi {
     }
     boolean streamed = false;
     try {
-      final Iterator<AnalyzeDocumentEvent> events =
-          analysisRpc.analyzeProgressively(request.build());
-      while (events.hasNext()) {
-        sink.update(printer.print(events.next()));
-        streamed = true;
+      try (AnalysisRpc.ProgressiveEvents events =
+          analysisRpc.analyzeProgressively(request.build())) {
+        while (events.hasNext()) {
+          sink.update(printer.print(events.next()));
+          streamed = true;
+        }
       }
       return null;
     } catch (StatusRuntimeException exception) {

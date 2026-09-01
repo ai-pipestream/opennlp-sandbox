@@ -88,6 +88,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
       OutputFormatterRegistry.discover(OpenNlpDocument.class);
 
   private static final String API_VERSION = "v1";
+  private static final String INTERNAL_SERVER_ERROR = "Internal server error";
   private static final String SERVICE_VERSION = serviceVersion();
   private static final int DEFAULT_ANALYSIS_STREAM_WINDOW =
       Math.max(2, Runtime.getRuntime().availableProcessors());
@@ -234,7 +235,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
       // exception); map it to a clean INTERNAL, logging the detail server-side only.
       logger.error("Unexpected error handling AnalyzeDocument", e);
       responseObserver.onError(Status.INTERNAL
-          .withDescription("Internal server error").withCause(e).asRuntimeException());
+          .withDescription(INTERNAL_SERVER_ERROR).withCause(e).asRuntimeException());
     }
   }
 
@@ -243,10 +244,14 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
   public void analyzeDocumentProgressive(
       AnalyzeDocumentRequest request,
       StreamObserver<AnalyzeDocumentEvent> responseObserver) {
+    if (responseObserver == null) {
+      throw new IllegalArgumentException("responseObserver must not be null");
+    }
     final ProgressiveResponseWriter writer = new ProgressiveResponseWriter(responseObserver);
     final ProgressiveAnalysisListener listener = new ProgressiveAnalysisListener() {
       private final AtomicLong sequence = new AtomicLong();
 
+      /** {@inheritDoc} */
       @Override
       public void onStarted(AnalysisStarted started) {
         writer.next(AnalyzeDocumentEvent.newBuilder()
@@ -255,6 +260,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
             .build());
       }
 
+      /** {@inheritDoc} */
       @Override
       public void onLayersReady(AnalysisLayerBatch layers) {
         writer.next(AnalyzeDocumentEvent.newBuilder()
@@ -263,6 +269,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
             .build());
       }
 
+      /** {@inheritDoc} */
       @Override
       public void onStepFailed(PipelineStep step, RuntimeException failure) {
         final Status status = statusFor(failure, "Progressive analysis branch failed");
@@ -276,6 +283,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
             .build());
       }
 
+      /** {@inheritDoc} */
       @Override
       public void onComplete(AnalyzeDocumentResponse response) {
         writer.next(AnalyzeDocumentEvent.newBuilder()
@@ -285,6 +293,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
         writer.complete();
       }
 
+      /** {@inheritDoc} */
       @Override
       public void onError(RuntimeException failure) {
         writer.error(statusFor(failure, "Progressive analysis failed")
@@ -293,6 +302,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
             .asRuntimeException());
       }
 
+      /** {@inheritDoc} */
       @Override
       public boolean isCancelled() {
         return writer.isCancelled();
@@ -335,7 +345,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
   }
 
   /** Maps a progressive failure and keeps unexpected details server-side. */
-  private static Status statusFor(RuntimeException failure, String operation) {
+  private Status statusFor(RuntimeException failure, String operation) {
     if (failure instanceof AnalysisException analysisFailure) {
       final Status status = GrpcStatusMapper.toStatus(analysisFailure);
       if (status.getCode() == Status.Code.INTERNAL
@@ -349,8 +359,8 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
   }
 
   /** Returns the client-visible failure text without exposing unexpected internals. */
-  private static String clientMessage(RuntimeException failure) {
-    return failure instanceof AnalysisException ? failure.getMessage() : "Internal server error";
+  private String clientMessage(RuntimeException failure) {
+    return failure instanceof AnalysisException ? failure.getMessage() : INTERNAL_SERVER_ERROR;
   }
 
   /** Serializes progressive writes and waits for outbound transport capacity. */
@@ -363,8 +373,13 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
     private final Object readyLock = new Object();
     private boolean terminal;
 
+    /**
+     * Creates a writer for one server stream.
+     *
+     * @param responseObserver The stream receiving progressive events.
+     */
     private ProgressiveResponseWriter(StreamObserver<AnalyzeDocumentEvent> responseObserver) {
-      this.responseObserver = Objects.requireNonNull(responseObserver, "responseObserver");
+      this.responseObserver = responseObserver;
       if (responseObserver instanceof ServerCallStreamObserver<AnalyzeDocumentEvent> observer) {
         serverObserver = observer;
         observer.setOnReadyHandler(() -> {
@@ -544,7 +559,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
       } catch (RuntimeException e) {
         logger.error("Unexpected error handling EmbedText", e);
         fail(Status.INTERNAL
-            .withDescription("Internal server error").withCause(e).asRuntimeException());
+            .withDescription(INTERNAL_SERVER_ERROR).withCause(e).asRuntimeException());
       }
     }
 
@@ -764,7 +779,7 @@ public class OpenNlpAnalysisServiceImpl extends OpenNlpAnalysisServiceGrpc.OpenN
     } catch (RuntimeException e) {
       logger.error("Unexpected error handling FormatDocument", e);
       responseObserver.onError(Status.INTERNAL
-          .withDescription("Internal server error").withCause(e).asRuntimeException());
+          .withDescription(INTERNAL_SERVER_ERROR).withCause(e).asRuntimeException());
     }
   }
 

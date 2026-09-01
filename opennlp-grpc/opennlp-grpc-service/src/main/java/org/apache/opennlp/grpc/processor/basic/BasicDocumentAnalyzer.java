@@ -29,18 +29,18 @@ import opennlp.tools.sentdetect.NewlineSentenceDetector;
 import opennlp.tools.tokenize.SimpleTokenizer;
 import opennlp.tools.tokenize.WhitespaceTokenizer;
 import org.apache.opennlp.grpc.chunk.ChunkingStrategies;
-import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.model.ClassicLanguagePipeline;
+import org.apache.opennlp.grpc.model.DependencyParserRegistry;
 import org.apache.opennlp.grpc.model.ModelBundleCache;
 import org.apache.opennlp.grpc.model.NameFinderRegistry;
-import org.apache.opennlp.grpc.spi.AnalysisException;
 import org.apache.opennlp.grpc.processor.DocumentAnalysisSession;
-import org.apache.opennlp.grpc.processor.DocumentAnalyzer;
 import org.apache.opennlp.grpc.processor.PipelineStepPolicy;
 import org.apache.opennlp.grpc.processor.ProgressiveAnalysisListener;
 import org.apache.opennlp.grpc.processor.ProgressiveDocumentAnalyzer;
 import org.apache.opennlp.grpc.profile.ProfileRegistry;
 import org.apache.opennlp.grpc.profile.ProfileResolver;
+import org.apache.opennlp.grpc.spi.AnalysisException;
+import org.apache.opennlp.grpc.spi.embedding.EmbeddingProvider;
 import org.apache.opennlp.grpc.v1.AnalysisProfile;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
@@ -80,6 +80,7 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
   private final EmbedChunkStepRunner embedChunkSteps;
   private final NameFinderRegistry nameFinderRegistry;
   private final EmbeddingProvider embeddingProvider;
+  private final DependencyParserRegistry dependencyParserRegistry;
   private final ModelBundleCache modelBundleCache;
   private final boolean ownsModelBundleCache;
   private final AtomicBoolean closed = new AtomicBoolean();
@@ -156,10 +157,12 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
     this.ownsModelBundleCache = ownsModelBundleCache;
     this.nameFinderRegistry = modelBundleCache.getNameFinderRegistry();
     this.embeddingProvider = embeddingProvider;
+    this.dependencyParserRegistry = modelBundleCache.getDependencyParserRegistry();
     this.validator = new AnalysisRequestValidator(embeddingProvider, nameFinderRegistry,
         modelBundleCache.getDocCategorizerRegistry(), modelBundleCache.getSentimentRegistry(),
         modelBundleCache.getParserRegistry(), modelBundleCache.getChunkerRegistry(),
         modelBundleCache.getArtifactRegistry(), modelBundleCache.getSubwordRegistry(),
+        modelBundleCache.getDependencyParserRegistry(),
         modelBundleCache.getHunspellRegistry(), modelBundleCache.getWordNetRegistry(),
         modelBundleCache.getLatticeRegistry(), modelBundleCache.getTokenizerRegistry(),
         modelBundleCache.getSentenceDetectorRegistry());
@@ -221,10 +224,11 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
         branchExecutor,
         embeddingProvider,
         listener,
-        (branchRequest, steps) -> analyzeWithCleanup(
+        (branchRequest, steps, backbone) -> analyzeWithCleanup(
             branchRequest,
             new PreparedAnalysis(prepared.profile(), Set.copyOf(steps)),
-            rawText));
+            rawText,
+            backbone));
   }
 
   /** {@inheritDoc} */
@@ -279,8 +283,17 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
   /** Runs prepared analysis and releases decoder state owned by the calling worker. */
   private AnalyzeDocumentResponse analyzeWithCleanup(
       AnalyzeDocumentRequest request, PreparedAnalysis prepared, String rawText) {
+    return analyzeWithCleanup(request, prepared, rawText, null);
+  }
+
+  /** Runs prepared analysis from an optional backbone and releases worker decoder state. */
+  private AnalyzeDocumentResponse analyzeWithCleanup(
+      AnalyzeDocumentRequest request,
+      PreparedAnalysis prepared,
+      String rawText,
+      OpenNlpDocument backbone) {
     try {
-      return analyzePrepared(request, prepared, rawText);
+      return analyzePrepared(request, prepared, rawText, backbone);
     } finally {
       modelBundleCache.clearThreadLocalState();
     }
@@ -288,7 +301,10 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
 
   /** Runs a validated, prepared analysis. */
   private AnalyzeDocumentResponse analyzePrepared(
-      AnalyzeDocumentRequest request, PreparedAnalysis prepared, String rawText) {
+      AnalyzeDocumentRequest request,
+      PreparedAnalysis prepared,
+      String rawText,
+      OpenNlpDocument backbone) {
     final OpenNlpDocument input = request.getDocument();
     final AnalysisProfile profile = prepared.profile();
     final Set<PipelineStep> effectiveSteps = prepared.effectiveSteps();
@@ -300,11 +316,18 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
     // Layers produced directly by steps whose results live only in the document shape
     // (no classic response field), appended by the shape assembler after the built-ins.
     final List<AnnotationLayer> extraLayers = new ArrayList<>();
-    final OpenNlpDocument.Builder document = OpenNlpDocument.newBuilder()
-        .setDocId(input.getDocId())
-        .setRawText(rawText);
-    if (input.hasMetadata()) {
-      document.setMetadata(input.getMetadata());
+    final OpenNlpDocument.Builder document;
+    if (backbone == null) {
+      document = OpenNlpDocument.newBuilder()
+          .setDocId(input.getDocId())
+          .setRawText(rawText);
+      if (input.hasMetadata()) {
+        document.setMetadata(input.getMetadata());
+      }
+    } else {
+      document = backbone.toBuilder()
+          .clearLayers()
+          .clearAnalytics();
     }
 
     if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT)) {
@@ -337,11 +360,11 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
           PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
           () -> {
             if (sentenceDetector.custom() != null) {
-              ClassicStepRunner.detectSentences(rawText, document, sentenceDetector.custom(),
+              classicSteps.detectSentences(rawText, document, sentenceDetector.custom(),
                   "custom:" + sentenceDetector.customId(), diagnostics);
             } else if (sentenceDetector.standard()
                 == StandardSentenceDetectorEngine.STANDARD_SENTENCE_DETECTOR_ENGINE_NEWLINE) {
-              ClassicStepRunner.detectSentences(rawText, document, NEWLINE_SENTENCE_DETECTOR,
+              classicSteps.detectSentences(rawText, document, NEWLINE_SENTENCE_DETECTOR,
                   "newline", diagnostics);
             } else {
               classicSteps.detectSentences(
@@ -360,18 +383,18 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
           PipelineStep.PIPELINE_STEP_TOKENIZE,
           () -> {
             if (tokenizer.custom() != null) {
-              ClassicStepRunner.tokenize(rawText, document, tokenizer.custom(),
+              classicSteps.tokenize(rawText, document, tokenizer.custom(),
                   "custom:" + tokenizer.customId(), diagnostics);
             } else if (tokenizer.standard()
                 == StandardTokenizerEngine.STANDARD_TOKENIZER_ENGINE_UAX29) {
               ClassicStepRunner.tokenizeUax29(rawText, document, diagnostics);
             } else if (tokenizer.standard()
                 == StandardTokenizerEngine.STANDARD_TOKENIZER_ENGINE_WHITESPACE) {
-              ClassicStepRunner.tokenize(rawText, document, WhitespaceTokenizer.INSTANCE,
+              classicSteps.tokenize(rawText, document, WhitespaceTokenizer.INSTANCE,
                   "whitespace", diagnostics);
             } else if (tokenizer.standard()
                 == StandardTokenizerEngine.STANDARD_TOKENIZER_ENGINE_SIMPLE) {
-              ClassicStepRunner.tokenize(rawText, document, SimpleTokenizer.INSTANCE,
+              classicSteps.tokenize(rawText, document, SimpleTokenizer.INSTANCE,
                   "simple", diagnostics);
             } else if (tokenizer.standard()
                 == StandardTokenizerEngine.STANDARD_TOKENIZER_ENGINE_LATTICE) {
@@ -453,6 +476,48 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
               diagnostics));
     } else {
       diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_POS_TAG));
+    }
+
+    final String dependencyParserId = validator.resolveDependencyParserId(profile);
+    LinguisticGraphRenderer.DependencyResult dependencyResult = null;
+    if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE)) {
+      requireTokens(document, PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE);
+      dependencyResult = runStep(
+          PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE,
+          () -> {
+            final LinguisticGraphRenderer.DependencyResult result =
+                LinguisticGraphRenderer.parse(
+                    document.build(), dependencyParserRegistry.get(dependencyParserId),
+                    dependencyParserId);
+            extraLayers.add(result.layer());
+            diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE,
+                "Parsed " + result.layer().getDependencyValues().getAnnotationsCount()
+                    + " dependency arc(s)"));
+            return result;
+          });
+    } else {
+      diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE));
+    }
+
+    if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_RELATION_EXTRACT)) {
+      final LinguisticGraphRenderer.DependencyResult parsed = dependencyResult;
+      if (parsed == null) {
+        throw AnalysisException.failedPrecondition(
+            PipelineStep.PIPELINE_STEP_RELATION_EXTRACT.name() + " requires "
+                + PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE.name());
+      }
+      runStep(
+          PipelineStep.PIPELINE_STEP_RELATION_EXTRACT,
+          () -> {
+            final AnnotationLayer layer = LinguisticGraphRenderer.relations(
+                parsed.document(), profile.getRelationPatternsList());
+            extraLayers.add(layer);
+            diagnostics.add(StepDiagnostics.info(PipelineStep.PIPELINE_STEP_RELATION_EXTRACT,
+                "Extracted " + layer.getRelationValues().getAnnotationsCount()
+                    + " relation(s)"));
+          });
+    } else {
+      diagnostics.add(StepDiagnostics.skipped(PipelineStep.PIPELINE_STEP_RELATION_EXTRACT));
     }
 
     if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_LEMMATIZE)) {
@@ -590,7 +655,7 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
       runStep(
           PipelineStep.PIPELINE_STEP_CHUNK,
           () -> embedChunkSteps.runChunkEmbedConfigs(
-              classicPipeline, 
+              classicPipeline,
               rawText, document, request, profile, includeProbabilities, diagnostics));
     } else if (shouldRunStep(effectiveSteps, PipelineStep.PIPELINE_STEP_CHUNK)) {
       runStep(
@@ -714,6 +779,17 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
     }
   }
 
+  /** Wraps unexpected step failures and returns the step result. */
+  private static <T> T runStep(PipelineStep step, StepSupplier<T> action) {
+    try {
+      return action.run();
+    } catch (AnalysisException e) {
+      throw e;
+    } catch (RuntimeException e) {
+      throw AnalysisException.internal(step.name() + " failed", e);
+    }
+  }
+
   /** Returns detected sentences or raises the requesting step's failed precondition. */
   private static void requireSentences(OpenNlpDocument.Builder document, PipelineStep step) {
     if (document.getSentencesCount() == 0) {
@@ -737,6 +813,11 @@ public class BasicDocumentAnalyzer implements ProgressiveDocumentAnalyzer {
   @FunctionalInterface
   private interface StepAction {
     void run();
+  }
+
+  @FunctionalInterface
+  private interface StepSupplier<T> {
+    T run();
   }
 
   /**

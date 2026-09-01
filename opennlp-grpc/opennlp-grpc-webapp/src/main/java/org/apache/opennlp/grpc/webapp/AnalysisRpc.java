@@ -19,6 +19,7 @@ package org.apache.opennlp.grpc.webapp;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
@@ -33,6 +34,14 @@ import org.apache.opennlp.grpc.v1.GetServiceInfoResponse;
 import org.apache.opennlp.grpc.v1.ListModelBundlesResponse;
 
 interface AnalysisRpc {
+
+  /** A progressive event sequence whose close operation cancels unfinished work. */
+  interface ProgressiveEvents extends Iterator<AnalyzeDocumentEvent>, AutoCloseable {
+
+    /** Cancels unfinished work and releases the stream. */
+    @Override
+    void close();
+  }
 
   /** @return Current service metadata. */
   GetServiceInfoResponse getServiceInfo();
@@ -61,24 +70,44 @@ interface AnalysisRpc {
 
   /**
    * Analyzes one document and returns ordered partial results as they become ready.
-   * Implementations without progressive support retain compatibility by publishing a
-   * start event followed by their unary response.
    *
    * @param request The analysis request.
    * @return The ordered progressive events; iteration blocks on the stream.
    */
-  default Iterator<AnalyzeDocumentEvent> analyzeProgressively(AnalyzeDocumentRequest request) {
-    final AnalyzeDocumentResponse response = analyze(request);
-    return List.of(
-        AnalyzeDocumentEvent.newBuilder()
-            .setSequence(1)
-            .setStarted(AnalysisStarted.newBuilder().setDocument(request.getDocument()))
-            .build(),
-        AnalyzeDocumentEvent.newBuilder()
+  default ProgressiveEvents analyzeProgressively(AnalyzeDocumentRequest request) {
+    return new ProgressiveEvents() {
+      private int nextEvent;
+
+      /** {@inheritDoc} */
+      @Override
+      public boolean hasNext() {
+        return nextEvent < 2;
+      }
+
+      /** {@inheritDoc} */
+      @Override
+      public AnalyzeDocumentEvent next() {
+        if (!hasNext()) {
+          throw new NoSuchElementException();
+        }
+        if (nextEvent++ == 0) {
+          return AnalyzeDocumentEvent.newBuilder()
+              .setSequence(1)
+              .setStarted(AnalysisStarted.newBuilder().setDocument(request.getDocument()))
+              .build();
+        }
+        return AnalyzeDocumentEvent.newBuilder()
             .setSequence(2)
-            .setComplete(response)
-            .build())
-        .iterator();
+            .setComplete(analyze(request))
+            .build();
+      }
+
+      /** {@inheritDoc} */
+      @Override
+      public void close() {
+        nextEvent = 2;
+      }
+    };
   }
 
   /**

@@ -97,9 +97,11 @@ import {
 import { readNormalizationXray, renderNormalizationXray } from "./normalization-xray";
 import {
   applyProgressiveEvent,
+  displayPipelineStep,
   emptyProgressiveAnalysis,
   type ProgressiveAnalysisState,
 } from "./progressive-analysis";
+import { ProgressiveRenderQueue } from "./progressive-render-queue";
 import { isTermVectorLayer, renderTermVectorStack } from "./term-vector-stack";
 import { SemanticWorkbench, type ResultViewName } from "./semantic-workbench";
 import { initThemeToggle } from "./theme-toggle";
@@ -623,6 +625,8 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
   copyButton.disabled = true;
   downloadButton.disabled = true;
   downloadPbButton.disabled = true;
+  const renderQueue = new ProgressiveRenderQueue(
+    (state) => renderProgressiveState(state, request));
   try {
     let progressive = emptyProgressiveAnalysis();
     let revealed = false;
@@ -631,13 +635,14 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
       if (progressive.complete) {
         return;
       }
-      renderProgressiveState(progressive, request);
+      renderQueue.schedule(progressive);
       if (!revealed) {
         selectResultTab("document");
         revealAnalysisResult();
         revealed = true;
       }
     });
+    renderQueue.cancel();
     const shape = readDocumentShape(response);
     storeResponse(response, shape);
     currentRequest = request;
@@ -659,6 +664,7 @@ async function submitAnalysis(event: SubmitEvent): Promise<void> {
     responseOutput.textContent = "The analysis request did not complete.";
     setFormStatus(errorMessage(error, "Analysis failed. Please try again."), true);
   } finally {
+    renderQueue.cancel();
     setBusy(false);
   }
 }
@@ -688,9 +694,7 @@ function renderProgressiveState(
   if (state.failures.length > 0) {
     setFormStatus(state.failures[state.failures.length - 1]!, true);
   } else if (state.lastStep) {
-    const step = state.lastStep.startsWith("PIPELINE_STEP_")
-      ? state.lastStep.slice("PIPELINE_STEP_".length) : state.lastStep;
-    setFormStatus(`${step.split("_").join(" ")} ready; other analysis continues.`);
+    setFormStatus(`${displayPipelineStep(state.lastStep)} ready; other analysis continues.`);
   } else {
     setFormStatus("Document accepted; analysis branches are running.");
   }

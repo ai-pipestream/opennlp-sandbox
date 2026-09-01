@@ -52,7 +52,8 @@ The service-info, model-bundle, analysis, and search endpoints use protobuf JSON
 message types. Analysis therefore retains the full `OpenNlpDocument` shape and typed annotation
 layers. The progressive endpoint writes one `AnalyzeDocumentEvent` per NDJSON line and flushes
 each line immediately. Its final event carries the same canonical response shape as unary
-analysis. Search requests use a document-shaped query. Responses retain each referenced source
+analysis. Closing the HTTP response cancels the underlying gRPC stream. Search requests use a
+document-shaped query. Responses retain each referenced source
 document once, plus compact hits with authoritative spans, indexed text, scores, and index
 provenance. The host-specific UI extension
 endpoint returns the validated provider ID, title, and mount path for navigation. HTTP error

@@ -18,9 +18,11 @@
 package org.apache.opennlp.grpc.webapp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.grpc.ManagedChannel;
@@ -29,6 +31,7 @@ import io.grpc.ServerBuilder;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
+import io.grpc.stub.ServerCallStreamObserver;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentEvent;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
@@ -43,6 +46,65 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GrpcAnalysisRpcTest {
+
+  private static final String SAMPLE_TEXT = "Hello";
+  private static final String RPC_DOCUMENT_ID = "rpc";
+  private static final String PROGRESSIVE_DOCUMENT_ID = "progressive";
+  private static final String BIG_DOCUMENT_ID = "big";
+
+  @Test
+  void fallbackPublishesItsStartEventBeforeRunningUnaryAnalysis() {
+    final EmptyAnalysisRpc rpc = new EmptyAnalysisRpc();
+    final Iterator<AnalyzeDocumentEvent> events = rpc.analyzeProgressively(
+        AnalyzeDocumentRequest.newBuilder()
+            .setDocument(OpenNlpDocument.newBuilder().setRawText(SAMPLE_TEXT))
+            .build());
+
+    assertEquals(0, rpc.analysisCalls());
+    assertEquals(AnalyzeDocumentEvent.UpdateCase.STARTED, events.next().getUpdateCase());
+    assertEquals(0, rpc.analysisCalls());
+    assertEquals(AnalyzeDocumentEvent.UpdateCase.COMPLETE, events.next().getUpdateCase());
+    assertEquals(1, rpc.analysisCalls());
+  }
+
+  @Test
+  void closingProgressiveEventsCancelsTheGrpcCall() throws Exception {
+    final CountDownLatch cancelled = new CountDownLatch(1);
+    final String name = InProcessServerBuilder.generateName();
+    final Server server = InProcessServerBuilder.forName(name)
+        .directExecutor()
+        .addService(new OpenNlpAnalysisServiceGrpc.OpenNlpAnalysisServiceImplBase() {
+          @Override
+          public void analyzeDocumentProgressive(
+              AnalyzeDocumentRequest request, StreamObserver<AnalyzeDocumentEvent> observer) {
+            ((ServerCallStreamObserver<AnalyzeDocumentEvent>) observer)
+                .setOnCancelHandler(cancelled::countDown);
+            observer.onNext(AnalyzeDocumentEvent.newBuilder()
+                .setSequence(1)
+                .setStarted(AnalysisStarted.newBuilder().setDocument(request.getDocument()))
+                .build());
+          }
+        })
+        .build()
+        .start();
+    final ManagedChannel channel = InProcessChannelBuilder.forName(name).directExecutor().build();
+    try {
+      final GrpcAnalysisRpc rpc = new GrpcAnalysisRpc(
+          channel, Duration.ofSeconds(2), Duration.ofSeconds(30));
+      final Iterator<AnalyzeDocumentEvent> events = rpc.analyzeProgressively(
+          AnalyzeDocumentRequest.newBuilder()
+              .setDocument(OpenNlpDocument.newBuilder().setRawText(SAMPLE_TEXT))
+              .build());
+
+      assertEquals(AnalyzeDocumentEvent.UpdateCase.STARTED, events.next().getUpdateCase());
+      assertTrue(events instanceof AutoCloseable);
+      ((AutoCloseable) events).close();
+      assertTrue(cancelled.await(5, TimeUnit.SECONDS));
+    } finally {
+      channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+      server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+    }
+  }
 
   @Test
   void deadlinesScaleWithInputSizeUnderTheLongRunningCeiling() {
@@ -88,20 +150,21 @@ class GrpcAnalysisRpcTest {
 
       assertEquals("v1", rpc.getServiceInfo().getApiVersion());
       assertEquals(0, rpc.listModelBundles().getBundlesCount());
-      assertEquals("rpc", rpc.analyze(AnalyzeDocumentRequest.newBuilder()
+      assertEquals(RPC_DOCUMENT_ID, rpc.analyze(AnalyzeDocumentRequest.newBuilder()
           .setDocument(org.apache.opennlp.grpc.v1.OpenNlpDocument.newBuilder()
-              .setDocId("rpc")
-              .setRawText("Hello"))
+              .setDocId(RPC_DOCUMENT_ID)
+              .setRawText(SAMPLE_TEXT))
           .build()).getDocument().getDocId());
       final Iterator<AnalyzeDocumentEvent> progressive = rpc.analyzeProgressively(
           AnalyzeDocumentRequest.newBuilder()
               .setDocument(OpenNlpDocument.newBuilder()
-                  .setDocId("progressive")
-                  .setRawText("Hello"))
+                  .setDocId(PROGRESSIVE_DOCUMENT_ID)
+                  .setRawText(SAMPLE_TEXT))
               .build());
       assertEquals(AnalyzeDocumentEvent.UpdateCase.STARTED,
           progressive.next().getUpdateCase());
-      assertEquals("progressive", progressive.next().getComplete().getDocument().getDocId());
+      assertEquals(PROGRESSIVE_DOCUMENT_ID,
+          progressive.next().getComplete().getDocument().getDocId());
     } finally {
       channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
       server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
@@ -128,7 +191,7 @@ class GrpcAnalysisRpcTest {
 
       AnalyzeDocumentResponse response = rpc.analyze(AnalyzeDocumentRequest.newBuilder()
           .setDocument(OpenNlpDocument.newBuilder()
-              .setDocId("big")
+              .setDocId(BIG_DOCUMENT_ID)
               .setRawText("pad"))
           .build());
 
@@ -160,7 +223,7 @@ class GrpcAnalysisRpcTest {
     public void analyzeDocument(
         AnalyzeDocumentRequest request, StreamObserver<AnalyzeDocumentResponse> observer) {
       OpenNlpDocument document = request.getDocument();
-      if ("big".equals(document.getDocId())) {
+      if (BIG_DOCUMENT_ID.equals(document.getDocId())) {
         document = document.toBuilder().setRawText(LARGE_RESPONSE_TEXT).build();
       }
       observer.onNext(AnalyzeDocumentResponse.newBuilder()

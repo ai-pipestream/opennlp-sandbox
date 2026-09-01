@@ -19,7 +19,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { applyProgressiveEvent, emptyProgressiveAnalysis } from "../src/progressive-analysis";
+import {
+  applyProgressiveEvent,
+  displayPipelineStep,
+  emptyProgressiveAnalysis,
+} from "../src/progressive-analysis";
 
 describe("progressive analysis state", () => {
   it("upserts arriving layers and accepts the final canonical response", () => {
@@ -78,5 +82,10 @@ describe("progressive analysis state", () => {
       sequence: "1",
       complete: { document: { rawText: "Hello" } },
     })).toThrow("expected progressive event 2");
+  });
+
+  it("formats a pipeline step for the progress status", () => {
+    expect(displayPipelineStep("PIPELINE_STEP_POS_TAG")).toBe("POS TAG");
+    expect(displayPipelineStep("CUSTOM_STEP")).toBe("CUSTOM STEP");
   });
 });

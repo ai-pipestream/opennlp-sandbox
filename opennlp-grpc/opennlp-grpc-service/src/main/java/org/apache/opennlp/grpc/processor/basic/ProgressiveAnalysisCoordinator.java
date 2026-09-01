@@ -29,6 +29,7 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.opennlp.grpc.processor.ProgressiveAnalysisListener;
 import org.apache.opennlp.grpc.spi.AnalysisException;
@@ -40,6 +41,8 @@ import org.apache.opennlp.grpc.v1.AnalyzeDocumentRequest;
 import org.apache.opennlp.grpc.v1.AnalyzeDocumentResponse;
 import org.apache.opennlp.grpc.v1.AnnotatedSentence;
 import org.apache.opennlp.grpc.v1.AnnotationLayer;
+import org.apache.opennlp.grpc.v1.ChunkEmbeddingGroup;
+import org.apache.opennlp.grpc.v1.ChunkGroupAnnotationList;
 import org.apache.opennlp.grpc.v1.DiagnosticSeverity;
 import org.apache.opennlp.grpc.v1.DocumentAnalytics;
 import org.apache.opennlp.grpc.v1.DocumentLayers;
@@ -53,6 +56,24 @@ import org.apache.opennlp.grpc.v1.Token;
 final class ProgressiveAnalysisCoordinator {
 
   private static final int MAX_CONCURRENT_BRANCHES = 4;
+  private static final long CANCELLATION_POLL_MILLIS = 100;
+  private static final String ANALYTICS_LAYER_ID = "opennlp:analytics";
+  private static final String CHUNK_GROUPS_LAYER_ID = "opennlp:chunk-groups";
+  private static final String SUBWORDS_LAYER_ID = "opennlp:subwords";
+  private static final String GEO_LAYER_ID = "opennlp:geo";
+  private static final String STEMS_LAYER_ID = "opennlp:stems";
+  private static final String TERM_VECTORS_LAYER_ID = "opennlp:term-vectors";
+  private static final String EXPANSIONS_LAYER_ID = "opennlp:expansions";
+  private static final String DEPENDENCIES_LAYER_ID = "opennlp:dependencies";
+  private static final String RELATIONS_LAYER_ID = "opennlp:relations";
+  private static final List<String> EXTRA_LAYER_ORDER = List.of(
+      SUBWORDS_LAYER_ID,
+      GEO_LAYER_ID,
+      DEPENDENCIES_LAYER_ID,
+      RELATIONS_LAYER_ID,
+      STEMS_LAYER_ID,
+      TERM_VECTORS_LAYER_ID,
+      EXPANSIONS_LAYER_ID);
 
   private static final List<PipelineStep> STEP_ORDER = List.of(
       PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT,
@@ -63,6 +84,8 @@ final class ProgressiveAnalysisCoordinator {
       PipelineStep.PIPELINE_STEP_NER,
       PipelineStep.PIPELINE_STEP_GEOCODE,
       PipelineStep.PIPELINE_STEP_POS_TAG,
+      PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE,
+      PipelineStep.PIPELINE_STEP_RELATION_EXTRACT,
       PipelineStep.PIPELINE_STEP_LEMMATIZE,
       PipelineStep.PIPELINE_STEP_STEM,
       PipelineStep.PIPELINE_STEP_TERM_VECTOR,
@@ -80,6 +103,7 @@ final class ProgressiveAnalysisCoordinator {
       PipelineStep.PIPELINE_STEP_SENTENCE_DETECT,
       PipelineStep.PIPELINE_STEP_TOKENIZE);
 
+  /** Creates a request-scoped coordinator. */
   private ProgressiveAnalysisCoordinator() {
   }
 
@@ -91,13 +115,14 @@ final class ProgressiveAnalysisCoordinator {
       EmbeddingProvider embeddingProvider,
       ProgressiveAnalysisListener listener,
       BranchAnalyzer analyzer) {
+    final ProgressiveAnalysisCoordinator coordinator = new ProgressiveAnalysisCoordinator();
     Thread.startVirtualThread(
-        () -> coordinate(request, effectiveSteps, branchExecutor, embeddingProvider,
+        () -> coordinator.coordinate(request, effectiveSteps, branchExecutor, embeddingProvider,
             listener, analyzer));
   }
 
   /** Runs the backbone, fans out independent branches, and assembles the final document. */
-  private static void coordinate(
+  private void coordinate(
       AnalyzeDocumentRequest request,
       Set<PipelineStep> effectiveSteps,
       Executor branchExecutor,
@@ -120,7 +145,7 @@ final class ProgressiveAnalysisCoordinator {
 
       final Set<PipelineStep> backbone = intersection(effectiveSteps, BACKBONE_STEPS);
       final AnalyzeDocumentResponse base = analyzer.analyze(
-          withoutChunkConfigs(internalRequest), backbone);
+          withoutChunkConfigs(internalRequest), backbone, null);
       if (base.getDocument().hasLayers()) {
         listener.onLayersReady(layerBatch(
             terminalStep(backbone),
@@ -140,18 +165,25 @@ final class ProgressiveAnalysisCoordinator {
       final List<Future<BranchOutcome>> futures = new ArrayList<>(branches.size());
       int submitted = 0;
       while (submitted < Math.min(MAX_CONCURRENT_BRANCHES, branches.size())) {
-        submit(branches.get(submitted++), analyzer, completions, futures);
+        submit(branches.get(submitted++), base.getDocument(), analyzer, completions, futures);
       }
 
       final Map<Branch, AnalyzeDocumentResponse> completed = new HashMap<>();
-      for (int remaining = branches.size(); remaining > 0; remaining--) {
+      int remaining = branches.size();
+      while (remaining > 0) {
         if (listener.isCancelled()) {
           cancel(futures);
           return;
         }
         final BranchOutcome outcome;
         try {
-          outcome = completions.take().get();
+          final Future<BranchOutcome> completedFuture = completions.poll(
+              CANCELLATION_POLL_MILLIS, TimeUnit.MILLISECONDS);
+          if (completedFuture == null) {
+            continue;
+          }
+          outcome = completedFuture.get();
+          remaining--;
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           cancel(futures);
@@ -163,8 +195,12 @@ final class ProgressiveAnalysisCoordinator {
               "Progressive analysis branch coordination failed", e.getCause()));
           return;
         }
+        if (listener.isCancelled()) {
+          cancel(futures);
+          return;
+        }
         if (submitted < branches.size()) {
-          submit(branches.get(submitted++), analyzer, completions, futures);
+          submit(branches.get(submitted++), base.getDocument(), analyzer, completions, futures);
         }
         if (outcome.failure() != null) {
           listener.onStepFailed(outcome.branch().terminalStep(), outcome.failure());
@@ -196,31 +232,32 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Submits one branch and retains its future for cancellation. */
-  private static void submit(
+  private void submit(
       Branch branch,
+      OpenNlpDocument backbone,
       BranchAnalyzer analyzer,
       CompletionService<BranchOutcome> completions,
       List<Future<BranchOutcome>> futures) {
-    futures.add(completions.submit(() -> analyzeBranch(branch, analyzer)));
+    futures.add(completions.submit(() -> analyzeBranch(branch, backbone, analyzer)));
   }
 
   /** Runs one isolated branch and captures its local failure. */
-  private static BranchOutcome analyzeBranch(Branch branch, BranchAnalyzer analyzer) {
+  private BranchOutcome analyzeBranch(
+      Branch branch, OpenNlpDocument backbone, BranchAnalyzer analyzer) {
     try {
-      return new BranchOutcome(branch, analyzer.analyze(branch.request(), branch.runSteps()), null);
+      return new BranchOutcome(
+          branch, analyzer.analyze(branch.request(), branch.runSteps(), backbone), null);
     } catch (RuntimeException e) {
       return new BranchOutcome(branch, null, e);
     }
   }
 
   /** Builds the independent branch plan in canonical pipeline order. */
-  private static List<Branch> branches(
+  private List<Branch> branches(
       AnalyzeDocumentRequest request, Set<PipelineStep> effectiveSteps) {
     final List<Branch> branches = new ArrayList<>();
     addBranch(branches, request, effectiveSteps, BranchKind.SUBWORD,
         PipelineStep.PIPELINE_STEP_SUBWORD_TOKENIZE);
-    addBranch(branches, request, effectiveSteps, BranchKind.NER,
-        PipelineStep.PIPELINE_STEP_NER, PipelineStep.PIPELINE_STEP_GEOCODE);
     addBranch(branches, request, effectiveSteps, BranchKind.POS,
         PipelineStep.PIPELINE_STEP_POS_TAG,
         PipelineStep.PIPELINE_STEP_LEMMATIZE,
@@ -242,11 +279,16 @@ final class ProgressiveAnalysisCoordinator {
       addBranch(branches, request, effectiveSteps, BranchKind.CHUNK,
           PipelineStep.PIPELINE_STEP_CHUNK);
     }
+    addBranch(branches, request, effectiveSteps, BranchKind.NER,
+        PipelineStep.PIPELINE_STEP_NER, PipelineStep.PIPELINE_STEP_GEOCODE);
+    addBranch(branches, request, effectiveSteps, BranchKind.LINGUISTIC_GRAPH,
+        PipelineStep.PIPELINE_STEP_DEPENDENCY_PARSE,
+        PipelineStep.PIPELINE_STEP_RELATION_EXTRACT);
     return List.copyOf(branches);
   }
 
   /** Adds a branch when at least one of its owned steps runs. */
-  private static void addBranch(
+  private void addBranch(
       List<Branch> branches,
       AnalyzeDocumentRequest request,
       Set<PipelineStep> effectiveSteps,
@@ -283,35 +325,11 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Adds only the dependencies needed by a branch to its owned pipeline steps. */
-  private static EnumSet<PipelineStep> dependencyClosure(
+  private EnumSet<PipelineStep> dependencyClosure(
       Set<PipelineStep> effectiveSteps,
       Set<PipelineStep> owned,
       BranchKind kind) {
     final EnumSet<PipelineStep> run = EnumSet.copyOf(owned);
-    final boolean tokenizationSelected =
-        effectiveSteps.contains(PipelineStep.PIPELINE_STEP_TOKENIZE);
-    final boolean needsSentences = switch (kind) {
-      case NER, POS, TEXT_ENRICHMENT, SENTIMENT, PARSE, EMBED, CHUNK -> true;
-      case DOCUMENT_CATEGORY -> tokenizationSelected;
-      default -> false;
-    };
-    final boolean needsTokens = switch (kind) {
-      case NER, POS, TEXT_ENRICHMENT, PARSE -> true;
-      case SENTIMENT, DOCUMENT_CATEGORY, CHUNK ->
-          tokenizationSelected;
-      default -> false;
-    };
-    if (effectiveSteps.contains(PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT)
-        && (needsSentences || needsTokens)) {
-      run.add(PipelineStep.PIPELINE_STEP_LANGUAGE_DETECT);
-    }
-    if (needsSentences
-        && effectiveSteps.contains(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT)) {
-      run.add(PipelineStep.PIPELINE_STEP_SENTENCE_DETECT);
-    }
-    if (needsTokens && effectiveSteps.contains(PipelineStep.PIPELINE_STEP_TOKENIZE)) {
-      run.add(PipelineStep.PIPELINE_STEP_TOKENIZE);
-    }
     if (kind == BranchKind.TEXT_ENRICHMENT) {
       if (effectiveSteps.contains(PipelineStep.PIPELINE_STEP_POS_TAG)) {
         run.add(PipelineStep.PIPELINE_STEP_POS_TAG);
@@ -320,11 +338,19 @@ final class ProgressiveAnalysisCoordinator {
         run.add(PipelineStep.PIPELINE_STEP_LEMMATIZE);
       }
     }
+    if (kind == BranchKind.LINGUISTIC_GRAPH) {
+      if (effectiveSteps.contains(PipelineStep.PIPELINE_STEP_NER)) {
+        run.add(PipelineStep.PIPELINE_STEP_NER);
+      }
+      if (effectiveSteps.contains(PipelineStep.PIPELINE_STEP_POS_TAG)) {
+        run.add(PipelineStep.PIPELINE_STEP_POS_TAG);
+      }
+    }
     return run;
   }
 
   /** Produces one client-encoded event batch for the layers owned by a branch. */
-  private static AnalysisLayerBatch layerBatch(
+  private AnalysisLayerBatch layerBatch(
       PipelineStep terminalStep,
       AnalyzeDocumentResponse response,
       Set<PipelineStep> ownedSteps,
@@ -341,7 +367,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Produces one client-encoded event batch from selected layers. */
-  private static AnalysisLayerBatch layerBatch(
+  private AnalysisLayerBatch layerBatch(
       PipelineStep terminalStep,
       AnalyzeDocumentResponse response,
       List<AnnotationLayer> selected,
@@ -362,7 +388,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Returns branch layers with a complete snapshot of all ready chunk groups. */
-  private static List<AnnotationLayer> progressiveLayers(
+  private List<AnnotationLayer> progressiveLayers(
       Branch current,
       AnalyzeDocumentResponse response,
       List<Branch> branches,
@@ -374,7 +400,7 @@ final class ProgressiveAnalysisCoordinator {
         : new ArrayList<>();
     int chunkLayerIndex = -1;
     for (int index = 0; index < selected.size(); index++) {
-      if (selected.get(index).getId().equals("opennlp:chunk-groups")) {
+      if (selected.get(index).getId().equals(CHUNK_GROUPS_LAYER_ID)) {
         chunkLayerIndex = index;
         break;
       }
@@ -384,7 +410,7 @@ final class ProgressiveAnalysisCoordinator {
     }
 
     final AnnotationLayer.Builder cumulative = selected.get(chunkLayerIndex).toBuilder();
-    final org.apache.opennlp.grpc.v1.ChunkGroupAnnotationList.Builder groups =
+    final ChunkGroupAnnotationList.Builder groups =
         cumulative.getChunkGroupValues().toBuilder().clearAnnotations();
     addReadyChunkGroups(groups, BranchKind.CHUNK, branches, completed);
     addReadyChunkGroups(groups, BranchKind.SENTIMENT, branches, completed);
@@ -394,8 +420,8 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Appends ready chunk groups in the same normal-then-category order as the final response. */
-  private static void addReadyChunkGroups(
-      org.apache.opennlp.grpc.v1.ChunkGroupAnnotationList.Builder target,
+  private void addReadyChunkGroups(
+      ChunkGroupAnnotationList.Builder target,
       BranchKind kind,
       List<Branch> branches,
       Map<Branch, AnalyzeDocumentResponse> completed) {
@@ -408,7 +434,7 @@ final class ProgressiveAnalysisCoordinator {
         continue;
       }
       for (AnnotationLayer layer : response.getDocument().getLayers().getLayersList()) {
-        if (layer.getId().equals("opennlp:chunk-groups")) {
+        if (layer.getId().equals(CHUNK_GROUPS_LAYER_ID)) {
           target.addAllAnnotations(layer.getChunkGroupValues().getAnnotationsList());
         }
       }
@@ -416,7 +442,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Returns whether a layer belongs to the finished branch rather than its dependencies. */
-  private static boolean ownsLayer(BranchKind kind, String id) {
+  private boolean ownsLayer(BranchKind kind, String id) {
     return switch (kind) {
       case BACKBONE -> id.equals("opennlp:sentences")
           || id.equals("opennlp:tokens")
@@ -424,27 +450,30 @@ final class ProgressiveAnalysisCoordinator {
           || id.equals("opennlp:stopwords")
           || id.equals("opennlp:language")
           || id.equals("opennlp:normalization")
-          || id.equals("opennlp:analytics")
+          || id.equals(ANALYTICS_LAYER_ID)
           || id.startsWith("opennlp:terms:");
-      case SUBWORD -> id.equals("opennlp:subwords");
-      case NER -> id.equals("opennlp:entities") || id.equals("opennlp:geo");
+      case SUBWORD -> id.equals(SUBWORDS_LAYER_ID);
+      case NER -> id.equals("opennlp:entities") || id.equals(GEO_LAYER_ID);
       case POS -> id.equals("opennlp:pos")
           || id.equals("opennlp:lemmas")
-          || id.equals("opennlp:chunks");
-      case TEXT_ENRICHMENT -> id.equals("opennlp:stems")
-          || id.equals("opennlp:term-vectors")
-          || id.equals("opennlp:expansions");
+          || id.equals("opennlp:chunks")
+          || id.equals(ANALYTICS_LAYER_ID);
+      case LINGUISTIC_GRAPH -> id.equals(DEPENDENCIES_LAYER_ID)
+          || id.equals(RELATIONS_LAYER_ID);
+      case TEXT_ENRICHMENT -> id.equals(STEMS_LAYER_ID)
+          || id.equals(TERM_VECTORS_LAYER_ID)
+          || id.equals(EXPANSIONS_LAYER_ID);
       case DOCUMENT_CATEGORY -> id.equals("opennlp:categories");
       case SENTIMENT -> id.equals("opennlp:sentiment")
-          || id.equals("opennlp:chunk-groups");
+          || id.equals(CHUNK_GROUPS_LAYER_ID);
       case PARSE -> id.equals("opennlp:parses");
       case EMBED -> id.equals("opennlp:embeddings");
-      case CHUNK -> id.equals("opennlp:chunk-groups");
+      case CHUNK -> id.equals(CHUNK_GROUPS_LAYER_ID);
     };
   }
 
   /** Merges successful branch documents, then rebuilds canonical layers once. */
-  private static AnalyzeDocumentResponse assemble(
+  private AnalyzeDocumentResponse assemble(
       AnalyzeDocumentRequest request,
       AnalyzeDocumentResponse base,
       List<Branch> branches,
@@ -456,10 +485,8 @@ final class ProgressiveAnalysisCoordinator {
         .clearLayers()
         .clearAnalytics();
     final Map<String, AnnotationLayer> extraLayers = new LinkedHashMap<>();
-    final List<org.apache.opennlp.grpc.v1.ChunkEmbeddingGroup> normalChunkGroups =
-        new ArrayList<>();
-    final List<org.apache.opennlp.grpc.v1.ChunkEmbeddingGroup> categoryChunkGroups =
-        new ArrayList<>();
+    final List<ChunkEmbeddingGroup> normalChunkGroups = new ArrayList<>();
+    final List<ChunkEmbeddingGroup> categoryChunkGroups = new ArrayList<>();
     final Map<PipelineStep, List<ProcessingDiagnostic>> diagnostics = new HashMap<>();
     collectDiagnostics(diagnostics, base, intersection(effectiveSteps, BACKBONE_STEPS));
 
@@ -521,7 +548,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Collects only diagnostics owned by the branch. */
-  private static void collectDiagnostics(
+  private void collectDiagnostics(
       Map<PipelineStep, List<ProcessingDiagnostic>> target,
       AnalyzeDocumentResponse response,
       Set<PipelineStep> ownedSteps) {
@@ -533,7 +560,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Merges the structured fields owned by one branch. */
-  private static void mergeStructured(
+  private void mergeStructured(
       OpenNlpDocument.Builder target, OpenNlpDocument source, BranchKind kind) {
     switch (kind) {
       case NER -> mergeSentences(target, source, true, false, false, false);
@@ -556,7 +583,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Merges sentence-local fields without replacing the shared sentence and token backbone. */
-  private static void mergeSentences(
+  private void mergeSentences(
       OpenNlpDocument.Builder target,
       OpenNlpDocument source,
       boolean entities,
@@ -607,7 +634,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Returns a request that keeps all execution options but asks branches for UTF-16 spans. */
-  private static AnalyzeDocumentRequest withInternalOffsets(AnalyzeDocumentRequest request) {
+  private AnalyzeDocumentRequest withInternalOffsets(AnalyzeDocumentRequest request) {
     final AnalysisOptions.Builder options = request.hasOptions()
         ? request.getOptions().toBuilder()
         : AnalysisOptions.newBuilder();
@@ -616,12 +643,12 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Removes request-side chunk work from a branch unless explicitly restored. */
-  private static AnalyzeDocumentRequest withoutChunkConfigs(AnalyzeDocumentRequest request) {
+  private AnalyzeDocumentRequest withoutChunkConfigs(AnalyzeDocumentRequest request) {
     return request.toBuilder().clearChunkEmbedConfigs().clearCategoryChunkConfigs().build();
   }
 
   /** Retains only caller-owned input fields for the first event. */
-  private static OpenNlpDocument initialDocument(OpenNlpDocument input) {
+  private OpenNlpDocument initialDocument(OpenNlpDocument input) {
     final OpenNlpDocument.Builder document = OpenNlpDocument.newBuilder()
         .setDocId(input.getDocId())
         .setRawText(input.getRawText());
@@ -632,12 +659,12 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Returns the effective steps in the analyzer's execution order. */
-  private static List<PipelineStep> ordered(Set<PipelineStep> steps) {
+  private List<PipelineStep> ordered(Set<PipelineStep> steps) {
     return STEP_ORDER.stream().filter(steps::contains).toList();
   }
 
   /** Returns the latest step in canonical execution order. */
-  private static PipelineStep terminalStep(Set<PipelineStep> steps) {
+  private PipelineStep terminalStep(Set<PipelineStep> steps) {
     PipelineStep terminal = PipelineStep.PIPELINE_STEP_UNSPECIFIED;
     for (PipelineStep step : STEP_ORDER) {
       if (steps.contains(step)) {
@@ -648,7 +675,7 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Returns an enum-set intersection. */
-  private static EnumSet<PipelineStep> intersection(
+  private EnumSet<PipelineStep> intersection(
       Set<PipelineStep> left, Set<PipelineStep> right) {
     final EnumSet<PipelineStep> result = EnumSet.noneOf(PipelineStep.class);
     result.addAll(left);
@@ -657,31 +684,21 @@ final class ProgressiveAnalysisCoordinator {
   }
 
   /** Cancels submitted work after client cancellation or coordinator failure. */
-  private static void cancel(List<Future<BranchOutcome>> futures) {
+  private void cancel(List<Future<BranchOutcome>> futures) {
     for (Future<BranchOutcome> future : futures) {
       future.cancel(true);
     }
   }
 
   /** Returns whether a layer must be supplied directly to the shape assembler. */
-  private static boolean isExtraLayer(String id) {
-    return id.equals("opennlp:subwords")
-        || id.equals("opennlp:geo")
-        || id.equals("opennlp:stems")
-        || id.equals("opennlp:term-vectors")
-        || id.equals("opennlp:expansions");
+  private boolean isExtraLayer(String id) {
+    return EXTRA_LAYER_ORDER.contains(id);
   }
 
   /** Reproduces the original pipeline order for step-emitted layers. */
-  private static int extraLayerRank(String id) {
-    return switch (id) {
-      case "opennlp:subwords" -> 0;
-      case "opennlp:geo" -> 1;
-      case "opennlp:stems" -> 2;
-      case "opennlp:term-vectors" -> 3;
-      case "opennlp:expansions" -> 4;
-      default -> 5;
-    };
+  private int extraLayerRank(String id) {
+    final int rank = EXTRA_LAYER_ORDER.indexOf(id);
+    return rank < 0 ? EXTRA_LAYER_ORDER.size() : rank;
   }
 
   /** An isolated unit of pipeline work. */
@@ -704,6 +721,7 @@ final class ProgressiveAnalysisCoordinator {
     SUBWORD,
     NER,
     POS,
+    LINGUISTIC_GRAPH,
     TEXT_ENRICHMENT,
     DOCUMENT_CATEGORY,
     SENTIMENT,
@@ -712,9 +730,12 @@ final class ProgressiveAnalysisCoordinator {
     CHUNK
   }
 
-  /** Executes one branch against its isolated document builder. */
+  /** Executes one branch against an isolated copy of the completed backbone. */
   @FunctionalInterface
   interface BranchAnalyzer {
-    AnalyzeDocumentResponse analyze(AnalyzeDocumentRequest request, Set<PipelineStep> steps);
+    AnalyzeDocumentResponse analyze(
+        AnalyzeDocumentRequest request,
+        Set<PipelineStep> steps,
+        OpenNlpDocument backbone);
   }
 }
