@@ -767,6 +767,17 @@
     </build>
 
     <profiles>
+        <!--
+          opennlp-native builds a GraalVM shared library and needs an OpenNLP build with the
+          native image preparation installed locally, so it is kept out of the default reactor.
+          Build it with: mvn -Pnative -pl opennlp-native package
+        -->
+        <profile>
+            <id>native</id>
+            <modules>
+                <module>opennlp-native</module>
+            </modules>
+        </profile>
         <profile>
             <id>jacoco</id>
             <properties>
