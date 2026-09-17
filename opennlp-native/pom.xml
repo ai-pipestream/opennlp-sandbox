@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.apache.opennlp</groupId>
+    <artifactId>opennlp-sandbox</artifactId>
+    <version>3.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>opennlp-native</artifactId>
+  <name>Apache OpenNLP Native Library</name>
+  <description>
+    Builds OpenNLP into a native shared library with a C entry point for sentence detection,
+    tokenization, POS tagging and name finding. The Rust and C++ programs under examples/ link
+    against the library and read the JSON it returns. The "native" profile builds the library and
+    needs a GraalVM JDK 25 or later with native-image; without the profile only the classes compile.
+  </description>
+
+  <properties>
+    <!--
+      An OpenNLP build that carries the native image preparation of OPENNLP-1954. The parent
+      manages every OpenNLP artifact to the released version, so this property retargets the
+      managed ones as well: a released opennlp-api on the image class path has no extension
+      registry, and model loading in the image then fails on the missing class.
+    -->
+    <opennlp.version>3.0.0-OPENNLP-1954-SNAPSHOT</opennlp.version>
+    <graalvm.sdk.version>25.1.3</graalvm.sdk.version>
+    <native.maven.plugin>1.1.13</native.maven.plugin>
+    <!-- Produces libopennlp.so, libopennlp.h and graal_isolate.h under target/, so a linker finds it as -lopennlp. -->
+    <opennlp.native.library>libopennlp</opennlp.native.library>
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-runtime</artifactId>
+      <version>${opennlp.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-ml-maxent</artifactId>
+      <version>${opennlp.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-ml-perceptron</artifactId>
+      <version>${opennlp.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.opennlp</groupId>
+      <artifactId>opennlp-ml-bayes</artifactId>
+      <version>${opennlp.version}</version>
+    </dependency>
+
+    <!-- The entry point annotations and the C type helpers. The builder supplies them at run time. -->
+    <dependency>
+      <groupId>org.graalvm.sdk</groupId>
+      <artifactId>nativeimage</artifactId>
+      <version>${graalvm.sdk.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <configuration>
+          <!-- Cargo and CMake write build output below the example sources. -->
+          <excludes combine.children="append">
+            <exclude>examples/rust/target/**</exclude>
+            <exclude>examples/cpp/build/**</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>native</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.graalvm.buildtools</groupId>
+            <artifactId>native-maven-plugin</artifactId>
+            <version>${native.maven.plugin}</version>
+            <executions>
+              <execution>
+                <id>build-shared-library</id>
+                <goals>
+                  <goal>compile-no-fork</goal>
+                </goals>
+                <phase>package</phase>
+              </execution>
+            </executions>
+            <configuration>
+              <imageName>${opennlp.native.library}</imageName>
+              <sharedLibrary>true</sharedLibrary>
+              <buildArgs>
+                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+              </buildArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
